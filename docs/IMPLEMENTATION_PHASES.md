@@ -1,6 +1,6 @@
 # Implementation phases
 
-Status: all application phases are planned. This documentation package is the only completed deliverable described here. Timing depends on review and implementation; no delivery dates are promised.
+Status: the public website and synthetic LangGraph practice studio are implemented. The phase details below remain the target roadmap, not a claim that every acceptance criterion is complete. See the README and TESTS_EVALS for the verified current subset. Live-operation phases remain unimplemented.
 
 ## Phase 0 Confirm the project boundary
 

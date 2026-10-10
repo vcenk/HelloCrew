@@ -1,6 +1,6 @@
 # Deployment and configuration
 
-Status: proposed contract. No deployment, environment file, provider account, database, or secret has been created by this documentation package.
+Status: future deployment/configuration contract. The implemented local demo needs no environment variables; `.env.example` documents that boundary. No deployment, provider account, database, or secret has been created. The proposed flags below do not enable unimplemented live features.
 
 ## Environments
 

@@ -21,9 +21,9 @@ Status: planning baseline for HelloCrew. Update this record when a decision chan
 ## Open decisions that do not block the demo
 
 - Final landing-page copy and visual details within the approved direction.
-- Exact fictional demonstration business and examples, clearly labeled.
-- Pinned package versions, test tooling, and implementation folder details.
-- Whether demo edits last for the session or persist locally in the browser, with a visible reset/privacy explanation.
+- Demo uses a fictional creative studio, fictional $40 USD studio visit, and fictional weekday hours.
+- Implemented with npm lockfile, Vitest unit/integration tests, and Next.js App Router.
+- Demo state is in-memory in one browser tab and resets on refresh; never trusted for live operations.
 - Which first business use case should guide a later live pilot.
 
 ## Open decisions that block live operation
@@ -40,10 +40,10 @@ Status: planning baseline for HelloCrew. Update this record when a decision chan
 | Capability | Status |
 | --- | --- |
 | Project Markdown specifications | Drafted in this package |
-| Public landing page | Planned |
-| Dashboard and onboarding | Planned |
-| Deterministic LangGraph demo | Planned |
-| Tool approval and handoff UI | Planned |
+| Public landing page | Implemented at `/`, original warm design |
+| Dashboard and onboarding | Implemented at `/app`, beginner practice navigation |
+| Deterministic LangGraph demo | Implemented: four preset scenarios, typed tools, bounded StateGraph |
+| Tool approval and handoff UI | Implemented for disposable synthetic demo only |
 | Authentication and tenant enforcement | Deferred until live foundation |
 | Durable storage/checkpoints/usage ledger | Required before live; not implemented |
 | Paid model invocation | Disabled by design; not implemented |

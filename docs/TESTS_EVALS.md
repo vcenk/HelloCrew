@@ -1,6 +1,6 @@
 # Tests and evaluations
 
-Status: planned test specification. No application tests have been run because no application is implemented.
+Status: future comprehensive test specification plus implemented demo checks. The demo now has Vitest coverage for typed tool validation, graph results, approval isolation/idempotence/rejection, final-turn approvals, tracing/verbose fail-closed behavior, malformed input, turn cap, API byte/origin limits, and disabled live mode. See VERIFICATION.md for executed results. Production identity, concurrency, durable storage, and live-provider tests below remain planned.
 
 ## Test layers
 
