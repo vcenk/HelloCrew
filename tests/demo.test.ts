@@ -119,11 +119,11 @@ describe("bounded demo only input", () => {
       runDemo({ session: { ...fresh(), turn: MAX_TURNS }, scenario: "hours" }),
     ).rejects.toThrow("turn limit");
   });
-  it("rejects arbitrary free text or mixed decisions", () => {
+  it("rejects blank free text or mixed decisions", () => {
     expect(
       requestSchema.safeParse({
         session: fresh(),
-        message: "private information",
+        message: " ",
       }).success,
     ).toBe(false);
     expect(

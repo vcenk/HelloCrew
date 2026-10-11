@@ -23,6 +23,9 @@ import {
   X,
   LoaderCircle,
 } from "lucide-react";
+import { BusinessEditor } from "./business-editor";
+import { sampleBusiness, type BusinessProfile } from "@/lib/business";
+import { readiness } from "@/lib/readiness";
 import { Brand, Buddy } from "./brand";
 import type { Activity, DemoSession, Scenario, DemoResult } from "@/lib/demo";
 const pages = [
@@ -39,7 +42,7 @@ type Message = {
   activity?: Activity[];
   pendingId?: string;
 };
-const scenarios: {
+const baseScenarios: {
   id: Scenario;
   label: string;
   question: string;
@@ -55,10 +58,10 @@ const scenarios: {
   },
   {
     id: "quote",
-    label: "Prepare a quote",
+    label: "Check a sample price",
     question: "How much is one studio visit?",
     icon: Calculator,
-    description: "Calculate a fictional sample price",
+    description: "Read a price from your sample catalog",
   },
   {
     id: "booking",
@@ -79,6 +82,16 @@ function fresh(): DemoSession {
   return { id: crypto.randomUUID(), turn: 0, approvals: [] };
 }
 export default function Studio() {
+  const [business, setBusiness] = useState<BusinessProfile>(sampleBusiness);
+  const scenarios = baseScenarios.map((item) =>
+    item.id === "quote"
+      ? {
+          ...item,
+          question: `How much is one ${business.services[0].name.toLowerCase()}?`,
+        }
+      : item,
+  );
+  const [draftMessage, setDraftMessage] = useState("");
   const [page, setPage] = useState<Page>("Home");
   const [session, setSession] = useState<DemoSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -91,8 +104,11 @@ export default function Studio() {
   async function run(
     scenario?: Scenario,
     decision?: { id: string; value: "approve" | "reject" },
+    message?: string,
   ) {
     if (lock.current) return;
+    const question = message?.trim();
+    if (message !== undefined && !question) return;
     lock.current = true;
     setBusy(true);
     setError("");
@@ -103,19 +119,31 @@ export default function Studio() {
       const item = scenarios.find((s) => s.id === scenario)!;
       setMessages((m) => [...m, { role: "customer", text: item.question }]);
     }
+    if (question)
+      setMessages((m) => [...m, { role: "customer", text: question }]);
     try {
       const response = await fetch("/api/demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session: current,
-          ...(scenario ? { scenario } : { decision }),
+          ...(question
+            ? { message: question, business }
+            : scenario && ["hours", "quote", "handoff"].includes(scenario)
+              ? {
+                  message: scenarios.find((s) => s.id === scenario)!.question,
+                  business,
+                }
+              : scenario
+                ? { scenario }
+                : { decision }),
         }),
       });
       const result = (await response.json()) as DemoResult & { error?: string };
       if (!response.ok)
         throw new Error(result.error ?? "The practice step did not finish.");
       setSession(result.session);
+      if (question) setDraftMessage("");
       setMessages((m) => [
         ...m,
         {
@@ -145,6 +173,7 @@ export default function Studio() {
     if (busy) return;
     setSession(fresh());
     setMessages([]);
+    setDraftMessage("");
     setError("");
   }
   const pending =
@@ -327,7 +356,8 @@ export default function Studio() {
                     The practice room<span className="green-text">.</span>
                   </h1>
                   <p>
-                    Choose a sample message. See the steps behind the reply.
+                    Ask a sample question in your own words, or use a quick
+                    prompt.
                   </p>
                 </div>
                 <button
@@ -344,7 +374,7 @@ export default function Studio() {
                     <span className="assistant-avatar">✳</span>
                     <div>
                       <strong>HelloCrew assistant</strong>
-                      <span>Fictional studio · simulated provider</span>
+                      <span>{business.name} · deterministic practice</span>
                     </div>
                     <span className="badge">Demo</span>
                   </div>
@@ -355,7 +385,7 @@ export default function Studio() {
                         <h2>It starts with a hello.</h2>
                         <p>
                           Pick a sample below to see your assistant in action.
-                          No personal information needed.
+                          Use fictional details only.
                         </p>
                       </div>
                     )}
@@ -445,6 +475,47 @@ export default function Studio() {
                       {error}
                     </div>
                   )}
+                  <form
+                    className="free-composer"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void run(undefined, undefined, draftMessage);
+                    }}
+                  >
+                    <label htmlFor="practice-message">
+                      Your practice question
+                    </label>
+                    <textarea
+                      id="practice-message"
+                      value={draftMessage}
+                      onChange={(event) => setDraftMessage(event.target.value)}
+                      maxLength={500}
+                      rows={2}
+                      disabled={busy || (session?.turn ?? 0) >= 12}
+                      placeholder="Is parking available?"
+                      required
+                    />
+                    <div>
+                      <small>
+                        {draftMessage.length}/500 · Fictional details only. Sent
+                        to this app’s server.
+                      </small>
+                      <button
+                        type="submit"
+                        className="button dark compact"
+                        disabled={
+                          busy ||
+                          !draftMessage.trim() ||
+                          (session?.turn ?? 0) >= 12
+                        }
+                      >
+                        Send practice question
+                      </button>
+                    </div>
+                    {(session?.turn ?? 0) >= 12 && (
+                      <p>Practice limit reached. Start fresh to continue.</p>
+                    )}
+                  </form>
                   <div className="sample-composer">
                     <span>CHOOSE A SAMPLE MESSAGE</span>
                     <div>
@@ -460,7 +531,8 @@ export default function Studio() {
                       ))}
                     </div>
                     <small>
-                      Preset messages keep this demo free of personal
+                      The approval prompt uses the fixed $40 studio-visit
+                      example. Other prompts use your applied sample
                       information.
                     </small>
                   </div>
@@ -539,16 +611,38 @@ export default function Studio() {
                   </p>
                 </div>
               </div>
+              <section className="simple-card readiness-card">
+                <span className="badge">{readiness.label}</span>
+                <h2>Your next steps</h2>
+                <ol>
+                  {readiness.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+                <p>
+                  Adding an API key alone cannot turn on live AI. No persistent
+                  database or sign-in is connected.
+                </p>
+              </section>
+              <BusinessEditor
+                value={business}
+                disabled={busy}
+                onSave={setBusiness}
+              />
               <div className="settings-grid">
                 <section className="simple-card">
                   <h3>What it knows</h3>
                   <dl>
                     <dt>Example business</dt>
-                    <dd>Fictional creative studio</dd>
+                    <dd>{business.name}</dd>
                     <dt>Sample hours</dt>
-                    <dd>Monday–Friday, 9am–5pm</dd>
+                    <dd>{business.hours}</dd>
                     <dt>Sample service</dt>
-                    <dd>Studio visit · $40 USD (fictional)</dd>
+                    <dd>
+                      {business.services
+                        .map((s) => `${s.name}: ${s.price}`)
+                        .join(" · ")}
+                    </dd>
                   </dl>
                 </section>
                 <section className="simple-card">
@@ -558,7 +652,7 @@ export default function Studio() {
                       <Check /> Look up a sample FAQ
                     </li>
                     <li>
-                      <Check /> Calculate a fictional quote
+                      <Check /> Read a sample service price
                     </li>
                     <li>
                       <Check /> Ask for a practice approval
@@ -573,8 +667,8 @@ export default function Studio() {
                   <p>
                     A real LangGraph StateGraph connects a deterministic
                     practice provider and typed tools. It does not call a
-                    language model. These fixed examples show the workflow
-                    without needing an API key.
+                    language model. Conservative free-text matching shows the
+                    workflow without needing an API key.
                   </p>
                   <button
                     className="button dark compact"
@@ -681,10 +775,11 @@ export default function Studio() {
                 <section className="simple-card">
                   <h3>Privacy by simplicity</h3>
                   <p>
-                    Only fictional, preset messages are accepted. Conversation
-                    state stays in this tab’s memory and is sent to this app to
-                    run each sample. Refreshing clears it. Hosting providers may
-                    keep routine access logs.
+                    Use fictional sample information only. Free-text questions
+                    and business settings are sent to this app’s server.
+                    Conversation state stays in this tab’s memory and is sent to
+                    this app to run each sample. Refreshing clears it. Hosting
+                    providers may keep routine access logs.
                   </p>
                 </section>
                 <section className="simple-card">

@@ -1,7 +1,7 @@
 import { runDemo } from "@/lib/demo";
 export const runtime = "nodejs";
 export const maxDuration = 10;
-const MAX_BYTES = 12000;
+const MAX_BYTES = 32768;
 export async function POST(request: Request) {
   if (!request.headers.get("content-type")?.startsWith("application/json"))
     return Response.json({ error: "Use JSON." }, { status: 415 });

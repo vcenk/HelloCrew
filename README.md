@@ -13,7 +13,7 @@ A welcoming workspace for business owners to set up, test, and supervise an AI a
 
 ## The first useful experience
 
-A business owner explores fictional business information, and tries a conversation in a clearly labeled demo. This synthetic demo does not require authentication; real private data and live operations require the later security foundation. They can see which information was used, review a simulated action, and practice handing a conversation to a human. The sample booking pauses for approve/decline and only changes disposable demo state; no real reservation is made.
+A business owner edits fictional business information, and tries a free-text conversation in a clearly labeled demo. This synthetic demo does not require authentication; real private data and live operations require the later security foundation. They can see which information was used, review a simulated action, and practice handing a conversation to a human. The sample booking pauses for approve/decline and only changes disposable demo state; no real reservation is made.
 
 The public landing page takes original visual inspiration from Gaia’s public website. The dashboard is independently designed and should feel approachable to someone who has never configured an AI product. Its primary navigation is Home, Conversations, Your assistant, Channels, and Settings. Knowledge lives under Your assistant. Technical details stay available without dominating the first experience.
 
@@ -64,7 +64,7 @@ npm start
 
 ## Verification
 
-A clean `npm ci`, ESLint, TypeScript, unit/integration tests, and production build were run in the implementation workspace. See [verification results](docs/VERIFICATION.md). Browser visual/interaction QA is **not verified**: local Chromium could not launch because the execution environment blocks its socket, and the separate cloud browser could not reach localhost. No screenshot was produced.
+A clean `npm ci`, ESLint, TypeScript, unit/integration tests, and production build were run in the implementation workspace. See [verification results](docs/VERIFICATION.md). Browser visual/interaction QA is **not verified**: local Chromium could not launch because the execution environment blocks its socket, and browser interaction checks remain unverified. No screenshot was produced.
 
 The optional browser smoke test is ready to run on a suitable machine with the app at localhost:3000:
 
@@ -73,17 +73,18 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Alternatively set `CHROMIUM_PATH` to an already installed Chromium executable. The test covers desktop/mobile layout, all four scenarios, approve/decline, reset, refresh, and navigation. It saves review screenshots under `/tmp`.
+Alternatively set `CHROMIUM_PATH` to an already installed Chromium executable. The test covers desktop/mobile layout, all four scenarios, approve/decline, reset, refresh, and navigation. It saves review screenshots under `/tmp`. Use `BASE_URL` for a non-default local server URL.
 
 ## Implemented boundaries
 
-- Four preset customer messages: FAQ, fictional quote, simulated booking approval, and sample human handoff. No free-text or personal data entry.
+- Editable sample business profile, services, FAQs and booking link, with bounded free-text practice and quick prompts. Fictional inputs only; no customer PII. See [next-step implementation](docs/BACKEND_NEXT_STEP.md).
 - Real `StateGraph` provider → typed tool → provider loop with a deterministic structured-call provider; not an LLM.
-- Validated input schemas, 12 demo turns per disposable state, fixed graph recursion limit, 12 KB request limit, and same-origin browser checks.
+- Validated input schemas, 12 demo turns per disposable state, fixed graph recursion limit, 32 KiB request limit, and same-origin browser checks.
 - Browser-memory state resets on refresh. It is untrusted, replayable practice state, **not** authentication, durable storage, a global quota, or secure proof of approval. Repeated decisions are idempotent only within the returned demo state.
 - `/api/live` always returns 503. Adding a model key does not activate it.
 - Website practice available; WhatsApp, telephone, customer embed, and real integrations disconnected.
-- No live metrics, testimonials, customer names, or actual service prices.
+- No live metrics, testimonials, or preloaded real customer information. Editable fields are sample-only and transmitted to this app’s server.
+- Server-only OpenAI request scaffold and durable-storage interfaces are present, with no live transport or database. An unapplied deny-first SQL schema draft is included for later review.
 
 The longer design documents describe future targets as well as demo requirements. Planned identity, tenancy, durable checkpoints, shared quotas, and live approval ledgers are **not implemented**. Vercel hosting can incur normal resource usage; zero model calls does not mean unlimited free hosting.
 

@@ -1,6 +1,6 @@
 # Deployment and configuration
 
-Status: future deployment/configuration contract. The implemented local demo needs no environment variables; `.env.example` documents that boundary. No deployment, provider account, database, or secret has been created. The proposed flags below do not enable unimplemented live features.
+Status: future deployment/configuration contract. The implemented local demo needs no environment variables; `.env.example` documents that boundary. This implementation task does not deploy or create provider accounts, databases, or secrets. Existing hosting, if any, must be checked separately before publishing a new commit. The proposed flags below do not enable unimplemented live features.
 
 ## Environments
 

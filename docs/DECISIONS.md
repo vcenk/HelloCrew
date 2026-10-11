@@ -42,7 +42,7 @@ Status: planning baseline for HelloCrew. Update this record when a decision chan
 | Project Markdown specifications | Drafted in this package |
 | Public landing page | Implemented at `/`, original warm design |
 | Dashboard and onboarding | Implemented at `/app`, beginner practice navigation |
-| Deterministic LangGraph demo | Implemented: four preset scenarios, typed tools, bounded StateGraph |
+| Deterministic LangGraph demo | Implemented: editable fictional business information, bounded free-text retrieval, quick prompts, typed tools, bounded StateGraph |
 | Tool approval and handoff UI | Implemented for disposable synthetic demo only |
 | Authentication and tenant enforcement | Deferred until live foundation |
 | Durable storage/checkpoints/usage ledger | Required before live; not implemented |

@@ -1835,3 +1835,91 @@ p {
     transition: none !important;
   }
 }
+
+/* Sample-business setup and accessible free-text practice. */
+.business-editor,
+.readiness-card {
+  margin-bottom: 24px;
+}
+.business-editor fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.business-editor label,
+.free-composer label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-weight: 600;
+  margin: 14px 0;
+}
+.business-editor input,
+.business-editor textarea,
+.free-composer textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #aab6ae;
+  border-radius: 10px;
+  background: #fff;
+  color: #173b31;
+  font: inherit;
+}
+.business-editor textarea,
+.free-composer textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.editor-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e1e7df;
+}
+.editor-row > button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  text-decoration: underline;
+  padding: 8px 0;
+}
+.editor-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.free-composer {
+  padding: 18px 24px;
+  border-top: 1px solid #e1e7df;
+}
+.free-composer > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.free-composer small {
+  max-width: 300px;
+  color: #53685e;
+}
+.readiness-card li {
+  margin: 12px 0;
+  line-height: 1.6;
+}
+.message p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 650px) {
+  .editor-row {
+    grid-template-columns: 1fr;
+  }
+  .free-composer {
+    padding: 16px;
+  }
+}

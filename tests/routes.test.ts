@@ -40,7 +40,7 @@ describe("server safety boundaries", () => {
           new Request("http://localhost/api/demo", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: "x".repeat(13000),
+            body: "x".repeat(33000),
           }),
         )
       ).status,

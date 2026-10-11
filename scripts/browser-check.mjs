@@ -1,5 +1,6 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
+const baseUrl = process.env.BASE_URL ?? "http://127.0.0.1:3000";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH,
   headless: true,
@@ -11,7 +12,7 @@ const page = await browser.newPage({
 });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
-await page.goto("http://127.0.0.1:3000", { waitUntil: "networkidle" });
+await page.goto(baseUrl, { waitUntil: "networkidle" });
 await page.screenshot({
   path: "/tmp/hellocrew-landing-desktop.png",
   fullPage: true,
@@ -70,7 +71,7 @@ await page
   .click();
 await page
   .getByText(
-    "Your fictional quote is $40 USD for 1 studio visit. This sample price is for practice only, not a real offer.",
+    "Sample catalog entries: Studio visit: $40 USD. These are listed sample prices, not a calculated total or a real offer.",
     { exact: true },
   )
   .waitFor();
@@ -79,10 +80,55 @@ await page
   .click();
 await page
   .getByText(
-    "I prepared a sample handoff for a person to review. In practice mode, nothing is sent and nobody is contacted.",
+    "A person would need to help with that. This practice mode cannot send a handoff or contact anyone.",
     { exact: true },
   )
   .waitFor();
+await page.getByRole("button", { name: "Your assistant", exact: true }).click();
+await page
+  .getByLabel("Opening hours", { exact: true })
+  .fill("Tuesday only, 10am–2pm");
+await page
+  .getByRole("button", { name: "Apply sample information", exact: true })
+  .click();
+await page
+  .getByText(
+    "Sample information applied. Your next free-text question will use it.",
+  )
+  .waitFor();
+await page
+  .getByRole("button", { name: "Conversations", exact: false })
+  .first()
+  .click();
+await page
+  .getByLabel("Your practice question", { exact: true })
+  .fill("When are you open?");
+await page
+  .getByRole("button", { name: "Send practice question", exact: true })
+  .click();
+await page
+  .getByText("Saved sample hours: Tuesday only, 10am–2pm", { exact: true })
+  .waitFor();
+await page
+  .getByLabel("Your practice question", { exact: true })
+  .fill("What is your refund policy?");
+await page
+  .getByRole("button", { name: "Send practice question", exact: true })
+  .click();
+await page
+  .getByText("I don’t have a matching answer", { exact: false })
+  .waitFor();
+await page.getByRole("button", { name: "Your assistant", exact: true }).click();
+await page
+  .getByLabel("Sample booking link", { exact: true })
+  .fill("javascript:alert(1)");
+await page
+  .getByRole("button", { name: "Apply sample information", exact: true })
+  .click();
+await page
+  .getByText("Use a full http or https link", { exact: false })
+  .waitFor();
+await page.getByRole("button", { name: "Restore sample", exact: true }).click();
 await page.getByRole("button", { name: "Channels", exact: true }).click();
 assert.equal(await page.getByText("Not connected", { exact: true }).count(), 2);
 await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -116,10 +162,7 @@ await page
   .getByRole("button", { name: "Answer a question", exact: false })
   .click();
 await page
-  .getByText(
-    "In our fictional example, the studio is open Monday–Friday, 9am–5pm.",
-    { exact: true },
-  )
+  .getByText("Saved sample hours: Monday–Friday, 9am–5pm", { exact: true })
   .waitFor();
 assert.ok(
   await page.evaluate(
@@ -136,7 +179,7 @@ await page
   .first()
   .click();
 await page.getByText("It starts with a hello.", { exact: true }).waitFor();
-await page.goto("http://127.0.0.1:3000", { waitUntil: "networkidle" });
+await page.goto(baseUrl, { waitUntil: "networkidle" });
 assert.ok(
   await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
