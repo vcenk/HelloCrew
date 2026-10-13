@@ -129,6 +129,19 @@ await page.getByRole("button", { name: "Your assistant", exact: true }).click();
 await page
   .getByRole("heading", { name: "Assistant identity", exact: true })
   .waitFor();
+await page
+  .locator(".assistant-purpose-picker button")
+  .filter({ hasText: "Booking assistant" })
+  .click();
+await page.locator('input[name="assistant-name"]').evaluate((input) => {
+  if (!(input instanceof HTMLInputElement) || input.value !== "Booking guide") {
+    throw new Error("Booking starter did not apply its default identity.");
+  }
+});
+await page
+  .getByText("Share the booking link", { exact: true })
+  .first()
+  .waitFor();
 await page.screenshot({
   path: "/tmp/hellocrew-assistant-identity-desktop.png",
   fullPage: true,

@@ -49,7 +49,7 @@ The Google Review Assistant starter exposes business locations, reply voice, lan
 
 Your assistant is organized as three visible setup steps with separate ownership:
 
-- **Identity — who speaks:** assistant name, primary role, visitor greeting, voice, and the safe response used when no approved answer exists.
+- **Identity — who speaks:** begin with a customer-support, receptionist, booking, sales, or custom-purpose starter. Each starter supplies editable placeholder copy and three recommended starting behaviors, followed by the assistant name, primary role, visitor greeting, voice, and the safe response used when no approved answer exists. A starter never silently activates an integration or external action.
 - **Business profile — who it represents:** public business name, factual description, and optional booking destination. The summary points to operational facts without duplicating their editor.
 - **Knowledge — what it may use:** hours, services, FAQs, policies, and document previews. It separates draft, approved, and outdated sources; shows EN/FA/ZH coverage; and includes an approved-only retrieval test before any AI is enabled.
 

@@ -22,7 +22,9 @@ import {
 
 import {
   assistantIdentitySchema,
+  assistantPurposePresets,
   assistantTones,
+  identityForPurpose,
   parseAssistantIdentity,
   sampleAssistantIdentity,
   type AssistantIdentity,
@@ -146,6 +148,10 @@ export function AssistantSetup({
   const matches = hasTested
     ? searchApprovedKnowledge(store, query, queryLanguage)
     : [];
+  const selectedPurpose =
+    assistantPurposePresets.find(
+      (preset) => preset.purpose === identityDraft.purpose,
+    ) ?? assistantPurposePresets[1];
 
   function updateStore(next: KnowledgeStore, message?: string) {
     setStore(next);
@@ -368,18 +374,60 @@ export function AssistantSetup({
               <span className="eyebrow">STEP 1 · WHO SPEAKS</span>
               <h2 id="identity-title">Assistant identity</h2>
               <p>
-                Give the assistant a clear role, introduction, and safe response
-                for questions it cannot answer.
+                Choose a starter purpose, then make its role, introduction, and
+                safe fallback your own.
               </p>
             </div>
           </div>
           <div className="assistant-identity-layout">
             <div className="assistant-foundation-form">
+              <fieldset className="assistant-purpose-picker">
+                <legend>What should this assistant mainly help with?</legend>
+                <p>
+                  Pick a starter to load useful placeholder copy and recommended
+                  features. Everything remains editable.
+                </p>
+                <div>
+                  {assistantPurposePresets.map((preset, index) => (
+                    <button
+                      type="button"
+                      key={preset.purpose}
+                      className={
+                        identityDraft.purpose === preset.purpose ? "active" : ""
+                      }
+                      aria-pressed={identityDraft.purpose === preset.purpose}
+                      onClick={() => {
+                        setIdentityDraft(identityForPurpose(preset.purpose));
+                        setNotice(
+                          `${preset.label} starter applied. Review and edit the defaults before saving.`,
+                        );
+                      }}
+                    >
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <strong>{preset.label}</strong>
+                      <small>{preset.summary}</small>
+                      <em>Starter includes</em>
+                      <ul>
+                        {preset.features.map((feature) => (
+                          <li key={feature}>
+                            <Check size={11} aria-hidden="true" /> {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    </button>
+                  ))}
+                </div>
+                <small>
+                  These are safe starting behaviors, not live integrations.
+                  Configure actions and permissions later in Workflows.
+                </small>
+              </fieldset>
               <label>
                 Assistant name
                 <input
                   name="assistant-name"
                   autoComplete="off"
+                  placeholder="For example: Front desk guide"
                   value={identityDraft.name}
                   maxLength={60}
                   onChange={(event) =>
@@ -396,6 +444,7 @@ export function AssistantSetup({
                 <textarea
                   name="assistant-role"
                   autoComplete="off"
+                  placeholder="Describe the assistant’s main job in one sentence."
                   value={identityDraft.role}
                   maxLength={180}
                   onChange={(event) =>
@@ -414,6 +463,7 @@ export function AssistantSetup({
                 <textarea
                   name="assistant-greeting"
                   autoComplete="off"
+                  placeholder="Write the first message a visitor will see."
                   value={identityDraft.greeting}
                   maxLength={240}
                   onChange={(event) =>
@@ -448,6 +498,7 @@ export function AssistantSetup({
                 <textarea
                   name="assistant-fallback"
                   autoComplete="off"
+                  placeholder="Explain what happens when no approved answer exists."
                   value={identityDraft.fallback}
                   maxLength={280}
                   onChange={(event) =>
@@ -483,12 +534,24 @@ export function AssistantSetup({
                 </span>
                 <div>
                   <strong>{identityDraft.name || "Assistant name"}</strong>
-                  <small>{profileDraft.name}</small>
+                  <small>
+                    {profileDraft.name} · {selectedPurpose.label}
+                  </small>
                 </div>
               </div>
               <p className="identity-preview-greeting">
                 {identityDraft.greeting || "Add a welcome greeting."}
               </p>
+              <div className="identity-preview-features">
+                <strong>Starter features</strong>
+                <ul>
+                  {selectedPurpose.features.map((feature) => (
+                    <li key={feature}>
+                      <Check size={12} aria-hidden="true" /> {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
               <dl>
                 <div>
                   <dt>Role</dt>
