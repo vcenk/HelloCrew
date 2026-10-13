@@ -5,6 +5,7 @@ import {
   assistantIdentitySchema,
   identityForPurpose,
   parseAssistantIdentity,
+  parseStoredAssistantIdentity,
   sampleAssistantIdentity,
 } from "../lib/assistant";
 
@@ -47,5 +48,12 @@ describe("assistant identity", () => {
     const parsed = parseAssistantIdentity(legacyIdentity);
     expect(parsed.success).toBe(true);
     if (parsed.success) expect(parsed.data.purpose).toBe("receptionist");
+  });
+
+  it("fails safely when browser storage is empty or invalid", () => {
+    expect(parseStoredAssistantIdentity(null)).toEqual(sampleAssistantIdentity);
+    expect(parseStoredAssistantIdentity("not-json")).toEqual(
+      sampleAssistantIdentity,
+    );
   });
 });

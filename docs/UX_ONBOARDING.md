@@ -55,6 +55,8 @@ Your assistant is organized as three visible setup steps with separate ownership
 
 Behavior, tools, permissions, approvals, and handoff rules belong to **Workflows**. End-to-end customer replies belong to **Conversations**. This prevents identity, facts, and actions from being edited in overlapping places.
 
+The saved Identity is reused consistently: Conversations shows the configured assistant name and greeting and uses its safe fallback only when the grounded lookup reports no matching information; the website preview shows the same name, purpose, and greeting; Channels links back to Identity as a readiness input. These surfaces preview and test the configuration but do not edit it.
+
 Technical model, tracing, persistence, and adapter settings belong under Advanced. Do not require a beginner to understand an orchestration framework to configure their business.
 
 ## First home screen

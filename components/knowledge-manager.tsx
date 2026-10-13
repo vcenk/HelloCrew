@@ -25,8 +25,6 @@ import {
   assistantPurposePresets,
   assistantTones,
   identityForPurpose,
-  parseAssistantIdentity,
-  sampleAssistantIdentity,
   type AssistantIdentity,
 } from "@/lib/assistant";
 import { bookingLinkSchema, type BusinessProfile } from "@/lib/business";
@@ -45,7 +43,6 @@ import {
 } from "@/lib/knowledge";
 
 const STORAGE_KEY = "hellocrew:knowledge:v1";
-const IDENTITY_STORAGE_KEY = "hellocrew:assistant-identity:v1";
 const languageLabels: Record<KnowledgeLanguage, string> = {
   en: "English",
   fa: "Farsi",
@@ -74,18 +71,6 @@ function readStore(business: BusinessProfile): KnowledgeStore {
   }
 }
 
-function readIdentity(): AssistantIdentity {
-  if (typeof window === "undefined") return sampleAssistantIdentity;
-  try {
-    const raw = localStorage.getItem(IDENTITY_STORAGE_KEY);
-    if (!raw) return sampleAssistantIdentity;
-    const parsed = parseAssistantIdentity(JSON.parse(raw));
-    return parsed.success ? parsed.data : sampleAssistantIdentity;
-  } catch {
-    return sampleAssistantIdentity;
-  }
-}
-
 type SourceDraft = {
   kind: KnowledgeKind;
   language: KnowledgeLanguage;
@@ -105,18 +90,21 @@ const emptyDraft: SourceDraft = {
 export function AssistantSetup({
   business,
   disabled,
+  identity,
+  onIdentitySave,
   onSave,
 }: {
   business: BusinessProfile;
   disabled: boolean;
+  identity: AssistantIdentity;
+  onIdentitySave: (identity: AssistantIdentity) => void;
   onSave: (business: BusinessProfile) => void;
 }) {
   const [store, setStore] = useState(() => readStore(business));
   const [activeStep, setActiveStep] = useState<
     "identity" | "business" | "knowledge"
   >("identity");
-  const [identity, setIdentity] = useState(readIdentity);
-  const [identityDraft, setIdentityDraft] = useState(readIdentity);
+  const [identityDraft, setIdentityDraft] = useState(identity);
   const [filter, setFilter] = useState<"all" | KnowledgeKind>("all");
   const [showComposer, setShowComposer] = useState(false);
   const [draft, setDraft] = useState<SourceDraft>(emptyDraft);
@@ -168,8 +156,7 @@ export function AssistantSetup({
       );
       return false;
     }
-    setIdentity(parsed.data);
-    localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(parsed.data));
+    onIdentitySave(parsed.data);
     setNotice("Assistant identity saved in this practice browser.");
     return true;
   }

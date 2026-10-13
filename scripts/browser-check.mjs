@@ -99,7 +99,9 @@ assert.equal(
 );
 page.once("dialog", (dialog) => dialog.accept());
 await page.getByRole("button", { name: "Start fresh", exact: false }).click();
-await page.getByText("It starts with a hello.", { exact: true }).waitFor();
+await page
+  .getByText("Hello! What can I help you find today?", { exact: true })
+  .waitFor();
 await page
   .getByRole("button", { name: "Can I book a studio visit?", exact: false })
   .click();
@@ -227,13 +229,24 @@ await page
   .getByRole("button", { name: "Send practice question", exact: true })
   .click();
 await page
-  .getByText("I don’t have a matching answer", { exact: false })
+  .getByText(
+    "I’m not certain from the approved information. A person can help before you book. Practice mode has not contacted anyone.",
+    { exact: true },
+  )
   .waitFor();
 await page.getByRole("button", { name: "Channels", exact: true }).click();
 await page
   .getByRole("heading", { name: "Publish and install the website chat." })
   .waitFor();
 await page.getByText("created-after-publish", { exact: false }).waitFor();
+await page.getByText("Booking guide", { exact: true }).first().waitFor();
+await page
+  .getByText(
+    "Hello! I can help you find the right service and booking option.",
+    { exact: true },
+  )
+  .waitFor();
+await page.getByText("Ready for preview", { exact: true }).waitFor();
 await page
   .getByRole("button", { name: "Close website chat preview", exact: true })
   .click();
@@ -368,7 +381,12 @@ await page
   .getByRole("button", { name: "Conversations", exact: false })
   .first()
   .click();
-await page.getByText("It starts with a hello.", { exact: true }).waitFor();
+await page
+  .getByText(
+    "Hello! I can help you find the right service and booking option.",
+    { exact: true },
+  )
+  .waitFor();
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 assert.ok(
   await page.evaluate(
@@ -381,6 +399,6 @@ await page.screenshot({
 });
 assert.deepEqual(errors, []);
 console.log(
-  "Browser QA passed: desktop/mobile, organized setup map, deep-linked sections, website-channel guide, workflow canvas/save, all scenarios, approve/decline, reset, refresh, overflow, no page errors.",
+  "Browser QA passed: desktop/mobile, shared assistant identity, organized setup map, deep-linked sections, website-channel guide, workflow canvas/save, all scenarios, approve/decline, reset, refresh, overflow, no page errors.",
 );
 await browser.close();

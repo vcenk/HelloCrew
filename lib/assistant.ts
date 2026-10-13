@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const ASSISTANT_IDENTITY_STORAGE_KEY = "hellocrew:assistant-identity:v1";
+
 export const assistantTones = [
   "Warm and concise",
   "Professional and clear",
@@ -125,9 +127,7 @@ export const assistantPurposePresets: readonly AssistantPurposePreset[] = [
 export function identityForPurpose(
   purpose: AssistantPurpose,
 ): AssistantIdentity {
-  const preset = assistantPurposePresets.find(
-    (candidate) => candidate.purpose === purpose,
-  );
+  const preset = getAssistantPurposePreset(purpose);
   if (!preset) return sampleAssistantIdentity;
   return {
     purpose: preset.purpose,
@@ -151,4 +151,20 @@ export const sampleAssistantIdentity: AssistantIdentity = {
 
 export function parseAssistantIdentity(input: unknown) {
   return assistantIdentitySchema.safeParse(input);
+}
+
+export function getAssistantPurposePreset(purpose: AssistantPurpose) {
+  return assistantPurposePresets.find(
+    (candidate) => candidate.purpose === purpose,
+  );
+}
+
+export function parseStoredAssistantIdentity(raw: string | null) {
+  if (!raw) return sampleAssistantIdentity;
+  try {
+    const parsed = parseAssistantIdentity(JSON.parse(raw));
+    return parsed.success ? parsed.data : sampleAssistantIdentity;
+  } catch {
+    return sampleAssistantIdentity;
+  }
 }

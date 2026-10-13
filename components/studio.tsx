@@ -22,6 +22,13 @@ import {
 } from "lucide-react";
 import { AssistantSetup } from "./knowledge-manager";
 import { WebsiteChatGuide } from "./website-chat-guide";
+import {
+  ASSISTANT_IDENTITY_STORAGE_KEY,
+  getAssistantPurposePreset,
+  parseStoredAssistantIdentity,
+  sampleAssistantIdentity,
+  type AssistantIdentity,
+} from "@/lib/assistant";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
 import { Brand, Buddy } from "./brand";
 import type { Activity, DemoSession, Scenario, DemoResult } from "@/lib/demo";
@@ -276,6 +283,12 @@ function fresh(): DemoSession {
 }
 export default function Studio() {
   const [business, setBusiness] = useState<BusinessProfile>(sampleBusiness);
+  const [assistantIdentity, setAssistantIdentity] = useState<AssistantIdentity>(
+    sampleAssistantIdentity,
+  );
+  const assistantPurpose =
+    getAssistantPurposePreset(assistantIdentity.purpose) ??
+    getAssistantPurposePreset("custom")!;
   const scenarios = baseScenarios.map((item) =>
     item.id === "quote"
       ? {
@@ -297,6 +310,11 @@ export default function Studio() {
   useEffect(() => {
     const initialFrame = window.requestAnimationFrame(() => {
       if (!navigationStarted.current) setPage(pageFromUrl());
+      setAssistantIdentity(
+        parseStoredAssistantIdentity(
+          localStorage.getItem(ASSISTANT_IDENTITY_STORAGE_KEY),
+        ),
+      );
     });
     const handleHistory = () => setPage(pageFromUrl());
     window.addEventListener("popstate", handleHistory);
@@ -305,6 +323,13 @@ export default function Studio() {
       window.removeEventListener("popstate", handleHistory);
     };
   }, []);
+  function saveAssistantIdentity(identity: AssistantIdentity) {
+    setAssistantIdentity(identity);
+    localStorage.setItem(
+      ASSISTANT_IDENTITY_STORAGE_KEY,
+      JSON.stringify(identity),
+    );
+  }
   function navigate(target: Page) {
     if (target === page) return;
     navigationStarted.current = true;
@@ -361,7 +386,10 @@ export default function Studio() {
         ...m,
         {
           role: "assistant",
-          text: result.reply,
+          text:
+            result.source === "No matching information"
+              ? `${assistantIdentity.fallback} Practice mode has not contacted anyone.`
+              : result.reply,
           activity: result.activity,
           pendingId: result.pendingId,
         },
@@ -577,8 +605,11 @@ export default function Studio() {
                   <div className="conversation-top">
                     <span className="assistant-avatar">✳</span>
                     <div>
-                      <strong>HelloCrew assistant</strong>
-                      <span>{business.name} · deterministic practice</span>
+                      <strong>{assistantIdentity.name}</strong>
+                      <span>
+                        {business.name} · {assistantPurpose.label} ·
+                        deterministic practice
+                      </span>
                     </div>
                     <span className="badge">Demo</span>
                   </div>
@@ -586,10 +617,11 @@ export default function Studio() {
                     {messages.length === 0 && (
                       <div className="empty-conversation">
                         <span>✳</span>
-                        <h2>It starts with a hello.</h2>
+                        <h2>{assistantIdentity.greeting}</h2>
                         <p>
-                          Pick a sample below to see your assistant in action.
-                          Use fictional details only.
+                          Meet {assistantIdentity.name}, your configured{" "}
+                          {assistantPurpose.label.toLowerCase()}. Pick a sample
+                          below and use fictional details only.
                         </p>
                       </div>
                     )}
@@ -602,7 +634,7 @@ export default function Studio() {
                           <span className="message-role">
                             {m.role === "customer"
                               ? "Sample customer"
-                              : "HelloCrew"}
+                              : assistantIdentity.name}
                           </span>
                           <p>{m.text}</p>
                           {m.activity && activityOpen && (
@@ -808,6 +840,8 @@ export default function Studio() {
               <AssistantSetup
                 business={business}
                 disabled={busy}
+                identity={assistantIdentity}
+                onIdentitySave={saveAssistantIdentity}
                 onSave={setBusiness}
               />
             </>
@@ -828,6 +862,7 @@ export default function Studio() {
               <SectionDefinition page="Channels" onNavigate={navigate} />
               <WebsiteChatGuide
                 businessName={business.name}
+                identity={assistantIdentity}
                 onNavigate={navigate}
               />
             </>

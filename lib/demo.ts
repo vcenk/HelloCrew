@@ -55,6 +55,7 @@ export type DemoResult = {
   reply: string;
   activity: Activity[];
   pendingId?: string;
+  source?: string;
 };
 
 export const faqTool = tool(
@@ -137,6 +138,7 @@ const State = Annotation.Root({
   call: Annotation<Call | null>(),
   result: Annotation<unknown>(),
   reply: Annotation<string>(),
+  source: Annotation<string | undefined>(),
   pendingId: Annotation<string | undefined>(),
   activity: Annotation<Activity[]>({
     reducer: (a, b) => a.concat(b),
@@ -163,6 +165,10 @@ function provider(state: typeof State.State): Partial<typeof State.State> {
         "Here’s a sample request for one studio visit ($40 USD, fictional price). Please approve or decline below. This does not reserve a real appointment.";
     return {
       reply,
+      source:
+        state.call?.name === "lookup_business"
+          ? String(result.source)
+          : undefined,
       steps: state.steps + 1,
       call: null,
       activity: [
@@ -358,6 +364,7 @@ export async function runDemo(input: unknown): Promise<DemoResult> {
       call: null,
       result: undefined,
       reply: "",
+      source: undefined,
       steps: 0,
       activity: [],
     },
@@ -368,5 +375,6 @@ export async function runDemo(input: unknown): Promise<DemoResult> {
     reply: output.reply,
     activity: output.activity,
     pendingId: output.pendingId,
+    source: output.source,
   };
 }

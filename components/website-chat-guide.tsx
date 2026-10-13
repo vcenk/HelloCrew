@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   ArrowRight,
+  Bot,
   Check,
   Code2,
   Globe,
@@ -15,10 +16,16 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  getAssistantPurposePreset,
+  type AssistantIdentity,
+} from "@/lib/assistant";
+
 type NavigateTarget = "Your assistant" | "Workflows" | "Conversations";
 
 type WebsiteChatGuideProps = {
   businessName: string;
+  identity: AssistantIdentity;
   onNavigate: (target: NavigateTarget) => void;
 };
 
@@ -36,7 +43,7 @@ const prerequisites: {
   target: NavigateTarget;
 }[] = [
   {
-    number: "01",
+    number: "02",
     title: "Knowledge",
     description:
       "Confirm the facts, policies, and approved sources this channel will use.",
@@ -44,7 +51,7 @@ const prerequisites: {
     target: "Your assistant",
   },
   {
-    number: "02",
+    number: "03",
     title: "Workflow",
     description:
       "Choose the website behavior, approvals, and human handoff path.",
@@ -52,7 +59,7 @@ const prerequisites: {
     target: "Workflows",
   },
   {
-    number: "03",
+    number: "04",
     title: "Conversation test",
     description:
       "Review what visitors will read and verify the activity behind each reply.",
@@ -90,9 +97,24 @@ const installationSteps = [
 
 export function WebsiteChatGuide({
   businessName,
+  identity,
   onNavigate,
 }: WebsiteChatGuideProps) {
   const [previewOpen, setPreviewOpen] = useState(true);
+  const purpose =
+    getAssistantPurposePreset(identity.purpose) ??
+    getAssistantPurposePreset("custom")!;
+  const readinessSteps = [
+    {
+      number: "01",
+      title: "Identity",
+      description: `${identity.name} is configured as a ${purpose.label.toLowerCase()} with an editable greeting and safe fallback.`,
+      action: "Review in Your assistant",
+      target: "Your assistant" as const,
+      ready: true,
+    },
+    ...prerequisites.map((step) => ({ ...step, ready: false })),
+  ];
 
   return (
     <div className="website-chat-guide">
@@ -110,6 +132,18 @@ export function WebsiteChatGuide({
             This section owns the website preview, publishing status, and
             installation. Earlier work appears only as readiness checks.
           </p>
+          <div className="channel-assistant-chip">
+            <span>
+              <Bot size={17} aria-hidden="true" />
+            </span>
+            <div>
+              <small>ASSISTANT IN THIS CHANNEL</small>
+              <strong>{identity.name}</strong>
+              <p>
+                {purpose.label} · {identity.tone}
+              </p>
+            </div>
+          </div>
           <div className="channel-status-line">
             <span>
               <Check size={15} /> Practice path available
@@ -142,8 +176,10 @@ export function WebsiteChatGuide({
                   <Sparkles size={17} />
                 </span>
                 <div>
-                  <strong>{businessName}</strong>
-                  <small>Usually replies right away</small>
+                  <strong>{identity.name}</strong>
+                  <small>
+                    {businessName} · {purpose.label}
+                  </small>
                 </div>
                 <button
                   type="button"
@@ -155,7 +191,7 @@ export function WebsiteChatGuide({
               </div>
               <div className="widget-window-body">
                 <span className="widget-mini-bot">✳</span>
-                <p>Hello! What can I help you find today?</p>
+                <p>{identity.greeting}</p>
                 <button type="button">When are you open?</button>
                 <button type="button">What services do you offer?</button>
               </div>
@@ -192,11 +228,14 @@ export function WebsiteChatGuide({
           <span className="badge neutral">Linked, not duplicated</span>
         </div>
         <ol className="channel-prerequisite-list">
-          {prerequisites.map((step) => (
+          {readinessSteps.map((step) => (
             <li className="channel-prerequisite" key={step.number}>
               <span className="channel-step-number">{step.number}</span>
               <div className="channel-step-copy">
-                <h3>{step.title}</h3>
+                <div className="channel-prerequisite-title">
+                  <h3>{step.title}</h3>
+                  {step.ready && <span>Ready for preview</span>}
+                </div>
                 <p>{step.description}</p>
                 <button
                   type="button"
@@ -211,11 +250,16 @@ export function WebsiteChatGuide({
         </ol>
       </section>
 
-      <section className="channel-journey" aria-labelledby="website-setup-title">
+      <section
+        className="channel-journey"
+        aria-labelledby="website-setup-title"
+      >
         <div className="channel-section-heading">
           <div>
             <span className="eyebrow">THIS SECTION’S JOB</span>
-            <h2 id="website-setup-title">Publish and install the website chat.</h2>
+            <h2 id="website-setup-title">
+              Publish and install the website chat.
+            </h2>
           </div>
           <span className="badge neutral">Secure backend required</span>
         </div>
@@ -272,7 +316,10 @@ export function WebsiteChatGuide({
         </div>
       </section>
 
-      <section className="future-channels" aria-labelledby="future-channels-title">
+      <section
+        className="future-channels"
+        aria-labelledby="future-channels-title"
+      >
         <div>
           <span className="eyebrow">LATER, WHEN THE FIRST HELLO WORKS</span>
           <h2 id="future-channels-title">More places to meet people.</h2>

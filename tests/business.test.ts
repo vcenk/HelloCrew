@@ -91,6 +91,7 @@ describe("grounded free-text LangGraph", () => {
       message: "What is your refund policy?",
     });
     expect(result.reply).toContain("don’t have a matching answer");
+    expect(result.source).toBe("No matching information");
   });
   it("never fetches a configured link or accepts a booking", async () => {
     const spy = vi
