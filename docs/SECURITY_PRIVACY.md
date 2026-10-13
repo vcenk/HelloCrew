@@ -1,6 +1,6 @@
 # Security and privacy
 
-Status: launch requirements, not a claim of deployed protections or regulatory compliance.
+Status: launch requirements with a partially implemented owner-auth boundary, not a claim of regulatory compliance. Supabase cookie sessions, verified claims, tenant membership RLS, project-ref pinning, and protected owner routing are implemented. Live visitor security, durable approval/usage transactions, retention, and production OAuth verification remain launch blockers.
 
 ## Trust boundaries
 
@@ -42,7 +42,7 @@ Missing any required control keeps live mode unavailable. An environment flag or
 
 ## Authentication and authorization
 
-Roles are proposed, not yet implemented. Owners manage configuration, usage limits, and authorized integration setup. Operators can handle assigned conversations and approvals only within granted capabilities. Viewers can inspect permitted data but cannot approve or change settings. Sensitive administration should require recent authentication where the chosen identity provider supports it.
+Owner, operator, and viewer roles are represented in the applied membership schema. Current RLS allows active members to read tenant resources, owner/operator roles to edit business/workflow/knowledge resources, and owners to delete or update workspace-level resources. Membership mutation, invitations, and sensitive re-authentication are not implemented. Checkpoints, approvals, and usage reservations deliberately have no authenticated browser grants or policies.
 
 An approval actor must have permission for the underlying operation at execution time. Revoked membership or a disabled tool invalidates pending approval authority. Distinguish visitor consent from business authorization: neither alone grants the other party's privileges.
 

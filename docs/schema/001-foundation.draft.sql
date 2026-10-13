@@ -24,6 +24,7 @@ CREATE TABLE hc_workflows (
   tenant_id uuid NOT NULL REFERENCES hc_tenants(id),
   id uuid NOT NULL,
   name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
+  source_template_key text,
   status text NOT NULL CHECK (status IN ('draft', 'published', 'archived')),
   current_draft_version bigint NOT NULL CHECK (current_draft_version > 0),
   published_version bigint CHECK (published_version > 0),

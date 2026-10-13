@@ -1,6 +1,6 @@
 # Data model
 
-Status: logical proposal, not an applied database schema. Supabase Postgres, Storage, Auth with Google sign-in, and pgvector are the selected direction; no project is connected yet.
+Status: partially implemented. Supabase project `yfmoggubjsffgameexfi` is connected and migration `20261013051836_initial_tenant_foundation.sql` is applied. It implements tenants, active memberships, business profiles, workflow/knowledge versioning, checkpoints, approvals, usage reservations, forced RLS, and a new-user workspace trigger. Storage, pgvector, conversations, channel events, durable approval/usage transactions, and editor repositories remain proposals.
 
 ## Ownership rules
 

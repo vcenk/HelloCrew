@@ -2,13 +2,18 @@ import { z } from "zod";
 
 export const workflowKinds = [
   "trigger.website",
+  "trigger.google_review",
   "knowledge.search",
   "ai.respond",
   "logic.confidence",
+  "logic.review_risk",
   "approval.owner",
   "action.booking",
+  "action.google_review_reply",
   "handoff.inbox",
+  "handoff.review_follow_up",
   "output.reply",
+  "output.review_complete",
 ] as const;
 
 export type WorkflowKind = (typeof workflowKinds)[number];
@@ -80,6 +85,10 @@ const workflowSchema = z.object({
   nodes: z.array(nodeSchema).max(40),
   edges: z.array(edgeSchema).max(80),
 });
+
+export function parseWorkflowDefinition(input: unknown) {
+  return workflowSchema.safeParse(input);
+}
 
 export function validateWorkflow(input: WorkflowDefinition): WorkflowIssue[] {
   const parsed = workflowSchema.safeParse(input);
@@ -201,7 +210,10 @@ export function validateWorkflow(input: WorkflowDefinition): WorkflowIssue[] {
         message: `“${node.label}” is not connected to the starting trigger.`,
       });
     }
-    if (node.kind === "action.booking") {
+    if (
+      node.kind === "action.booking" ||
+      node.kind === "action.google_review_reply"
+    ) {
       const visited = new Set<string>();
       const queue = [...(incoming.get(node.id) ?? [])];
       let protectedByApproval = false;
@@ -240,7 +252,11 @@ export const salonReceptionWorkflow: WorkflowDefinition = {
       label: "Website message",
       description: "Starts when a visitor sends a message.",
       position: { x: 40, y: 210 },
-      config: { channel: "website" },
+      config: {
+        channel: "website",
+        greeting: "Hi! How can we help today?",
+        availability: "always",
+      },
     },
     {
       id: "business-knowledge",
@@ -248,7 +264,7 @@ export const salonReceptionWorkflow: WorkflowDefinition = {
       label: "Business knowledge",
       description: "Searches approved services, FAQs and documents.",
       position: { x: 310, y: 80 },
-      config: { sources: "FAQs, services, documents", resultLimit: 5 },
+      config: { sources: "Services, FAQs and documents", resultLimit: 5 },
     },
     {
       id: "assistant-response",
@@ -256,7 +272,11 @@ export const salonReceptionWorkflow: WorkflowDefinition = {
       label: "Draft a response",
       description: "Creates a grounded answer in the visitor’s language.",
       position: { x: 580, y: 80 },
-      config: { model: "Minimum effective model", languages: "EN, FA, ZH" },
+      config: {
+        model: "Managed for cost and quality",
+        languages: "EN, FA, ZH",
+        tone: "Friendly and concise",
+      },
     },
     {
       id: "confidence-check",
@@ -272,7 +292,7 @@ export const salonReceptionWorkflow: WorkflowDefinition = {
       label: "Owner approval",
       description: "Requires review before a booking is created.",
       position: { x: 310, y: 350 },
-      config: { timeoutMinutes: 30 },
+      config: { timeoutMinutes: 30, approvalFor: "Booking requests" },
     },
     {
       id: "booking-action",
@@ -296,7 +316,11 @@ export const salonReceptionWorkflow: WorkflowDefinition = {
       label: "Reply on website",
       description: "Returns the final approved response.",
       position: { x: 1120, y: 20 },
-      config: { channel: "website" },
+      config: {
+        channel: "website",
+        closingMessage: "Is there anything else we can help with?",
+        showSources: false,
+      },
     },
   ],
   edges: [
@@ -346,3 +370,290 @@ export const salonReceptionWorkflow: WorkflowDefinition = {
     },
   ],
 };
+
+export type WorkflowTemplate = {
+  id: string;
+  name: string;
+  category: "Salon" | "Clinic" | "Service business" | "Reputation";
+  description: string;
+  setupMinutes: number;
+  editableSummary: string;
+  workflow: WorkflowDefinition;
+};
+
+const clinicFrontDeskWorkflow: WorkflowDefinition = {
+  ...salonReceptionWorkflow,
+  id: "clinic-front-desk-v1",
+  name: "Clinic front desk",
+  nodes: salonReceptionWorkflow.nodes.map((node) => {
+    if (node.id === "business-knowledge")
+      return {
+        ...node,
+        label: "Clinic information",
+        description:
+          "Searches approved services, policies and preparation notes.",
+        config: {
+          sources: "Services, policies and preparation notes",
+          resultLimit: 5,
+        },
+      };
+    if (node.id === "assistant-response")
+      return {
+        ...node,
+        label: "Draft a careful answer",
+        description: "Answers administrative questions without medical advice.",
+        config: {
+          model: "Managed for cost and quality",
+          languages: "EN, FA, ZH",
+          tone: "Calm and professional",
+        },
+      };
+    if (node.id === "owner-approval")
+      return {
+        ...node,
+        label: "Staff approval",
+        description: "Requires staff review before requesting an appointment.",
+        config: { timeoutMinutes: 15, approvalFor: "Appointment requests" },
+      };
+    if (node.id === "booking-action")
+      return {
+        ...node,
+        label: "Request appointment",
+        description: "Uses a future clinic calendar adapter.",
+        config: { provider: "Not connected", mode: "approval_required" },
+      };
+    return node;
+  }),
+};
+
+const serviceConciergeWorkflow: WorkflowDefinition = {
+  id: "service-concierge-v1",
+  name: "Service business concierge",
+  version: 1,
+  status: "draft",
+  nodes: salonReceptionWorkflow.nodes
+    .filter(
+      (node) =>
+        node.kind !== "approval.owner" && node.kind !== "action.booking",
+    )
+    .map((node) => {
+      if (node.id === "business-knowledge")
+        return {
+          ...node,
+          label: "Services and FAQs",
+          description:
+            "Searches approved services, FAQs and uploaded documents.",
+          config: { sources: "Services, FAQs and documents", resultLimit: 5 },
+        };
+      if (node.id === "assistant-response")
+        return {
+          ...node,
+          label: "Draft a helpful answer",
+          config: {
+            model: "Managed for cost and quality",
+            languages: "EN, FA, ZH",
+            tone: "Friendly and concise",
+          },
+        };
+      return node;
+    }),
+  edges: salonReceptionWorkflow.edges.filter(
+    (edge) =>
+      !["e-trigger-approval", "e-approval-booking", "e-booking-reply"].includes(
+        edge.id,
+      ),
+  ),
+};
+
+export const googleReviewAssistantWorkflow: WorkflowDefinition = {
+  id: "google-review-assistant-v1",
+  name: "Google review assistant",
+  version: 1,
+  status: "draft",
+  nodes: [
+    {
+      id: "google-review-event",
+      kind: "trigger.google_review",
+      label: "New Google review",
+      description: "Starts when a new or updated review is received.",
+      position: { x: 40, y: 190 },
+      config: {
+        connection: "Not connected",
+        events: "New and updated reviews",
+        locations: "All connected locations",
+      },
+    },
+    {
+      id: "review-risk-check",
+      kind: "logic.review_risk",
+      label: "Check rating and risk",
+      description: "Flags low ratings and sensitive topics for the team.",
+      position: { x: 310, y: 190 },
+      config: {
+        followUpBelowStars: 4,
+        sensitiveTopics: "Safety, discrimination, legal threats, medical harm",
+      },
+    },
+    {
+      id: "review-business-knowledge",
+      kind: "knowledge.search",
+      label: "Find business context",
+      description: "Finds approved facts that may help with the reply.",
+      position: { x: 580, y: 60 },
+      config: { sources: "Services, FAQs and documents", resultLimit: 4 },
+    },
+    {
+      id: "review-draft",
+      kind: "ai.respond",
+      label: "Draft review reply",
+      description: "Writes a personal, grounded reply in the reviewer’s language.",
+      position: { x: 850, y: 60 },
+      config: {
+        model: "Managed for cost and quality",
+        languages: "EN, FA, ZH",
+        tone: "Warm and conversational",
+      },
+    },
+    {
+      id: "review-owner-approval",
+      kind: "approval.owner",
+      label: "Approve public reply",
+      description: "A team member reviews the exact reply before it is posted.",
+      position: { x: 1120, y: 60 },
+      config: { timeoutMinutes: 1440, approvalFor: "Google review replies" },
+    },
+    {
+      id: "google-review-reply",
+      kind: "action.google_review_reply",
+      label: "Post Google reply",
+      description: "Posts or updates the business reply after approval.",
+      position: { x: 1390, y: 60 },
+      config: {
+        provider: "Google Business Profile — not connected",
+        mode: "approval_required",
+      },
+    },
+    {
+      id: "review-follow-up",
+      kind: "handoff.review_follow_up",
+      label: "Create follow-up task",
+      description: "Creates a dashboard task for low-rating recovery or escalation.",
+      position: { x: 580, y: 330 },
+      config: {
+        destination: "Dashboard inbox",
+        dueHours: 24,
+        rule: "Below 4 stars or sensitive topic",
+      },
+    },
+    {
+      id: "review-complete",
+      kind: "output.review_complete",
+      label: "Record outcome",
+      description: "Records the approved reply and status in the audit trail.",
+      position: { x: 1660, y: 60 },
+      config: { status: "Reply posted", keepAuditTrail: true },
+    },
+  ],
+  edges: [
+    {
+      id: "e-review-trigger-risk",
+      source: "google-review-event",
+      target: "review-risk-check",
+    },
+    {
+      id: "e-review-risk-knowledge",
+      source: "review-risk-check",
+      target: "review-business-knowledge",
+      label: "draft reply",
+    },
+    {
+      id: "e-review-risk-follow-up",
+      source: "review-risk-check",
+      target: "review-follow-up",
+      label: "low rating or sensitive",
+    },
+    {
+      id: "e-review-knowledge-draft",
+      source: "review-business-knowledge",
+      target: "review-draft",
+    },
+    {
+      id: "e-review-draft-approval",
+      source: "review-draft",
+      target: "review-owner-approval",
+    },
+    {
+      id: "e-review-approval-post",
+      source: "review-owner-approval",
+      target: "google-review-reply",
+      label: "approved",
+    },
+    {
+      id: "e-review-post-complete",
+      source: "google-review-reply",
+      target: "review-complete",
+    },
+  ],
+};
+
+export const workflowTemplates: WorkflowTemplate[] = [
+  {
+    id: "salon-reception",
+    name: "Salon reception",
+    category: "Salon",
+    description:
+      "Answers service questions, prepares booking requests, and hands uncertain conversations to the team.",
+    setupMinutes: 10,
+    editableSummary:
+      "Services, voice, languages, booking provider and approvals",
+    workflow: salonReceptionWorkflow,
+  },
+  {
+    id: "clinic-front-desk",
+    name: "Clinic front desk",
+    category: "Clinic",
+    description:
+      "Handles administrative questions and appointment requests while keeping medical questions with staff.",
+    setupMinutes: 12,
+    editableSummary:
+      "Clinic information, languages, appointment rules and handoff",
+    workflow: clinicFrontDeskWorkflow,
+  },
+  {
+    id: "service-concierge",
+    name: "Service business concierge",
+    category: "Service business",
+    description:
+      "A lightweight website assistant for FAQs, services, multilingual replies and human follow-up.",
+    setupMinutes: 8,
+    editableSummary:
+      "Business knowledge, response style, languages and handoff",
+    workflow: serviceConciergeWorkflow,
+  },
+  {
+    id: "google-review-assistant",
+    name: "Google review assistant",
+    category: "Reputation",
+    description:
+      "Drafts multilingual review replies, requires approval before posting, and flags low ratings for personal follow-up.",
+    setupMinutes: 15,
+    editableSummary:
+      "Locations, reply voice, languages, risk rules and follow-up timing",
+    workflow: googleReviewAssistantWorkflow,
+  },
+];
+
+export function createWorkflowFromTemplate(
+  templateId: string,
+  workflowId: string,
+): WorkflowDefinition | null {
+  const template = workflowTemplates.find((item) => item.id === templateId);
+  if (!template) return null;
+  return {
+    ...structuredClone(template.workflow),
+    id: workflowId,
+    name: template.name,
+    version: 1,
+    status: "draft",
+  };
+}

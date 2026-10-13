@@ -19,27 +19,59 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import {
+  Archive,
+  ArrowLeft,
+  BadgeCheck,
   Bot,
   BookOpen,
   CalendarPlus,
   Check,
   CircleAlert,
+  Clock3,
+  CopyPlus,
+  FolderOpen,
   GitBranch,
   Globe,
   Hand,
+  History,
   Inbox,
+  LayoutTemplate,
+  ListTodo,
   MessageSquareReply,
+  Pencil,
+  Play,
   Plus,
   RotateCcw,
+  Rocket,
   Save,
+  Send,
   ShieldCheck,
+  Sparkles,
+  Star,
   Trash2,
 } from "lucide-react";
+import { nodeJobDefinitions, type JobField } from "@/lib/workflow-jobs";
 import {
+  WORKFLOW_STORAGE_VERSION,
+  createWorkflowRecord,
+  parseWorkflowStore,
+  publishWorkflowVersion,
+  saveWorkflowDraft,
+  setWorkflowArchived,
+  type WorkflowRecord,
+} from "@/lib/workflow-lifecycle";
+import {
+  compilePracticePlan,
+  type WorkflowTestPlan,
+} from "@/lib/workflow-runner";
+import {
+  createWorkflowFromTemplate,
   salonReceptionWorkflow,
   validateWorkflow,
+  workflowTemplates,
   type WorkflowDefinition,
   type WorkflowKind,
+  type WorkflowTemplate,
 } from "@/lib/workflow";
 
 type CanvasData = {
@@ -51,6 +83,11 @@ type CanvasData = {
 };
 
 type CanvasNode = Node<CanvasData, "workflow">;
+type EditorDraft = WorkflowRecord;
+type SavedWorkflow = WorkflowRecord;
+
+const STORAGE_KEY = "hellocrew:workflows:v2";
+const LEGACY_STORAGE_KEY = "hellocrew:workflows:v1";
 
 const palette: {
   kind: WorkflowKind;
@@ -64,6 +101,13 @@ const palette: {
     label: "Website message",
     description: "Starts with a website visitor.",
     icon: Globe,
+    group: "Start",
+  },
+  {
+    kind: "trigger.google_review",
+    label: "Google review",
+    description: "Starts with a new or updated review.",
+    icon: Star,
     group: "Start",
   },
   {
@@ -88,6 +132,13 @@ const palette: {
     group: "Think",
   },
   {
+    kind: "logic.review_risk",
+    label: "Check review risk",
+    description: "Routes low ratings and sensitive topics.",
+    icon: CircleAlert,
+    group: "Think",
+  },
+  {
     kind: "approval.owner",
     label: "Owner approval",
     description: "Pauses for a human decision.",
@@ -102,6 +153,13 @@ const palette: {
     group: "Act",
   },
   {
+    kind: "action.google_review_reply",
+    label: "Post review reply",
+    description: "Updates the approved Google reply.",
+    icon: Send,
+    group: "Act",
+  },
+  {
     kind: "handoff.inbox",
     label: "Human inbox",
     description: "Hands context to the team.",
@@ -109,10 +167,24 @@ const palette: {
     group: "Finish",
   },
   {
+    kind: "handoff.review_follow_up",
+    label: "Review follow-up",
+    description: "Creates an internal recovery task.",
+    icon: ListTodo,
+    group: "Finish",
+  },
+  {
     kind: "output.reply",
     label: "Send reply",
     description: "Returns the final response.",
     icon: MessageSquareReply,
+    group: "Finish",
+  },
+  {
+    kind: "output.review_complete",
+    label: "Record review outcome",
+    description: "Closes the run with an audit record.",
+    icon: BadgeCheck,
     group: "Finish",
   },
 ];
@@ -123,13 +195,18 @@ const iconByKind = Object.fromEntries(
 
 const categoryByKind: Record<WorkflowKind, string> = {
   "trigger.website": "trigger",
+  "trigger.google_review": "trigger",
   "knowledge.search": "knowledge",
   "ai.respond": "ai",
   "logic.confidence": "logic",
+  "logic.review_risk": "logic",
   "approval.owner": "approval",
   "action.booking": "action",
+  "action.google_review_reply": "action",
   "handoff.inbox": "handoff",
+  "handoff.review_follow_up": "handoff",
   "output.reply": "output",
+  "output.review_complete": "output",
 };
 
 function toCanvasNodes(workflow: WorkflowDefinition): CanvasNode[] {
@@ -150,7 +227,7 @@ function toCanvasEdges(workflow: WorkflowDefinition): Edge[] {
   return workflow.edges.map((edge) => ({
     ...edge,
     type: "smoothstep",
-    animated: edge.source === "website-message",
+    animated: edge.source.includes("message"),
   }));
 }
 
@@ -179,19 +256,104 @@ function WorkflowCard({ data, selected }: NodeProps<CanvasNode>) {
 
 const nodeTypes = { workflow: WorkflowCard };
 
-function BuilderCanvas() {
+function readSavedWorkflows(): SavedWorkflow[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw =
+      localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return [];
+    return parseWorkflowStore(JSON.parse(raw)).workflows;
+  } catch {
+    return [];
+  }
+}
+
+function JobFieldControl({
+  field,
+  value,
+  onChange,
+}: {
+  field: JobField;
+  value: string | number | boolean | undefined;
+  onChange: (value: string | number | boolean) => void;
+}) {
+  if (field.type === "select")
+    return (
+      <select
+        value={String(value ?? "")}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="" disabled>
+          Choose an option
+        </option>
+        {field.options?.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    );
+  if (field.type === "number")
+    return (
+      <input
+        type="number"
+        value={typeof value === "number" ? value : ""}
+        min={field.min}
+        max={field.max}
+        step={field.step}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    );
+  if (field.type === "toggle")
+    return (
+      <span className="job-toggle">
+        <input
+          type="checkbox"
+          checked={value === true}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        {value === true ? "On" : "Off"}
+      </span>
+    );
+  return (
+    <input
+      value={typeof value === "string" ? value : ""}
+      maxLength={180}
+      placeholder="Add your information"
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
+
+function BuilderCanvas({
+  draft,
+  onBack,
+  onSave,
+  onPublish,
+}: {
+  draft: EditorDraft;
+  onBack: () => void;
+  onSave: (draft: EditorDraft) => void;
+  onPublish: (draft: EditorDraft, workflow: WorkflowDefinition) => void;
+}) {
+  const [name, setName] = useState(draft.workflow.name);
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(
-    toCanvasNodes(salonReceptionWorkflow),
+    toCanvasNodes(draft.workflow),
   );
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(
-    toCanvasEdges(salonReceptionWorkflow),
+    toCanvasEdges(draft.workflow),
   );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    draft.workflow.nodes[0]?.id ?? null,
+  );
   const [saved, setSaved] = useState(false);
+  const [testPlan, setTestPlan] = useState<WorkflowTestPlan | null>(null);
 
   const definition = useMemo<WorkflowDefinition>(
     () => ({
-      ...salonReceptionWorkflow,
+      ...draft.workflow,
+      name,
       nodes: nodes.map((node) => ({
         id: node.id,
         kind: node.data.kind,
@@ -207,13 +369,17 @@ function BuilderCanvas() {
         ...(typeof edge.label === "string" ? { label: edge.label } : {}),
       })),
     }),
-    [edges, nodes],
+    [draft.workflow, edges, name, nodes],
   );
   const issues = useMemo(() => validateWorkflow(definition), [definition]);
   const selected = nodes.find((node) => node.id === selectedId);
+  const selectedJob = selected
+    ? nodeJobDefinitions[selected.data.kind]
+    : undefined;
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (draft.structureLocked) return;
       setSaved(false);
       setEdges((current) =>
         addEdge(
@@ -226,10 +392,11 @@ function BuilderCanvas() {
         ),
       );
     },
-    [setEdges],
+    [draft.structureLocked, setEdges],
   );
 
   function addNode(kind: WorkflowKind) {
+    if (draft.structureLocked) return;
     const template = palette.find((item) => item.kind === kind)!;
     const id = `${kind.replace(".", "-")}-${crypto.randomUUID().slice(0, 8)}`;
     setNodes((current) => [
@@ -265,8 +432,26 @@ function BuilderCanvas() {
     setSaved(false);
   }
 
-  function removeSelected() {
+  function updateConfig(key: string, value: string | number | boolean) {
     if (!selectedId) return;
+    setNodes((current) =>
+      current.map((node) =>
+        node.id === selectedId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                config: { ...node.data.config, [key]: value },
+              },
+            }
+          : node,
+      ),
+    );
+    setSaved(false);
+  }
+
+  function removeSelected() {
+    if (!selectedId || draft.structureLocked) return;
     setNodes((current) => current.filter((node) => node.id !== selectedId));
     setEdges((current) =>
       current.filter(
@@ -278,69 +463,138 @@ function BuilderCanvas() {
   }
 
   function resetTemplate() {
-    setNodes(toCanvasNodes(salonReceptionWorkflow));
-    setEdges(toCanvasEdges(salonReceptionWorkflow));
-    setSelectedId(null);
+    setName(draft.workflow.name);
+    setNodes(toCanvasNodes(draft.workflow));
+    setEdges(toCanvasEdges(draft.workflow));
+    setSelectedId(draft.workflow.nodes[0]?.id ?? null);
     setSaved(false);
   }
 
   function saveDraft() {
     if (issues.length > 0) return;
-    localStorage.setItem(
-      "hellocrew:workflow-draft:v1",
-      JSON.stringify(definition),
-    );
+    onSave(saveWorkflowDraft(draft, definition));
     setSaved(true);
+  }
+
+  function publishDraft() {
+    if (issues.length > 0) return;
+    onPublish(draft, definition);
+    setSaved(true);
+  }
+
+  function testWorkflow() {
+    if (issues.length > 0) return;
+    setTestPlan(compilePracticePlan(definition));
   }
 
   return (
     <section className="workflow-builder" aria-label="Workflow builder">
-      <div className="workflow-toolbar">
-        <div>
-          <span className="badge pale">Local draft · Version 1</span>
-          <h2>Salon reception assistant</h2>
-          <p>Website questions, safe booking requests, and human backup.</p>
+      <div className="workflow-toolbar workflow-editor-toolbar">
+        <button className="workflow-back" onClick={onBack}>
+          <ArrowLeft size={16} /> My workflows
+        </button>
+        <div className="workflow-title-editor">
+          <span className="badge pale">
+            {draft.structureLocked ? "Guided template" : "Advanced workflow"}
+          </span>
+          <label>
+            Workflow name
+            <input
+              value={name}
+              maxLength={100}
+              onChange={(event) => {
+                setName(event.target.value);
+                setSaved(false);
+              }}
+            />
+          </label>
+          <p>
+            {draft.structureLocked
+              ? "The safe path is locked. Select each step and add your business information."
+              : "Build the path, then configure the job inside every node."}
+          </p>
         </div>
         <div className="workflow-toolbar-actions">
           <button className="button outline compact" onClick={resetTemplate}>
-            <RotateCcw size={15} /> Reset template
+            <RotateCcw size={15} /> Reset
+          </button>
+          <button
+            className="button outline compact"
+            onClick={testWorkflow}
+            disabled={issues.length > 0 || name.trim().length === 0}
+          >
+            <Play size={15} /> Test safely
           </button>
           <button
             className="button dark compact"
             onClick={saveDraft}
-            disabled={issues.length > 0}
+            disabled={issues.length > 0 || name.trim().length === 0}
           >
             {saved ? <Check size={15} /> : <Save size={15} />}
-            {saved ? "Saved in this browser" : "Save local draft"}
+            {saved ? "Saved to My workflows" : "Save workflow"}
+          </button>
+          <button
+            className="button dark compact publish-button"
+            onClick={publishDraft}
+            disabled={issues.length > 0 || name.trim().length === 0}
+          >
+            <Rocket size={15} /> Publish v{draft.publishedVersions.length + 1}
           </button>
         </div>
       </div>
 
       <div className="workflow-workspace">
-        <aside className="node-library" aria-label="Node library">
+        <aside className="node-library" aria-label="Workflow steps">
           <div className="builder-panel-heading">
-            <span>Node library</span>
-            <small>Click to add</small>
+            <span>
+              {draft.structureLocked ? "Template steps" : "Node library"}
+            </span>
+            <small>
+              {draft.structureLocked ? "Select to configure" : "Click to add"}
+            </small>
           </div>
-          {(["Start", "Think", "Act", "Finish"] as const).map((group) => (
-            <div className="node-group" key={group}>
-              <strong>{group}</strong>
-              {palette
-                .filter((item) => item.group === group)
-                .map((item) => (
-                  <button key={item.kind} onClick={() => addNode(item.kind)}>
-                    <span className={categoryByKind[item.kind]}>
-                      <item.icon size={16} />
+          {draft.structureLocked ? (
+            <div className="template-step-list">
+              {nodes.map((node, index) => {
+                const Icon = iconByKind[node.data.kind];
+                return (
+                  <button
+                    key={node.id}
+                    className={selectedId === node.id ? "active" : ""}
+                    onClick={() => setSelectedId(node.id)}
+                  >
+                    <span className={categoryByKind[node.data.kind]}>
+                      <Icon size={16} />
                     </span>
                     <span>
-                      {item.label}
-                      <small>{item.description}</small>
+                      <small>Step {index + 1}</small>
+                      {node.data.label}
                     </span>
-                    <Plus size={14} />
                   </button>
-                ))}
+                );
+              })}
             </div>
-          ))}
+          ) : (
+            (["Start", "Think", "Act", "Finish"] as const).map((group) => (
+              <div className="node-group" key={group}>
+                <strong>{group}</strong>
+                {palette
+                  .filter((item) => item.group === group)
+                  .map((item) => (
+                    <button key={item.kind} onClick={() => addNode(item.kind)}>
+                      <span className={categoryByKind[item.kind]}>
+                        <item.icon size={16} />
+                      </span>
+                      <span>
+                        {item.label}
+                        <small>{item.description}</small>
+                      </span>
+                      <Plus size={14} />
+                    </button>
+                  ))}
+              </div>
+            ))
+          )}
         </aside>
 
         <div className="workflow-canvas" aria-label="Workflow canvas">
@@ -353,17 +607,22 @@ function BuilderCanvas() {
               setSaved(false);
             }}
             onEdgesChange={(changes) => {
-              onEdgesChange(changes);
+              if (!draft.structureLocked) onEdgesChange(changes);
               setSaved(false);
             }}
             onConnect={onConnect}
             onNodeClick={(_, node) => setSelectedId(node.id)}
             onPaneClick={() => setSelectedId(null)}
+            nodesConnectable={!draft.structureLocked}
+            nodesDraggable={!draft.structureLocked}
+            edgesReconnectable={!draft.structureLocked}
             fitView
             fitViewOptions={{ padding: 0.18 }}
             minZoom={0.35}
             maxZoom={1.5}
-            deleteKeyCode={["Backspace", "Delete"]}
+            deleteKeyCode={
+              draft.structureLocked ? null : ["Backspace", "Delete"]
+            }
             proOptions={{ hideAttribution: true }}
           >
             <Background
@@ -382,71 +641,111 @@ function BuilderCanvas() {
             />
           </ReactFlow>
           <div className="canvas-hint">
-            Drag nodes · Pull from a dot to connect
+            {draft.structureLocked
+              ? "Safe structure locked · Select a node to configure its job"
+              : "Drag nodes · Pull from a dot to connect"}
           </div>
         </div>
 
-        <aside className="node-inspector" aria-label="Node settings">
+        <aside className="node-inspector" aria-label="Node job settings">
           <div className="builder-panel-heading">
-            <span>Settings</span>
+            <span>Node job</span>
             <small>{selected ? "1 selected" : "Nothing selected"}</small>
           </div>
-          {selected ? (
+          {selected && selectedJob ? (
             <>
-              <span
-                className={`inspector-icon ${categoryByKind[selected.data.kind]}`}
-              >
-                {(() => {
-                  const Icon = iconByKind[selected.data.kind];
-                  return <Icon size={18} />;
-                })()}
-              </span>
-              <label>
-                Name
-                <input
-                  value={selected.data.label}
-                  maxLength={80}
-                  onChange={(event) =>
-                    updateSelected("label", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                What it does
-                <textarea
-                  value={selected.data.description}
-                  maxLength={240}
-                  onChange={(event) =>
-                    updateSelected("description", event.target.value)
-                  }
-                />
-              </label>
-              <div className="node-config-preview">
-                <strong>Configuration</strong>
-                {Object.keys(selected.data.config).length > 0 ? (
-                  <dl>
-                    {Object.entries(selected.data.config).map(
-                      ([key, value]) => (
-                        <div key={key}>
-                          <dt>{key.replace(/([A-Z])/g, " $1")}</dt>
-                          <dd>{String(value)}</dd>
-                        </div>
-                      ),
-                    )}
-                  </dl>
-                ) : (
-                  <p>Provider settings will appear here after connection.</p>
-                )}
+              <div className="job-heading">
+                <span
+                  className={`inspector-icon ${categoryByKind[selected.data.kind]}`}
+                >
+                  {(() => {
+                    const Icon = iconByKind[selected.data.kind];
+                    return <Icon size={18} />;
+                  })()}
+                </span>
+                <div>
+                  <small>Its job</small>
+                  <strong>{selectedJob.title}</strong>
+                </div>
               </div>
-              <button className="delete-node" onClick={removeSelected}>
-                <Trash2 size={15} /> Remove node
-              </button>
+              <p className="job-summary">{selectedJob.summary}</p>
+              <div className="job-outcome">
+                <Check size={14} />
+                <span>
+                  <strong>Produces</strong>
+                  {selectedJob.outcome}
+                </span>
+              </div>
+              <div className="job-contract" aria-label="Job safety contract">
+                <span>{selectedJob.jobId}</span>
+                <dl>
+                  <div>
+                    <dt>Effect</dt>
+                    <dd>{selectedJob.effect.replaceAll("_", " ")}</dd>
+                  </div>
+                  <div>
+                    <dt>Approval</dt>
+                    <dd>{selectedJob.approvalPolicy}</dd>
+                  </div>
+                  <div>
+                    <dt>Integration</dt>
+                    <dd>
+                      {selectedJob.requiredIntegration.replaceAll("_", " ")}
+                    </dd>
+                  </div>
+                </dl>
+                <small>
+                  Allowlisted job · {selectedJob.maxRetries} retr
+                  {selectedJob.maxRetries === 1 ? "y" : "ies"} · no user code
+                </small>
+              </div>
+              <div className="job-fields">
+                {selectedJob.fields.map((field) => (
+                  <label key={field.key}>
+                    {field.label}
+                    <JobFieldControl
+                      field={field}
+                      value={selected.data.config[field.key]}
+                      onChange={(value) => updateConfig(field.key, value)}
+                    />
+                    <small>{field.help}</small>
+                  </label>
+                ))}
+              </div>
+              {!draft.structureLocked && (
+                <details className="advanced-node-details">
+                  <summary>Advanced node details</summary>
+                  <label>
+                    Node name
+                    <input
+                      value={selected.data.label}
+                      maxLength={80}
+                      onChange={(event) =>
+                        updateSelected("label", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Canvas description
+                    <textarea
+                      value={selected.data.description}
+                      maxLength={240}
+                      onChange={(event) =>
+                        updateSelected("description", event.target.value)
+                      }
+                    />
+                  </label>
+                  <button className="delete-node" onClick={removeSelected}>
+                    <Trash2 size={15} /> Remove node
+                  </button>
+                </details>
+              )}
             </>
           ) : (
             <div className="inspector-empty">
               <GitBranch size={28} />
               <strong>Select a node</strong>
-              <p>Edit its label and review its safe defaults here.</p>
+              <p>Its job and editable business information will appear here.</p>
             </div>
           )}
         </aside>
@@ -480,20 +779,356 @@ function BuilderCanvas() {
             </ul>
           ) : (
             <p>
-              Every path starts correctly, reaches an outcome, and booking is
-              protected by owner approval.
+              Every path starts correctly, reaches an outcome, and external
+              actions are protected by approval.
             </p>
           )}
         </div>
       </div>
+      {testPlan && (
+        <section
+          className="workflow-test-panel"
+          aria-label="Practice test plan"
+        >
+          <div className="workflow-test-heading">
+            <span>
+              <Play size={17} /> Safe test plan
+            </span>
+            <strong>0 external writes</strong>
+          </div>
+          <p>
+            This dry run compiles only registered jobs. Integrations stay off
+            and approval nodes pause instead of performing an action.
+          </p>
+          <ol>
+            {testPlan.steps.map((step) => (
+              <li key={step.nodeId}>
+                <span className={`test-step-state ${step.state}`} />
+                <div>
+                  <strong>{step.label}</strong>
+                  <small>
+                    {step.jobId} · {step.detail}
+                  </small>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function TemplateCard({
+  template,
+  onUse,
+}: {
+  template: WorkflowTemplate;
+  onUse: () => void;
+}) {
+  return (
+    <article className="workflow-library-card">
+      <div className="template-card-top">
+        <span className="template-card-icon">
+          {template.category === "Clinic" ? (
+            <ShieldCheck size={21} />
+          ) : template.category === "Salon" ? (
+            <Sparkles size={21} />
+          ) : template.category === "Reputation" ? (
+            <Star size={21} />
+          ) : (
+            <MessageSquareReply size={21} />
+          )}
+        </span>
+        <span className="badge neutral">{template.category}</span>
+      </div>
+      <h3>{template.name}</h3>
+      <p>{template.description}</p>
+      <div className="template-meta">
+        <span>
+          <Clock3 size={14} /> About {template.setupMinutes} min
+        </span>
+        <span>
+          <GitBranch size={14} /> {template.workflow.nodes.length} safe steps
+        </span>
+      </div>
+      <div className="template-editable">
+        <strong>You personalize</strong>
+        <span>{template.editableSummary}</span>
+      </div>
+      <button className="button dark compact" onClick={onUse}>
+        Use this template <CopyPlus size={16} />
+      </button>
+    </article>
+  );
+}
+
+function WorkflowLibrary({
+  workflows,
+  onUseTemplate,
+  onOpen,
+  onCreateCustom,
+  onArchive,
+  onDelete,
+}: {
+  workflows: SavedWorkflow[];
+  onUseTemplate: (templateId: string) => void;
+  onOpen: (workflow: SavedWorkflow) => void;
+  onCreateCustom: () => void;
+  onArchive: (workflowId: string, archived: boolean) => void;
+  onDelete: (workflowId: string) => void;
+}) {
+  const [tab, setTab] = useState<"mine" | "templates">(
+    workflows.length > 0 ? "mine" : "templates",
+  );
+  return (
+    <section className="workflow-library" aria-label="Workflow library">
+      <div className="workflow-library-bar">
+        <div className="workflow-library-tabs" role="tablist">
+          <button
+            role="tab"
+            aria-selected={tab === "mine"}
+            className={tab === "mine" ? "active" : ""}
+            onClick={() => setTab("mine")}
+          >
+            <FolderOpen size={16} /> My workflows
+            <span>{workflows.length}</span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "templates"}
+            className={tab === "templates" ? "active" : ""}
+            onClick={() => setTab("templates")}
+          >
+            <LayoutTemplate size={16} /> Template library
+            <span>{workflowTemplates.length}</span>
+          </button>
+        </div>
+        <button className="button outline compact" onClick={onCreateCustom}>
+          <Plus size={16} /> Create custom workflow
+        </button>
+      </div>
+
+      {tab === "templates" ? (
+        <>
+          <div className="workflow-library-intro">
+            <span className="eyebrow">READY-TO-USE STARTING POINTS</span>
+            <h2>Choose the closest fit.</h2>
+            <p>
+              The safe workflow structure is already prepared. Users only add
+              their own business information and choose connected services.
+            </p>
+          </div>
+          <div className="workflow-template-grid">
+            {workflowTemplates.map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                onUse={() => onUseTemplate(template.id)}
+              />
+            ))}
+          </div>
+        </>
+      ) : workflows.length > 0 ? (
+        <div className="my-workflow-grid">
+          {workflows.map((item) => {
+            const template = workflowTemplates.find(
+              (candidate) => candidate.id === item.sourceTemplateId,
+            );
+            return (
+              <article className="my-workflow-card" key={item.workflow.id}>
+                <span
+                  className={`workflow-status-mark ${item.structureLocked ? "guided" : "custom"}`}
+                >
+                  {item.structureLocked ? (
+                    <LayoutTemplate size={18} />
+                  ) : (
+                    <GitBranch size={18} />
+                  )}
+                </span>
+                <div>
+                  <div className="workflow-card-badges">
+                    <span className="badge pale">
+                      {template?.name ?? "Custom workflow"}
+                    </span>
+                    <span className={`workflow-lifecycle ${item.lifecycle}`}>
+                      {item.lifecycle}
+                    </span>
+                  </div>
+                  <h3>{item.workflow.name}</h3>
+                  <p>
+                    {item.workflow.nodes.length} steps · Saved{" "}
+                    {new Date(item.updatedAt).toLocaleDateString()} ·{" "}
+                    {item.publishedVersions.length === 0
+                      ? "No published versions"
+                      : `${item.publishedVersions.length} published version${item.publishedVersions.length === 1 ? "" : "s"}`}
+                  </p>
+                  {item.publishedVersions.length > 0 && (
+                    <details className="version-history">
+                      <summary>
+                        <History size={14} /> Version history
+                      </summary>
+                      <ul>
+                        {[...item.publishedVersions]
+                          .reverse()
+                          .map((version) => (
+                            <li key={version.version}>
+                              <strong>Version {version.version}</strong>
+                              <span>
+                                {version.nodes.length} steps · immutable
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+                <div className="my-workflow-actions">
+                  <button
+                    className="button dark compact"
+                    onClick={() => onOpen(item)}
+                    disabled={item.compatibility === "incompatible"}
+                  >
+                    <Pencil size={15} /> Edit information
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`${item.lifecycle === "archived" ? "Restore" : "Archive"} ${item.workflow.name}`}
+                    title={
+                      item.lifecycle === "archived"
+                        ? "Restore workflow"
+                        : "Archive workflow"
+                    }
+                    onClick={() =>
+                      onArchive(item.workflow.id, item.lifecycle !== "archived")
+                    }
+                  >
+                    <Archive size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`Delete ${item.workflow.name}`}
+                    onClick={() => onDelete(item.workflow.id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="workflow-library-empty">
+          <span>
+            <FolderOpen size={28} />
+          </span>
+          <h2>No saved workflows yet.</h2>
+          <p>
+            Start with a ready template. Your personalized copy will appear here
+            after you save it.
+          </p>
+          <button
+            className="button dark compact"
+            onClick={() => setTab("templates")}
+          >
+            Browse templates
+          </button>
+        </div>
+      )}
     </section>
   );
 }
 
 export function WorkflowBuilder() {
+  const [workflows, setWorkflows] =
+    useState<SavedWorkflow[]>(readSavedWorkflows);
+  const [editor, setEditor] = useState<EditorDraft | null>(null);
+
+  function persist(next: SavedWorkflow[]) {
+    setWorkflows(next);
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        formatVersion: WORKFLOW_STORAGE_VERSION,
+        workflows: next,
+      }),
+    );
+  }
+
+  function useTemplate(templateId: string) {
+    const workflow = createWorkflowFromTemplate(
+      templateId,
+      `workflow-${crypto.randomUUID()}`,
+    );
+    if (!workflow) return;
+    setEditor(
+      createWorkflowRecord(workflow, {
+        sourceTemplateId: templateId,
+        structureLocked: true,
+      }),
+    );
+  }
+
+  function createCustom() {
+    setEditor(
+      createWorkflowRecord(
+        {
+          ...structuredClone(salonReceptionWorkflow),
+          id: `workflow-${crypto.randomUUID()}`,
+          name: "Untitled custom workflow",
+        },
+        { structureLocked: false },
+      ),
+    );
+  }
+
+  function saveWorkflow(draft: EditorDraft) {
+    const next = [
+      draft,
+      ...workflows.filter((item) => item.workflow.id !== draft.workflow.id),
+    ];
+    persist(next);
+    setEditor(draft);
+  }
+
+  function publishWorkflow(draft: EditorDraft, definition: WorkflowDefinition) {
+    const published = publishWorkflowVersion(draft, definition);
+    saveWorkflow(published);
+  }
+
+  function archiveWorkflow(workflowId: string, archived: boolean) {
+    persist(
+      workflows.map((item) =>
+        item.workflow.id === workflowId
+          ? setWorkflowArchived(item, archived)
+          : item,
+      ),
+    );
+  }
+
+  function deleteWorkflow(workflowId: string) {
+    persist(workflows.filter((item) => item.workflow.id !== workflowId));
+  }
+
   return (
     <ReactFlowProvider>
-      <BuilderCanvas />
+      {editor ? (
+        <BuilderCanvas
+          draft={editor}
+          onBack={() => setEditor(null)}
+          onSave={saveWorkflow}
+          onPublish={publishWorkflow}
+        />
+      ) : (
+        <WorkflowLibrary
+          workflows={workflows}
+          onUseTemplate={useTemplate}
+          onOpen={(workflow) => setEditor(workflow)}
+          onCreateCustom={createCustom}
+          onArchive={archiveWorkflow}
+          onDelete={deleteWorkflow}
+        />
+      )}
     </ReactFlowProvider>
   );
 }

@@ -1,6 +1,6 @@
 # Deployment and configuration
 
-Status: future deployment/configuration contract. The implemented local demo needs no environment variables; `.env.example` documents that boundary. This implementation task does not deploy or create provider accounts, databases, or secrets. Existing hosting, if any, must be checked separately before publishing a new commit. The proposed flags below do not enable unimplemented live features.
+Status: partially implemented configuration contract. The public practice demo needs no environment variables. Authenticated owner routes use the existing Supabase project and the public values documented in `.env.example`. This implementation does not deploy the app, enable live AI, or create external provider accounts. Existing hosting and Google OAuth redirect configuration must be checked before publishing a deployment.
 
 ## Environments
 
@@ -11,12 +11,15 @@ Status: future deployment/configuration contract. The implemented local demo nee
 
 Use the existing intended Vercel Pro account only after its actual project and repository association are verified and deployment is authorized. Never connect or modify a different repository. Existing hosting does not authorize new provider accounts, paid add-ons, domain purchases, or unbounded consumption.
 
-## Proposed environment contract
+## Environment contract
 
 Exact names may change during implementation, but safe behavior must remain.
 
 | Variable | Demo value/default | Purpose |
 | --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project `yfmoggubjsffgameexfi` URL | Public API origin; code rejects any other project host |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Project publishable key | Public browser/server SSR key; authorization still comes from RLS |
+| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` locally | Exact OAuth callback origin; required in production unless the Vercel production URL is available |
 | `APP_MODE` | `demo` | Server-controlled mode; unknown value fails closed |
 | `LIVE_AI_ENABLED` | `false` | Necessary but insufficient condition for paid calls |
 | `LIVE_TOOLS_ENABLED` | `false` | Separate external-write kill switch |
@@ -24,9 +27,7 @@ Exact names may change during implementation, but safe behavior must remain.
 | `CHANNEL_WHATSAPP_ENABLED` | `false` | Future adapter; flag cannot instantiate missing code |
 | `CHANNEL_PHONE_ENABLED` | `false` | Future adapter; no carrier account assumed |
 | `LANGSMITH_TRACING` | `false` | Paid tracing is not part of this project |
-| `DATABASE_URL` | Unset | Server-only authorized durable database connection |
-| `AUTH_ISSUER` | Unset | Chosen identity provider; auth integration still open |
-| `AUTH_SECRET` | Unset | If required by chosen auth stack; server-only |
+| `DATABASE_URL` | Unset | Not required by the current RLS-scoped Supabase client; future maintenance jobs may use a restricted server connection |
 | `AI_PROVIDER` | Unset | Explicit supported provider, never a guessed default |
 | `AI_MODEL` | Unset | Explicit allowlisted model with known pricing |
 | `AI_API_KEY` | Unset | Server-only provider secret; never committed |

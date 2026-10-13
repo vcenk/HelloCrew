@@ -30,9 +30,11 @@ Verify contrast for each actual text/background combination; a palette does not 
 
 ## Navigation
 
-Desktop primary navigation: **Home**, **Conversations**, **Your assistant**, **Workflows**, **Channels**, **Settings**. Keep a visible “Try your assistant” action. The Workflows page begins with guided templates and exposes the advanced node canvas without implying that a local draft is live. Mobile navigation: **Home**, **Conversations**, **Assistant**, **More**; Workflows, Channels, and Settings live under More. Use labels alongside icons.
+Desktop primary navigation: **Home**, **Conversations**, **Your assistant**, **Workflows**, **Channels**, **Settings**. Keep a visible “Try your assistant” action. The Workflows page separates **My workflows** from the **Template library**. Guided templates lock the safe graph and let users edit only registered job settings; the advanced canvas remains available without implying that a local draft is live. Mobile navigation: **Home**, **Conversations**, **Assistant**, **More**; Workflows, Channels, and Settings live under More. Use labels alongside icons.
 
-Your assistant contains three plain-language sections:
+The Google Review Assistant starter exposes business locations, reply voice, languages, risk rules, and follow-up timing. It labels Google Business Profile as disconnected until OAuth and API access are complete. All public replies require review of the exact proposed text; low ratings and sensitive topics create internal dashboard tasks rather than implying a private Google conversation.
+
+Your assistant contains a business knowledge manager plus three plain-language sections. The manager separates draft, approved, and outdated sources; shows EN/FA/ZH coverage; previews small uploads; and includes an approved-only retrieval test before any AI is enabled.
 
 - **What it knows:** Business details and approved FAQs.
 - **How it speaks:** Name, greeting, tone, and response examples.

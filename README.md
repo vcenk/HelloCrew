@@ -2,7 +2,7 @@
 
 A welcoming workspace for business owners to set up, test, and supervise an AI assistant that can answer questions and use approved business tools.
 
-**Status: implemented practice prototype, not live AI.** The public website is at `/`; the separate beginner-friendly studio is at `/app`. A real LangGraph graph runs deterministic tools against fictional sample data. Authentication is intentionally deferred; no real customers, private information, paid model calls, or external actions are supported.
+**Status: implemented practice prototype plus authenticated owner foundation, not live AI.** The public website is at `/`; the beginner-friendly studio is at `/app`; Google OAuth starts at `/login`; and `/workspace` is protected by a verified Supabase session and tenant RLS. A real LangGraph graph runs deterministic tools against fictional sample data. Durable editor saves, real customers, paid model calls, and external actions are not supported yet.
 
 ## Start here
 
@@ -15,7 +15,7 @@ A welcoming workspace for business owners to set up, test, and supervise an AI a
 
 A business owner edits fictional business information, and tries a free-text conversation in a clearly labeled demo. This synthetic demo does not require authentication; real private data and live operations require the later security foundation. They can see which information was used, review a simulated action, and practice handing a conversation to a human. The sample booking pauses for approve/decline and only changes disposable demo state; no real reservation is made.
 
-The public landing page takes original visual inspiration from Gaia’s public website. The dashboard is independently designed and should feel approachable to someone who has never configured an AI product. Its primary navigation is Home, Conversations, Your assistant, Workflows, Channels, and Settings. Knowledge lives under Your assistant. The workflow canvas provides a salon reception template with typed safety validation while keeping publishing disabled. Technical details stay available without dominating the first experience.
+The public landing page takes original visual inspiration from Gaia’s public website. The dashboard is independently designed and should feel approachable to someone who has never configured an AI product. Its primary navigation is Home, Conversations, Your assistant, Workflows, Channels, and Settings. Knowledge lives under Your assistant. The workflow library provides guided salon, clinic, service-business, and Google-review templates plus an advanced canvas. Each node explains its registered job and exposes bounded business settings. Users can dry-run a safe execution plan and publish immutable browser-local practice versions without activating outside services.
 
 ## Technology decisions
 
@@ -24,24 +24,26 @@ The public landing page takes original visual inspiration from Gaia’s public w
 - Existing Vercel Pro hosting as the intended deployment target. Existing subscription coverage is not a guarantee of zero incremental cost.
 - No paid LangSmith service, AI subscription, new infrastructure account, or billing system is required for the initial demo.
 - Web first. WhatsApp and telephone adapters remain disabled future work.
-- Live AI remains disabled until authentication, tenant isolation, durable persistence, an atomic usage ledger, provider setup, and explicit spending limits are implemented and tested.
+- Supabase Auth/Postgres is connected to project `yfmoggubjsffgameexfi`. The first migration adds tenant membership, workflow/knowledge versioning, forced RLS, and deny-all server-control tables.
+- Live AI remains disabled until durable checkpoints/approvals, an atomic usage ledger, visitor abuse controls, provider setup, and explicit spending limits are implemented and tested.
 
 ## Documentation map
 
-| Document                                                   | What it decides                                         |
-| ---------------------------------------------------------- | ------------------------------------------------------- |
-| [Product requirements](docs/PRODUCT_REQUIREMENTS.md)       | Users, scope, outcomes, acceptance criteria             |
-| [Architecture](docs/ARCHITECTURE.md)                       | Boundaries, runtime, deployment design                  |
-| [Data model](docs/DATA_MODEL.md)                           | Tenant ownership, records, constraints, lifecycles      |
-| [Security and privacy](docs/SECURITY_PRIVACY.md)           | Threats, permissions, data handling, launch gates       |
-| [Agent tools and approvals](docs/AGENT_TOOLS_APPROVALS.md) | Graph, tool registry, confirmations, handoff            |
-| [UX and onboarding](docs/UX_ONBOARDING.md)                 | Navigation, page behavior, accessible states            |
-| [Implementation phases](docs/IMPLEMENTATION_PHASES.md)     | Ordered work and exit criteria                          |
-| [Tests and evaluations](docs/TESTS_EVALS.md)               | Functional, safety, concurrency, and usability checks   |
-| [Deployment and configuration](docs/DEPLOYMENT_ENV.md)     | Proposed environment contract and release runbook       |
-| [Cost controls](docs/COST_CONTROLS.md)                     | Limits, reservations, reconciliation, fail-closed rules |
-| [Channel roadmap](docs/CHANNEL_ROADMAP.md)                 | Web first and later messaging/voice adapters            |
-| [Decisions and open questions](docs/DECISIONS.md)          | Fixed constraints and unresolved choices                |
+| Document                                                           | What it decides                                               |
+| ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| [Product requirements](docs/PRODUCT_REQUIREMENTS.md)               | Users, scope, outcomes, acceptance criteria                   |
+| [Architecture](docs/ARCHITECTURE.md)                               | Boundaries, runtime, deployment design                        |
+| [Data model](docs/DATA_MODEL.md)                                   | Tenant ownership, records, constraints, lifecycles            |
+| [Security and privacy](docs/SECURITY_PRIVACY.md)                   | Threats, permissions, data handling, launch gates             |
+| [Agent tools and approvals](docs/AGENT_TOOLS_APPROVALS.md)         | Graph, tool registry, confirmations, handoff                  |
+| [UX and onboarding](docs/UX_ONBOARDING.md)                         | Navigation, page behavior, accessible states                  |
+| [Implementation phases](docs/IMPLEMENTATION_PHASES.md)             | Ordered work and exit criteria                                |
+| [Tests and evaluations](docs/TESTS_EVALS.md)                       | Functional, safety, concurrency, and usability checks         |
+| [Deployment and configuration](docs/DEPLOYMENT_ENV.md)             | Proposed environment contract and release runbook             |
+| [Cost controls](docs/COST_CONTROLS.md)                             | Limits, reservations, reconciliation, fail-closed rules       |
+| [Research and unit economics](docs/RESEARCH_AND_UNIT_ECONOMICS.md) | Repositories, platform choices, channel flows, costs, pricing |
+| [Channel roadmap](docs/CHANNEL_ROADMAP.md)                         | Web first and later messaging/voice adapters                  |
+| [Decisions and open questions](docs/DECISIONS.md)                  | Fixed constraints and unresolved choices                      |
 
 ## Run locally
 
@@ -52,7 +54,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000 for the website and http://localhost:3000/app for the practice studio. No environment variables or model keys are needed.
+Open http://localhost:3000 for the website and http://localhost:3000/app for the practice studio. No environment variables or model keys are needed for those public demo routes. `/login` and `/workspace` require the three public Supabase/site variables documented in `.env.example`; no Supabase secret key is used by the app.
 
 ```sh
 npm run lint
@@ -83,11 +85,14 @@ Alternatively set `CHROMIUM_PATH` to an already installed Chromium executable. T
 - Browser-memory state resets on refresh. It is untrusted, replayable practice state, **not** authentication, durable storage, a global quota, or secure proof of approval. Repeated decisions are idempotent only within the returned demo state.
 - `/api/live` always returns 503. Adding a model key does not activate it.
 - Website practice available; WhatsApp, telephone, customer embed, and real integrations disconnected.
-- Browser-local visual workflow draft with reusable trigger, knowledge, AI, logic, approval, action, handoff, and reply nodes. Booking actions require an upstream approval. Drafts are not published or executed.
+- Browser-local **My workflows** and **Template library** with guided salon, clinic, service-business, and Google Review Assistant starters. The review template drafts multilingual replies, sends low ratings or sensitive topics to an internal follow-up task, and requires approval before a public reply. Users personalize the job settings inside each node; guided template structure stays locked. Advanced workflows can add, connect, and remove reusable trigger, knowledge, AI, logic, approval, action, handoff, and reply nodes. Booking and public-review actions require an upstream approval. Saving updates the editable draft; publishing creates an immutable local version. Safe test plans expose the allowlisted job ID, effect, approval rule, and integration requirement while guaranteeing zero external writes. Google Business Profile is not connected.
+- Browser-local **Knowledge Manager** for hours, services, FAQs, policies, and document previews. Sources carry language, origin, and draft/approved/outdated state; edits are reviewed before retrieval. The safe retrieval console searches approved sources only and supports English, Farsi, and Mandarin metadata without making an AI call. PDF and Word parsing, embeddings, and durable editor persistence remain disabled until the authenticated repository layer is connected.
+- Google OAuth/PKCE scaffolding with Supabase cookie refresh, an allowlisted callback return path, a protected `/workspace`, and sign-out. The configured Supabase hostname is pinned to `yfmoggubjsffgameexfi`, and the owner workspace reads membership/tenant data through the signed-in user's RLS-scoped client.
+- Applied Supabase migration `20261013051836_initial_tenant_foundation.sql`: 11 tenant tables, immutable workflow/knowledge versions, forced RLS on every table, membership policies for editable resources, and no browser grants or policies for checkpoints, approvals, or usage reservations.
 - No live metrics, testimonials, or preloaded real customer information. Editable fields are sample-only and transmitted to this app’s server.
-- Server-only OpenAI request scaffold and durable-storage interfaces are present, with no live transport or database. An unapplied deny-first SQL schema draft is included for later review.
+- Server-only OpenAI request scaffold and durable-storage interfaces are present, with no live transport. The tenant/auth schema is applied; browser-local editors are not yet connected to durable repositories.
 
-The longer design documents describe future targets as well as demo requirements. Planned identity, tenancy, durable checkpoints, shared quotas, and live approval ledgers are **not implemented**. Vercel hosting can incur normal resource usage; zero model calls does not mean unlimited free hosting.
+The longer design documents describe future targets as well as demo requirements. Identity and tenant membership foundations now exist, but Google provider configuration and a real-account login still require environment/provider verification. Durable checkpoints, shared quotas, and live approval ledgers are **not implemented**. Vercel and Supabase can incur normal resource usage; zero model calls does not mean unlimited free hosting.
 
 ## Contribution boundary
 

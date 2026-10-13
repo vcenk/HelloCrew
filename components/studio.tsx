@@ -25,7 +25,7 @@ import {
   LoaderCircle,
   Workflow,
 } from "lucide-react";
-import { BusinessEditor } from "./business-editor";
+import { KnowledgeManager } from "./knowledge-manager";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
 import { readiness } from "@/lib/readiness";
 import { Brand, Buddy } from "./brand";
@@ -103,7 +103,7 @@ export default function Studio() {
     item.id === "quote"
       ? {
           ...item,
-          question: `How much is one ${business.services[0].name.toLowerCase()}?`,
+          question: `How much is one ${business.services[0]?.name.toLowerCase() ?? "service"}?`,
         }
       : item,
   );
@@ -610,9 +610,7 @@ export default function Studio() {
                   <h1>
                     Your assistant<span className="green-text">.</span>
                   </h1>
-                  <p>
-                    A simple, transparent starting point for your future crew.
-                  </p>
+                  <p>Curate the facts your future crew is allowed to use.</p>
                 </div>
               </div>
               <div className="assistant-overview">
@@ -621,9 +619,9 @@ export default function Studio() {
                   <span className="badge">Practice assistant</span>
                   <h2>Friendly. Clear. Careful.</h2>
                   <p>
-                    Answers from a fictional studio’s sample information. Asks
-                    before a simulated booking. Knows when to prepare a human
-                    handoff.
+                    Answers only from approved business knowledge. Drafts and
+                    outdated sources stay out of retrieval, while risky actions
+                    still wait for approval.
                   </p>
                 </div>
               </div>
@@ -636,12 +634,13 @@ export default function Studio() {
                   ))}
                 </ol>
                 <p>
-                  Adding an API key alone cannot turn on live AI. No persistent
-                  database or sign-in is connected.
+                  Supabase credentials are configured locally, but tenant-safe
+                  persistence stays off until authentication and RLS policies
+                  are installed and verified.
                 </p>
               </section>
-              <BusinessEditor
-                value={business}
+              <KnowledgeManager
+                business={business}
                 disabled={busy}
                 onSave={setBusiness}
               />
@@ -777,19 +776,19 @@ export default function Studio() {
                     Your workflows<span className="green-text">.</span>
                   </h1>
                   <p>
-                    Connect reusable building blocks, then let safety checks
-                    review the path before anything goes live.
+                    Start from a ready template, personalize each node’s job, or
+                    build an advanced workflow when you need more control.
                   </p>
                 </div>
-                <span className="badge neutral">Advanced builder</span>
+                <span className="badge neutral">Templates + builder</span>
               </div>
               <WorkflowBuilder />
               <div className="info-panel workflow-info">
                 <ShieldCheck size={20} />
                 <p>
-                  This is a browser-only draft. Publishing, OpenAI, Supabase,
-                  Phorest, WhatsApp, and real calendar actions remain disabled
-                  until their credentials and tenant protections are connected.
+                  Drafts, test plans, and published versions stay in this
+                  browser for practice. OpenAI, Supabase, Phorest, WhatsApp,
+                  Google, and real calendar actions remain disconnected.
                 </p>
               </div>
             </>
@@ -810,9 +809,21 @@ export default function Studio() {
                   <h3>Practice mode</h3>
                   <span className="badge">Always on in this version</span>
                   <p>
-                    No login, API key, model usage, or paid service is needed.
-                    Live AI is deliberately disabled.
+                    No login, API key, model usage, or paid service is needed for
+                    this practice area. Live AI is deliberately disabled.
                   </p>
+                </section>
+                <section className="simple-card">
+                  <h3>Owner workspace</h3>
+                  <span className="badge neutral">Supabase foundation</span>
+                  <p>
+                    Approved owners can sign in with Google to verify their
+                    protected tenant workspace. Practice drafts remain local
+                    until durable saves are connected.
+                  </p>
+                  <Link className="button outline compact" href="/workspace">
+                    Owner sign in <ArrowUpRight size={15} />
+                  </Link>
                 </section>
                 <section className="simple-card">
                   <h3>Privacy by simplicity</h3>

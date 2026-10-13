@@ -12,16 +12,17 @@ Status: planning baseline for HelloCrew. Update this record when a decision chan
 - Use Next.js/TypeScript and the existing intended Vercel Pro hosting arrangement.
 - Use open-source LangGraph JS for orchestration without paid LangSmith.
 - Start with a deterministic demo using fictional data and simulated actions.
-- Authentication is deliberately deferred for the demo. Supabase Auth with Google sign-in is the selected direction and remains a mandatory gate before private data or live administration.
+- Authentication remains optional for the public demo. Supabase SSR Auth with Google OAuth/PKCE is implemented for the owner workspace; provider/dashboard redirect configuration and a real-account sign-in still require environment verification before private data is accepted.
 - Live AI, external writes, WhatsApp, and Phone stay disabled initially.
 - Provide booking links and clearly simulated booking examples; no real booking claims without a supported integration.
 - Build a multi-tenant SaaS for salons, clinics, and similar appointment-based businesses. Each business has its own account and workspace.
-- Use Supabase Postgres, Storage, Auth, and pgvector as the intended data platform, subject to project connection and security review.
+- Use Supabase project `yfmoggubjsffgameexfi` for Postgres and Auth. The tenant foundation is applied with forced RLS. Storage and pgvector remain intended additions subject to their own policies and tests.
 - Use a visual node system to configure reusable LangGraph agents. Client-facing templates stay guided; an advanced builder remains available for managed setup.
 - Combine website imports, manually entered services/FAQs, and uploaded documents as knowledge sources.
 - Start in English, Farsi, and Mandarin, with quality evaluations before live use.
 - Start with website chat, followed by dashboard management, WhatsApp, and phone/voice adapters.
 - Prefer Phorest integration where a customer already uses it, and provide a calendar/link fallback for customers without a supported booking system.
+- Add Google review management as a reputation workflow: draft multilingual business replies, require approval before posting, and create internal follow-up tasks for low ratings or sensitive topics. The assistant cannot alter a customer rating.
 - There is no free commercial tier. Subscription, onboarding, and integration are managed before customers use live service.
 - No new paid infrastructure, account creation, or provider spending is authorized by these documents.
 
@@ -41,23 +42,26 @@ Status: planning baseline for HelloCrew. Update this record when a decision chan
 - Retention/deletion rules, privacy notice, operational incident owner, and human support route.
 - Verified hosting project, environment separation, and authorized deployment/activation.
 - Any real booking, messaging, or voice provider and its permitted data/actions.
+- Google Business Profile access and tenancy design. Google requires prior specific client authorization for review replies and restricts automatic third-party use and content storage, so a live implementation needs a policy review, manual sign-in, revocation flow, and possibly client-owned API projects before activation.
 
 ## Implementation status register
 
-| Capability                               | Status                                                                                                                            |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Project Markdown specifications          | Drafted in this package                                                                                                           |
-| Public landing page                      | Implemented at `/`, original warm design                                                                                          |
-| Dashboard and onboarding                 | Implemented at `/app`, beginner practice navigation                                                                               |
-| Visual workflow builder                  | Implemented as a browser-local salon template with typed validation; publishing is disabled                                       |
-| Deterministic LangGraph demo             | Implemented: editable fictional business information, bounded free-text retrieval, quick prompts, typed tools, bounded StateGraph |
-| Tool approval and handoff UI             | Implemented for disposable synthetic demo only                                                                                    |
-| Authentication and tenant enforcement    | Deferred until live foundation                                                                                                    |
-| Durable storage/checkpoints/usage ledger | Required before live; not implemented                                                                                             |
-| Paid model invocation                    | Disabled by design; not implemented                                                                                               |
-| Real booking                             | Unsupported until a verified integration exists                                                                                   |
-| WhatsApp and Phone                       | Planned future adapters; disabled                                                                                                 |
-| Deployment                               | Not performed by this package                                                                                                     |
+| Capability                               | Status                                                                                                                                                                              |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project Markdown specifications          | Drafted in this package                                                                                                                                                             |
+| Public landing page                      | Implemented at `/`, original warm design                                                                                                                                            |
+| Dashboard and onboarding                 | Implemented at `/app`, beginner practice navigation                                                                                                                                 |
+| Visual workflow builder                  | Browser-local drafts, immutable versions, lifecycle/archive state, safe test plans, four guided templates, allowlisted node jobs, advanced canvas, and typed validation implemented |
+| Business knowledge manager               | Browser-local service/FAQ/hours/policy sources, document preview, EN/FA/ZH metadata, approval lifecycle, and zero-cost retrieval test implemented; durable ingestion deferred       |
+| Google review assistant                  | Guided draft/approval/follow-up workflow implemented locally; OAuth, notifications, API access, storage, and live posting deferred                                                  |
+| Deterministic LangGraph demo             | Implemented: editable fictional business information, bounded free-text retrieval, quick prompts, typed tools, bounded StateGraph                                                   |
+| Tool approval and handoff UI             | Implemented for disposable synthetic demo only                                                                                                                                      |
+| Authentication and tenant enforcement    | Supabase SSR/Google OAuth code, protected owner route, workspace provisioning trigger, membership policies, and forced RLS implemented; real-account/provider verification pending |
+| Durable storage/checkpoints/usage ledger | Tenant tables applied; browser-local editors, transactional checkpoint/approval operations, and atomic usage reservation functions not implemented                                 |
+| Paid model invocation                    | Disabled by design; not implemented                                                                                                                                                 |
+| Real booking                             | Unsupported until a verified integration exists                                                                                                                                     |
+| WhatsApp and Phone                       | Planned future adapters; disabled                                                                                                                                                   |
+| Deployment                               | Not performed by this package                                                                                                                                                       |
 
 ## Technical references checked
 
@@ -65,6 +69,9 @@ Status: planning baseline for HelloCrew. Update this record when a decision chan
 - [LangGraph interrupts](https://docs.langchain.com/oss/javascript/langgraph/interrupts): persistence and resume behavior.
 - [Next.js data security](https://nextjs.org/docs/app/guides/data-security): server boundaries and authorization considerations.
 - [Vercel function limits](https://vercel.com/docs/functions/limitations): verify actual deployment constraints when implementing.
+- [Google Business Profile API](https://developers.google.com/my-business/reference/rest): review listing and reply operations.
+- [Google Business Profile notifications](https://developers.google.com/my-business/content/notification-setup): new and updated review delivery through Cloud Pub/Sub.
+- [Google Business Profile API policies](https://developers.google.com/my-business/content/policies): client authorization, third-party access, revocation, automation, and content-retention constraints.
 - [Gaia public website](https://gaiababy.app/): public visual reference; no signed-in dashboard was reviewed.
 
 References were reviewed for this planning package on 2026-10-10. Exact APIs, packages, provider rules, and limits must be rechecked when implemented. Project-specific controls and schemas in these files are design requirements, not claims that an upstream framework supplies them automatically.

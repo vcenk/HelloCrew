@@ -17,6 +17,37 @@ await page.screenshot({
   path: "/tmp/hellocrew-landing-desktop.png",
   fullPage: true,
 });
+const authPage = await browser.newPage({
+  viewport: { width: 1280, height: 900 },
+  deviceScaleFactor: 1,
+});
+authPage.on("pageerror", (e) => errors.push(`auth: ${e.message}`));
+await authPage.goto(`${baseUrl}/workspace`, { waitUntil: "networkidle" });
+await authPage.waitForURL("**/login");
+await authPage
+  .getByRole("button", { name: "Continue with Google", exact: true })
+  .waitFor();
+await authPage
+  .getByText("Tenant data is protected with row-level security.", {
+    exact: false,
+  })
+  .waitFor();
+await authPage.screenshot({
+  path: "/tmp/hellocrew-login-desktop.png",
+  fullPage: true,
+});
+await authPage.setViewportSize({ width: 390, height: 844 });
+assert.equal(
+  await authPage.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
+  ),
+  true,
+);
+await authPage.screenshot({
+  path: "/tmp/hellocrew-login-mobile.png",
+  fullPage: true,
+});
+await authPage.close();
 await page
   .getByRole("link", { name: "Try the practice demo", exact: true })
   .click();
@@ -85,29 +116,47 @@ await page
   )
   .waitFor();
 await page.getByRole("button", { name: "Your assistant", exact: true }).click();
+await page.getByText("Business knowledge", { exact: true }).waitFor();
+await page.getByRole("button", { name: "Test retrieval", exact: true }).click();
+await page.getByText("Exact approved FAQ", { exact: false }).waitFor();
+await page.getByRole("button", { name: "Add knowledge", exact: true }).click();
 await page
-  .getByLabel("Opening hours", { exact: true })
-  .fill("Tuesday only, 10am–2pm");
+  .getByLabel("Customer question", { exact: true })
+  .fill("Do you offer gift cards?");
 await page
-  .getByRole("button", { name: "Apply sample information", exact: true })
+  .getByLabel("Approved answer", { exact: true })
+  .fill("Yes, sample gift cards are available.");
+await page.getByRole("button", { name: "Save draft", exact: true }).click();
+const giftCardSource = page
+  .getByRole("article")
+  .filter({ hasText: "Do you offer gift cards?" });
+await giftCardSource
+  .getByRole("button", { name: "Approve", exact: true })
   .click();
 await page
-  .getByText(
-    "Sample information applied. Your next free-text question will use it.",
-  )
+  .getByText("Source approved and available to practice retrieval.", {
+    exact: true,
+  })
   .waitFor();
+await page.screenshot({
+  path: "/tmp/hellocrew-knowledge-desktop.png",
+  fullPage: true,
+});
 await page
   .getByRole("button", { name: "Conversations", exact: false })
   .first()
   .click();
 await page
   .getByLabel("Your practice question", { exact: true })
-  .fill("When are you open?");
+  .fill("Do you offer gift cards?");
 await page
   .getByRole("button", { name: "Send practice question", exact: true })
   .click();
 await page
-  .getByText("Saved sample hours: Tuesday only, 10am–2pm", { exact: true })
+  .getByText(
+    "Saved FAQ answer (sample): Yes, sample gift cards are available.",
+    { exact: true },
+  )
   .waitFor();
 await page
   .getByLabel("Your practice question", { exact: true })
@@ -120,33 +169,55 @@ await page
   .waitFor();
 await page.getByRole("button", { name: "Your assistant", exact: true }).click();
 await page
-  .getByLabel("Sample booking link", { exact: true })
+  .getByText("Business profile and booking link", { exact: true })
+  .click();
+await page
+  .getByLabel("Booking link", { exact: true })
   .fill("javascript:alert(1)");
 await page
-  .getByRole("button", { name: "Apply sample information", exact: true })
+  .getByRole("button", { name: "Save business profile", exact: true })
   .click();
 await page
   .getByText("Use a full http or https link", { exact: false })
   .waitFor();
-await page.getByRole("button", { name: "Restore sample", exact: true }).click();
 await page.getByRole("button", { name: "Channels", exact: true }).click();
 assert.equal(await page.getByText("Not connected", { exact: true }).count(), 2);
 await page.getByRole("button", { name: "Workflows", exact: true }).click();
+await page.getByText("Choose the closest fit.", { exact: true }).waitFor();
+await page.screenshot({
+  path: "/tmp/hellocrew-template-library-desktop.png",
+  fullPage: true,
+});
+await page
+  .getByRole("button", { name: "Use this template", exact: true })
+  .first()
+  .click();
 await page
   .getByText("Ready to save as a safe draft", { exact: true })
   .waitFor();
+await page.getByRole("button", { name: /Step 3 Draft a response/ }).click();
+await page
+  .getByLabel("Supported languages", { exact: false })
+  .fill("EN, FA, ZH, ES");
 await page.screenshot({
   path: "/tmp/hellocrew-workflow-desktop.png",
   fullPage: true,
 });
+await page.getByRole("button", { name: "Test safely", exact: true }).click();
+await page.getByText("Safe test plan", { exact: true }).waitFor();
+await page.getByText("0 external writes", { exact: true }).waitFor();
+await page.getByRole("button", { name: "Save workflow", exact: true }).click();
 await page
-  .getByRole("button", { name: "Save local draft", exact: true })
-  .click();
+  .getByRole("button", { name: "Saved to My workflows", exact: true })
+  .waitFor();
+await page.getByRole("button", { name: "Publish v1", exact: true }).click();
+await page.getByRole("button", { name: "Publish v2", exact: true }).waitFor();
 assert.ok(
-  await page.evaluate(() =>
-    localStorage.getItem("hellocrew:workflow-draft:v1"),
-  ),
+  await page.evaluate(() => localStorage.getItem("hellocrew:workflows:v2")),
 );
+await page.getByRole("button", { name: "My workflows", exact: true }).click();
+await page.getByText("Salon reception", { exact: true }).last().waitFor();
+await page.getByText("published", { exact: true }).waitFor();
 await page.getByRole("button", { name: "Settings", exact: true }).click();
 await page
   .getByRole("button", { name: "Clear practice session", exact: false })
@@ -165,7 +236,19 @@ await page.screenshot({
   path: "/tmp/hellocrew-studio-mobile.png",
   fullPage: true,
 });
+await page.getByRole("button", { name: "Your assistant", exact: true }).click();
+await page.getByText("Business knowledge", { exact: true }).waitFor();
+assert.ok(
+  await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
+  ),
+);
+await page.screenshot({
+  path: "/tmp/hellocrew-knowledge-mobile.png",
+  fullPage: true,
+});
 await page.getByRole("button", { name: "Workflows", exact: true }).click();
+await page.getByRole("button", { name: "Edit information" }).click();
 await page
   .getByText("Ready to save as a safe draft", { exact: true })
   .waitFor();
