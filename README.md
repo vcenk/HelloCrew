@@ -15,7 +15,7 @@ A welcoming workspace for business owners to set up, test, and supervise an AI a
 
 A business owner edits fictional business information, and tries a free-text conversation in a clearly labeled demo. This synthetic demo does not require authentication; real private data and live operations require the later security foundation. They can see which information was used, review a simulated action, and practice handing a conversation to a human. The sample booking pauses for approve/decline and only changes disposable demo state; no real reservation is made.
 
-The public landing page takes original visual inspiration from Gaia’s public website. The dashboard is independently designed and should feel approachable to someone who has never configured an AI product. Its primary navigation is Home, Conversations, Your assistant, Channels, and Settings. Knowledge lives under Your assistant. Technical details stay available without dominating the first experience.
+The public landing page takes original visual inspiration from Gaia’s public website. The dashboard is independently designed and should feel approachable to someone who has never configured an AI product. Its primary navigation is Home, Conversations, Your assistant, Workflows, Channels, and Settings. Knowledge lives under Your assistant. The workflow canvas provides a salon reception template with typed safety validation while keeping publishing disabled. Technical details stay available without dominating the first experience.
 
 ## Technology decisions
 
@@ -28,20 +28,20 @@ The public landing page takes original visual inspiration from Gaia’s public w
 
 ## Documentation map
 
-| Document | What it decides |
-| --- | --- |
-| [Product requirements](docs/PRODUCT_REQUIREMENTS.md) | Users, scope, outcomes, acceptance criteria |
-| [Architecture](docs/ARCHITECTURE.md) | Boundaries, runtime, deployment design |
-| [Data model](docs/DATA_MODEL.md) | Tenant ownership, records, constraints, lifecycles |
-| [Security and privacy](docs/SECURITY_PRIVACY.md) | Threats, permissions, data handling, launch gates |
-| [Agent tools and approvals](docs/AGENT_TOOLS_APPROVALS.md) | Graph, tool registry, confirmations, handoff |
-| [UX and onboarding](docs/UX_ONBOARDING.md) | Navigation, page behavior, accessible states |
-| [Implementation phases](docs/IMPLEMENTATION_PHASES.md) | Ordered work and exit criteria |
-| [Tests and evaluations](docs/TESTS_EVALS.md) | Functional, safety, concurrency, and usability checks |
-| [Deployment and configuration](docs/DEPLOYMENT_ENV.md) | Proposed environment contract and release runbook |
-| [Cost controls](docs/COST_CONTROLS.md) | Limits, reservations, reconciliation, fail-closed rules |
-| [Channel roadmap](docs/CHANNEL_ROADMAP.md) | Web first and later messaging/voice adapters |
-| [Decisions and open questions](docs/DECISIONS.md) | Fixed constraints and unresolved choices |
+| Document                                                   | What it decides                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------- |
+| [Product requirements](docs/PRODUCT_REQUIREMENTS.md)       | Users, scope, outcomes, acceptance criteria             |
+| [Architecture](docs/ARCHITECTURE.md)                       | Boundaries, runtime, deployment design                  |
+| [Data model](docs/DATA_MODEL.md)                           | Tenant ownership, records, constraints, lifecycles      |
+| [Security and privacy](docs/SECURITY_PRIVACY.md)           | Threats, permissions, data handling, launch gates       |
+| [Agent tools and approvals](docs/AGENT_TOOLS_APPROVALS.md) | Graph, tool registry, confirmations, handoff            |
+| [UX and onboarding](docs/UX_ONBOARDING.md)                 | Navigation, page behavior, accessible states            |
+| [Implementation phases](docs/IMPLEMENTATION_PHASES.md)     | Ordered work and exit criteria                          |
+| [Tests and evaluations](docs/TESTS_EVALS.md)               | Functional, safety, concurrency, and usability checks   |
+| [Deployment and configuration](docs/DEPLOYMENT_ENV.md)     | Proposed environment contract and release runbook       |
+| [Cost controls](docs/COST_CONTROLS.md)                     | Limits, reservations, reconciliation, fail-closed rules |
+| [Channel roadmap](docs/CHANNEL_ROADMAP.md)                 | Web first and later messaging/voice adapters            |
+| [Decisions and open questions](docs/DECISIONS.md)          | Fixed constraints and unresolved choices                |
 
 ## Run locally
 
@@ -64,7 +64,7 @@ npm start
 
 ## Verification
 
-A clean `npm ci`, ESLint, TypeScript, unit/integration tests, and production build were run in the implementation workspace. See [verification results](docs/VERIFICATION.md). Browser visual/interaction QA is **not verified**: local Chromium could not launch because the execution environment blocks its socket, and browser interaction checks remain unverified. No screenshot was produced.
+A clean `npm ci`, ESLint, TypeScript, unit/integration tests, production build, and desktop/mobile Chrome smoke flow were run in the implementation workspace. See [verification results](docs/VERIFICATION.md). The browser flow covers the conversation demo and the visual workflow canvas, including responsive overflow and page-error checks.
 
 The optional browser smoke test is ready to run on a suitable machine with the app at localhost:3000:
 
@@ -83,6 +83,7 @@ Alternatively set `CHROMIUM_PATH` to an already installed Chromium executable. T
 - Browser-memory state resets on refresh. It is untrusted, replayable practice state, **not** authentication, durable storage, a global quota, or secure proof of approval. Repeated decisions are idempotent only within the returned demo state.
 - `/api/live` always returns 503. Adding a model key does not activate it.
 - Website practice available; WhatsApp, telephone, customer embed, and real integrations disconnected.
+- Browser-local visual workflow draft with reusable trigger, knowledge, AI, logic, approval, action, handoff, and reply nodes. Booking actions require an upstream approval. Drafts are not published or executed.
 - No live metrics, testimonials, or preloaded real customer information. Editable fields are sample-only and transmitted to this app’s server.
 - Server-only OpenAI request scaffold and durable-storage interfaces are present, with no live transport or database. An unapplied deny-first SQL schema draft is included for later review.
 

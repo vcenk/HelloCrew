@@ -131,6 +131,22 @@ await page
 await page.getByRole("button", { name: "Restore sample", exact: true }).click();
 await page.getByRole("button", { name: "Channels", exact: true }).click();
 assert.equal(await page.getByText("Not connected", { exact: true }).count(), 2);
+await page.getByRole("button", { name: "Workflows", exact: true }).click();
+await page
+  .getByText("Ready to save as a safe draft", { exact: true })
+  .waitFor();
+await page.screenshot({
+  path: "/tmp/hellocrew-workflow-desktop.png",
+  fullPage: true,
+});
+await page
+  .getByRole("button", { name: "Save local draft", exact: true })
+  .click();
+assert.ok(
+  await page.evaluate(() =>
+    localStorage.getItem("hellocrew:workflow-draft:v1"),
+  ),
+);
 await page.getByRole("button", { name: "Settings", exact: true }).click();
 await page
   .getByRole("button", { name: "Clear practice session", exact: false })
@@ -149,6 +165,20 @@ await page.screenshot({
   path: "/tmp/hellocrew-studio-mobile.png",
   fullPage: true,
 });
+await page.getByRole("button", { name: "Workflows", exact: true }).click();
+await page
+  .getByText("Ready to save as a safe draft", { exact: true })
+  .waitFor();
+assert.ok(
+  await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
+  ),
+);
+await page.screenshot({
+  path: "/tmp/hellocrew-workflow-mobile.png",
+  fullPage: true,
+});
+await page.getByRole("button", { name: "Home", exact: true }).click();
 await page
   .getByRole("button", { name: "Dismiss welcome", exact: true })
   .click();
@@ -191,6 +221,6 @@ await page.screenshot({
 });
 assert.deepEqual(errors, []);
 console.log(
-  "Browser QA passed: desktop/mobile, all scenarios, approve/decline, reset, refresh, navigation, dismiss, overflow, no page errors.",
+  "Browser QA passed: desktop/mobile, workflow canvas/save, all scenarios, approve/decline, reset, refresh, navigation, dismiss, overflow, no page errors.",
 );
 await browser.close();

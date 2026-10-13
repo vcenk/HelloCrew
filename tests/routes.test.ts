@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { POST } from "../app/api/demo/route";
+import { isSameOrigin, POST } from "../app/api/demo/route";
 import { POST as LIVE } from "../app/api/live/route";
 describe("server safety boundaries", () => {
   it("fails live mode closed", async () => {
@@ -32,6 +32,31 @@ describe("server safety boundaries", () => {
         )
       ).status,
     ).toBe(403);
+  });
+  it("accepts the browser origin when Next listens on a different host", () => {
+    expect(
+      isSameOrigin(
+        new Request("http://0.0.0.0:3000/api/demo", {
+          headers: {
+            Host: "localhost:3000",
+            Origin: "http://localhost:3000",
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+  it("rejects a forwarded protocol mismatch", () => {
+    expect(
+      isSameOrigin(
+        new Request("http://0.0.0.0:3000/api/demo", {
+          headers: {
+            Host: "app.example",
+            Origin: "http://app.example",
+            "X-Forwarded-Proto": "https",
+          },
+        }),
+      ),
+    ).toBe(false);
   });
   it("enforces actual byte cap without content length", async () => {
     expect(

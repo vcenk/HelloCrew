@@ -1,26 +1,26 @@
 # Implementation verification
 
-Verified locally on 2026-10-11. This is a synthetic practice prototype, not live AI or a production security certification.
+Verified locally on 2026-10-12. This is a synthetic practice prototype, not live AI or a production security certification.
 
 ## Passed
 
 - Clean `npm ci` from the committed npm lockfile (Node.js 24.19.0, npm 11.9.0).
 - `npm run lint`: ESLint, no errors or warnings.
 - `npm run typecheck`: TypeScript, no errors.
-- `npm test`: 59 tests across four files, all passed.
+- `npm test`: 65 tests across five files, all passed.
 - `npm audit --omit=dev`: zero reported production dependency vulnerabilities at verification time. This is not a comprehensive security audit.
 - Production-server smoke: `/app` returned 200, `/api/demo` returned a grounded FAQ answer with 200, and `/api/live` returned 503.
 - `npm run build`: optimized Next.js 16.4.0 build passed; `/` and `/app` prerendered, `/api/demo` and `/api/live` dynamic.
 
-New coverage includes grounded free-text answers, profile request isolation, exact FAQ matching, safe booking schemes, injection-like configuration treated as literal data, unknown-answer fallback, whole-token catalog names, explicit description requests, input bounds and disabled OpenAI transport. Independent code review reproduced and verified fixes for catalog-intent priority and unsafe substring matching.
+New coverage includes grounded free-text answers, profile request isolation, exact FAQ matching, safe booking schemes, injection-like configuration treated as literal data, unknown-answer fallback, whole-token catalog names, explicit description requests, input bounds, disabled OpenAI transport, same-origin handling behind a local/proxied host, and typed workflow safety validation. Independent code review reproduced and verified fixes for catalog-intent priority and unsafe substring matching.
 
 Test coverage includes typed tool validation, fictional quote calculation, FAQ/handoff results, actual graph activity, preparation without booking, approval record isolation, repeat-decision idempotence within returned state, rejection preservation, caller-state immutability, final-turn approval resolution, scenario cap, malformed inputs, each ambient tracing/verbose flag rejected, actual request byte limit, JSON and origin checks, and fail-closed live endpoint.
 
-## Browser QA: blocked, not passed
+## Browser QA: passed
 
-The installed local Chromium was attempted again and could not launch because the execution environment denied its process socket (`socket() failed: Operation not permitted`). No visual screenshot or completed browser interaction result is available for this milestone.
+The production build passed the complete headless Chrome smoke flow on desktop and mobile. It covers the landing page, navigation, all deterministic conversation scenarios, approve/decline, reset/refresh, the workflow canvas, local workflow save, responsive overflow checks, and browser page errors. The real browser flow also confirms that `/api/demo` accepts localhost requests when Next.js listens on `0.0.0.0`.
 
-`scripts/browser-check.mjs` contains a reproducible desktop/mobile smoke flow for a suitable environment. Start the app at localhost:3000, install Playwright Chromium (or set `CHROMIUM_PATH` to an existing executable), and run `npm run test:browser`. Review the generated screenshots before declaring the responsive UI visually verified.
+`scripts/browser-check.mjs` contains the reproducible flow. It generated and visually reviewed desktop/mobile screenshots for the landing page, studio, conversation, approval, and workflow builder.
 
 ## Important remaining boundaries
 

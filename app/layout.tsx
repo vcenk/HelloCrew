@@ -4,6 +4,7 @@ import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
 import "@fontsource/dm-sans/700.css";
 import "@fontsource/dm-serif-display/400-italic.css";
+import "@xyflow/react/dist/style.css";
 import "./globals.css";
 export const metadata: Metadata = {
   title: "HelloCrew · A little help. A lot more room.",

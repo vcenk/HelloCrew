@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -22,16 +23,31 @@ import {
   Phone,
   X,
   LoaderCircle,
+  Workflow,
 } from "lucide-react";
 import { BusinessEditor } from "./business-editor";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
 import { readiness } from "@/lib/readiness";
 import { Brand, Buddy } from "./brand";
 import type { Activity, DemoSession, Scenario, DemoResult } from "@/lib/demo";
+
+const WorkflowBuilder = dynamic(
+  () => import("./workflow-builder").then((module) => module.WorkflowBuilder),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="workflow-loading" role="status">
+        <LoaderCircle className="spin" size={20} /> Preparing the workflow
+        canvas…
+      </div>
+    ),
+  },
+);
 const pages = [
   { name: "Home", icon: Home },
   { name: "Conversations", icon: MessageCircle },
   { name: "Your assistant", icon: SlidersHorizontal },
+  { name: "Workflows", icon: Workflow },
   { name: "Channels", icon: Radio },
   { name: "Settings", icon: Settings },
 ] as const;
@@ -748,6 +764,32 @@ export default function Studio() {
                   Connecting a real channel will need authentication, shared
                   usage limits, durable approval records, and a provider.
                   Nothing here sends messages to real customers.
+                </p>
+              </div>
+            </>
+          )}
+          {page === "Workflows" && (
+            <>
+              <div className="page-heading workflow-page-heading">
+                <div>
+                  <span className="eyebrow">DESIGN HOW YOUR CREW HELPS</span>
+                  <h1>
+                    Your workflows<span className="green-text">.</span>
+                  </h1>
+                  <p>
+                    Connect reusable building blocks, then let safety checks
+                    review the path before anything goes live.
+                  </p>
+                </div>
+                <span className="badge neutral">Advanced builder</span>
+              </div>
+              <WorkflowBuilder />
+              <div className="info-panel workflow-info">
+                <ShieldCheck size={20} />
+                <p>
+                  This is a browser-only draft. Publishing, OpenAI, Supabase,
+                  Phorest, WhatsApp, and real calendar actions remain disabled
+                  until their credentials and tenant protections are connected.
                 </p>
               </div>
             </>

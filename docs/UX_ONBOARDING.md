@@ -14,23 +14,23 @@ Create a calm, welcoming workspace with pale backgrounds, readable rounded typog
 
 Proposed original tokens:
 
-| Token | Value | Use |
-| --- | --- | --- |
-| Canvas | `#F7F6EF` | Main background |
-| Text | `#232923` | Primary readable text |
-| Primary | `#315B48` | Main actions and active navigation |
-| Accent | `#F1DB72` | Small warm highlights |
-| Soft green | `#DDEBD9` | Gentle panels and selected states |
-| Border | `#D5DACE` | Card and input separation |
-| Card radius | 20px | Main cards |
-| Input radius | 12px | Fields |
-| Navigation | Pill-shaped | Text-labeled active state |
+| Token        | Value       | Use                                |
+| ------------ | ----------- | ---------------------------------- |
+| Canvas       | `#F7F6EF`   | Main background                    |
+| Text         | `#232923`   | Primary readable text              |
+| Primary      | `#315B48`   | Main actions and active navigation |
+| Accent       | `#F1DB72`   | Small warm highlights              |
+| Soft green   | `#DDEBD9`   | Gentle panels and selected states  |
+| Border       | `#D5DACE`   | Card and input separation          |
+| Card radius  | 20px        | Main cards                         |
+| Input radius | 12px        | Fields                             |
+| Navigation   | Pill-shaped | Text-labeled active state          |
 
 Verify contrast for each actual text/background combination; a palette does not certify accessibility. Yellow is an accent, not a default text background for small white type. Use an available properly licensed font with a reliable fallback.
 
 ## Navigation
 
-Desktop primary navigation: **Home**, **Conversations**, **Your assistant**, **Channels**, **Settings**. Keep a visible “Try your assistant” action. Mobile navigation: **Home**, **Conversations**, **Assistant**, **More**; Channels and Settings live under More. Use labels alongside icons.
+Desktop primary navigation: **Home**, **Conversations**, **Your assistant**, **Workflows**, **Channels**, **Settings**. Keep a visible “Try your assistant” action. The Workflows page begins with guided templates and exposes the advanced node canvas without implying that a local draft is live. Mobile navigation: **Home**, **Conversations**, **Assistant**, **More**; Workflows, Channels, and Settings live under More. Use labels alongside icons.
 
 Your assistant contains three plain-language sections:
 
