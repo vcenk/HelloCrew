@@ -1,6 +1,6 @@
 # Implementation verification
 
-Verified locally on 2026-10-12. This is a synthetic practice prototype, not live AI or a production security certification.
+Verified locally on 2026-10-13. This is a synthetic practice prototype, not live AI or a production security certification.
 
 ## Passed
 
@@ -18,9 +18,9 @@ Test coverage includes typed tool validation, fictional quote calculation, FAQ/h
 
 ## Browser QA: passed
 
-The production build passed the complete headless Chrome smoke flow on desktop and mobile. It covers the landing page, unauthenticated `/workspace` redirect, login page, OAuth trust copy, login mobile overflow, navigation, all deterministic conversation scenarios, approve/decline, reset/refresh, adding and approving knowledge, approved-only retrieval, using the approved FAQ in a conversation, unsafe booking-link rejection, template selection, guided node-job editing, saving to My workflows, zero-write test-plan preview, publishing a local immutable version, the advanced workflow canvas, responsive overflow checks, and browser page errors. The Google Review Assistant was also opened in the real in-app browser and its eight connected steps, disconnected Google state, review-risk fields, approval gate, and follow-up path were verified. The real browser flow confirms that `/api/demo` accepts localhost requests when Next.js listens on `0.0.0.0`.
+The production build passed the complete headless Chrome smoke flow on desktop and mobile. It covers the landing page, unauthenticated `/workspace` redirect, login page, OAuth trust copy, login mobile overflow, the four-stage Home map, grouped navigation, deep-linked section URLs, section responsibility guides, the Website Chat readiness and installation journey, interactive preview, direct channel-to-workflow navigation, all deterministic conversation scenarios, approve/decline, confirmed reset/refresh, adding and approving knowledge, approved-only retrieval, using the approved FAQ in a conversation, unsafe booking-link rejection, template selection, guided node-job editing, saving to My workflows, zero-write test-plan preview, publishing a local immutable version, the advanced workflow canvas, responsive overflow checks, and browser page errors. The Google Review Assistant was also opened in the real in-app browser and its eight connected steps, disconnected Google state, review-risk fields, approval gate, and follow-up path were verified. The real browser flow confirms that `/api/demo` accepts localhost requests when Next.js listens on `0.0.0.0`.
 
-`scripts/browser-check.mjs` contains the reproducible flow. It generated and visually reviewed desktop/mobile screenshots for the landing page, studio, conversation, approval, and workflow builder.
+`scripts/browser-check.mjs` contains the reproducible flow. It generated and visually reviewed desktop/mobile screenshots for the landing page, organized Home map, assistant knowledge, conversation, approval, workflow builder, and website channel.
 
 ## Important remaining boundaries
 

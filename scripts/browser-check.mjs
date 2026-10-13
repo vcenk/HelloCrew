@@ -57,7 +57,16 @@ await page.screenshot({
   fullPage: true,
 });
 await page
-  .getByRole("button", { name: "Try an approval", exact: false })
+  .getByRole("heading", { name: "How the parts fit together", exact: true })
+  .waitFor();
+assert.equal(await page.locator(".setup-map-card").count(), 4);
+await page
+  .getByRole("button", { name: "Conversations", exact: false })
+  .first()
+  .click();
+await page.waitForURL("**/app?section=conversations");
+await page
+  .getByRole("button", { name: "Can I book a studio visit?", exact: false })
   .click();
 await page
   .getByRole("button", { name: "Approve sample", exact: true })
@@ -88,6 +97,7 @@ assert.equal(
   await page.getByText("Approved (demo)", { exact: true }).count(),
   1,
 );
+page.once("dialog", (dialog) => dialog.accept());
 await page.getByRole("button", { name: "Start fresh", exact: false }).click();
 await page.getByText("It starts with a hello.", { exact: true }).waitFor();
 await page
@@ -181,8 +191,25 @@ await page
   .getByText("Use a full http or https link", { exact: false })
   .waitFor();
 await page.getByRole("button", { name: "Channels", exact: true }).click();
-assert.equal(await page.getByText("Not connected", { exact: true }).count(), 2);
-await page.getByRole("button", { name: "Workflows", exact: true }).click();
+await page
+  .getByRole("heading", { name: "Publish and install the website chat." })
+  .waitFor();
+await page.getByText("created-after-publish", { exact: false }).waitFor();
+await page
+  .getByRole("button", { name: "Close website chat preview", exact: true })
+  .click();
+await page
+  .getByRole("button", { name: "Show preview", exact: true })
+  .click();
+await page.waitForTimeout(400);
+await page.screenshot({
+  path: "/tmp/hellocrew-website-channel-desktop.png",
+  fullPage: true,
+});
+await page
+  .getByRole("button", { name: "Review in Workflows", exact: true })
+  .click();
+await page.waitForURL("**/app?section=workflows");
 await page.getByText("Choose the closest fit.", { exact: true }).waitFor();
 await page.screenshot({
   path: "/tmp/hellocrew-template-library-desktop.png",
@@ -219,6 +246,7 @@ await page.getByRole("button", { name: "My workflows", exact: true }).click();
 await page.getByText("Salon reception", { exact: true }).last().waitFor();
 await page.getByText("published", { exact: true }).waitFor();
 await page.getByRole("button", { name: "Settings", exact: true }).click();
+page.once("dialog", (dialog) => dialog.accept());
 await page
   .getByRole("button", { name: "Clear practice session", exact: false })
   .click();
@@ -247,6 +275,20 @@ await page.screenshot({
   path: "/tmp/hellocrew-knowledge-mobile.png",
   fullPage: true,
 });
+await page.getByRole("button", { name: "Channels", exact: true }).click();
+await page
+  .getByRole("heading", { name: "Publish and install the website chat." })
+  .waitFor();
+await page.waitForTimeout(700);
+assert.ok(
+  await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
+  ),
+);
+await page.screenshot({
+  path: "/tmp/hellocrew-website-channel-mobile.png",
+  fullPage: true,
+});
 await page.getByRole("button", { name: "Workflows", exact: true }).click();
 await page.getByRole("button", { name: "Edit information" }).click();
 await page
@@ -262,17 +304,13 @@ await page.screenshot({
   fullPage: true,
 });
 await page.getByRole("button", { name: "Home", exact: true }).click();
+await page.waitForURL("**/app");
 await page
-  .getByRole("button", { name: "Dismiss welcome", exact: true })
+  .getByRole("button", { name: /Test Review the customer experience/ })
   .click();
-assert.equal(
-  await page
-    .getByRole("button", { name: "Say your first hello", exact: false })
-    .count(),
-  0,
-);
+await page.waitForURL("**/app?section=conversations");
 await page
-  .getByRole("button", { name: "Answer a question", exact: false })
+  .getByRole("button", { name: "What are your opening hours?", exact: false })
   .click();
 await page
   .getByText("Saved sample hours: Monday–Friday, 9am–5pm", { exact: true })
@@ -304,6 +342,6 @@ await page.screenshot({
 });
 assert.deepEqual(errors, []);
 console.log(
-  "Browser QA passed: desktop/mobile, workflow canvas/save, all scenarios, approve/decline, reset, refresh, navigation, dismiss, overflow, no page errors.",
+  "Browser QA passed: desktop/mobile, organized setup map, deep-linked sections, website-channel guide, workflow canvas/save, all scenarios, approve/decline, reset, refresh, overflow, no page errors.",
 );
 await browser.close();

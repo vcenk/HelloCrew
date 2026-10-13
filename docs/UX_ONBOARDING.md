@@ -30,7 +30,20 @@ Verify contrast for each actual text/background combination; a palette does not 
 
 ## Navigation
 
-Desktop primary navigation: **Home**, **Conversations**, **Your assistant**, **Workflows**, **Channels**, **Settings**. Keep a visible “Try your assistant” action. The Workflows page separates **My workflows** from the **Template library**. Guided templates lock the safe graph and let users edit only registered job settings; the advanced canvas remains available without implying that a local draft is live. Mobile navigation: **Home**, **Conversations**, **Assistant**, **More**; Workflows, Channels, and Settings live under More. Use labels alongside icons.
+The studio follows one visible operating sequence instead of a flat list:
+
+1. **Overview — Home:** orientation, current path, and the next section. No editing or testing happens here.
+2. **Build — Your assistant:** business profile, approved knowledge, source status, and source-level retrieval checks.
+3. **Build — Workflows:** behavior rules, tool jobs, approvals, handoffs, and internal path tests.
+4. **Test — Conversations:** customer-facing prompts, final replies, activity traces, and approval moments.
+5. **Launch — Channels:** website preview, publish readiness, installation instructions, and channel status.
+6. **Manage — Settings:** practice visibility, privacy context, and disposable session controls.
+
+Desktop navigation groups those sections as Overview, Build, Test & launch, and Manage. Mobile keeps the same order in a horizontally scrollable labeled navigation. The selected section is reflected in the `section` query parameter so refresh, browser back, and shared links retain context.
+
+Every working section begins with a compact definition of its job, what belongs there, what stays elsewhere, and the next handoff. Cross-links navigate to the owning section; they do not reproduce another section’s controls.
+
+The Workflows page separates **My workflows** from the **Template library**. Guided templates lock the safe graph and let users edit only registered job settings; the advanced canvas remains available without implying that a local draft is live.
 
 The Google Review Assistant starter exposes business locations, reply voice, languages, risk rules, and follow-up timing. It labels Google Business Profile as disconnected until OAuth and API access are complete. All public replies require review of the exact proposed text; low ratings and sensitive topics create internal dashboard tasks rather than implying a private Google conversation.
 
@@ -44,12 +57,12 @@ Technical model, tracing, persistence, and adapter settings belong under Advance
 
 ## First home screen
 
-Lead with “Let's get your assistant ready” and one recommended next action. A compact checklist guides the owner through:
+Home is the product map, not a second workspace. It shows one recommended action and a four-stage sequence:
 
-1. Add your business information.
-2. Add a few common questions.
-3. Try a practice conversation.
-4. Connect your website when the live prerequisites are ready.
+1. **Teach:** create trusted answers in Your assistant.
+2. **Design:** define behavior rules in Workflows.
+3. **Test:** review customer-facing results in Conversations.
+4. **Launch:** publish and install through Channels.
 
 Do not mark a step complete because a user opened its page. Completion reflects validated saved data or a completed practice task. A live connection step stays visibly locked with the actual missing requirements.
 
@@ -81,7 +94,9 @@ A visitor sees the business assistant, an AI disclosure, relevant privacy inform
 
 ## Channels screen
 
-Web is the first channel. Show Draft, Demo, Ready to connect, Live, Paused, or Needs attention based on real state. WhatsApp and Phone appear as “Planned” with a short explanation and no working Connect button. Do not invent account links or claim a number is connected.
+Web is the first channel. Channels owns delivery only: the widget preview, readiness summary, publishing, installation, and live verification. Knowledge, workflow, and conversation readiness appear as compact prerequisites with links back to their owning sections; their editors are not repeated here.
+
+The implemented practice screen shows the future channel-specific sequence—publish a safe version, create an installation ID, add the snippet, and verify the widget. It includes an interactive preview and an example embed snippet labeled “Not installable yet.” All four installation steps stay locked until the secure visitor-session and installation backend exists. WhatsApp and Phone appear as later work with short explanations and no working Connect button. Do not invent account links or claim a number is connected.
 
 ## States and accessibility
 

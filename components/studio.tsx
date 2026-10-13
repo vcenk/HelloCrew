@@ -1,12 +1,10 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   ArrowUpRight,
   ArrowRight,
-  Check,
-  ChevronRight,
   Home,
   MessageCircle,
   SlidersHorizontal,
@@ -19,15 +17,12 @@ import {
   CalendarDays,
   Calculator,
   UserRound,
-  Globe,
-  Phone,
-  X,
   LoaderCircle,
   Workflow,
 } from "lucide-react";
 import { KnowledgeManager } from "./knowledge-manager";
+import { WebsiteChatGuide } from "./website-chat-guide";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
-import { readiness } from "@/lib/readiness";
 import { Brand, Buddy } from "./brand";
 import type { Activity, DemoSession, Scenario, DemoResult } from "@/lib/demo";
 
@@ -43,15 +38,188 @@ const WorkflowBuilder = dynamic(
     ),
   },
 );
-const pages = [
-  { name: "Home", icon: Home },
-  { name: "Conversations", icon: MessageCircle },
-  { name: "Your assistant", icon: SlidersHorizontal },
-  { name: "Workflows", icon: Workflow },
-  { name: "Channels", icon: Radio },
-  { name: "Settings", icon: Settings },
+const navGroups = [
+  {
+    label: "Overview",
+    items: [{ name: "Home", icon: Home }],
+  },
+  {
+    label: "Build",
+    items: [
+      { name: "Your assistant", icon: SlidersHorizontal },
+      { name: "Workflows", icon: Workflow },
+    ],
+  },
+  {
+    label: "Test & launch",
+    items: [
+      { name: "Conversations", icon: MessageCircle },
+      { name: "Channels", icon: Radio },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [{ name: "Settings", icon: Settings }],
+  },
 ] as const;
-type Page = (typeof pages)[number]["name"];
+type Page = (typeof navGroups)[number]["items"][number]["name"];
+
+const pageSlugs: Record<Page, string> = {
+  Home: "home",
+  "Your assistant": "assistant",
+  Workflows: "workflows",
+  Conversations: "conversations",
+  Channels: "channels",
+  Settings: "settings",
+};
+
+function pageFromUrl(): Page {
+  const slug = new URLSearchParams(window.location.search).get("section");
+  return (
+    (Object.entries(pageSlugs).find(([, value]) => value === slug)?.[0] as
+      | Page
+      | undefined) ?? "Home"
+  );
+}
+
+const pageMeta: Record<Page, { phase: string; purpose: string }> = {
+  Home: {
+    phase: "Overview",
+    purpose: "See the whole setup path and choose the next section.",
+  },
+  "Your assistant": {
+    phase: "Build · 1 of 2",
+    purpose: "Define the business facts and sources the assistant can trust.",
+  },
+  Workflows: {
+    phase: "Build · 2 of 2",
+    purpose: "Define the rules, approvals, and handoffs behind each task.",
+  },
+  Conversations: {
+    phase: "Test",
+    purpose: "Review the customer-facing answer and the steps behind it.",
+  },
+  Channels: {
+    phase: "Launch",
+    purpose: "Preview, publish, and install the assistant where customers visit.",
+  },
+  Settings: {
+    phase: "Manage",
+    purpose: "Control this practice studio and clear its temporary data.",
+  },
+};
+
+const setupPath: {
+  step: string;
+  verb: string;
+  page: Page;
+  title: string;
+  description: string;
+  outcome: string;
+  icon: typeof Home;
+}[] = [
+  {
+    step: "01",
+    verb: "Teach",
+    page: "Your assistant",
+    title: "Create the source of truth",
+    description: "Add business details and approve the knowledge it may use.",
+    outcome: "Output: trusted answers",
+    icon: SlidersHorizontal,
+  },
+  {
+    step: "02",
+    verb: "Design",
+    page: "Workflows",
+    title: "Choose how it should help",
+    description: "Arrange tasks, safety checks, approvals, and human handoffs.",
+    outcome: "Output: clear behavior rules",
+    icon: Workflow,
+  },
+  {
+    step: "03",
+    verb: "Test",
+    page: "Conversations",
+    title: "Review the customer experience",
+    description: "Ask sample questions and inspect the answer and activity trace.",
+    outcome: "Output: reviewed conversations",
+    icon: MessageCircle,
+  },
+  {
+    step: "04",
+    verb: "Launch",
+    page: "Channels",
+    title: "Put it on your website",
+    description: "Preview the widget and follow publishing and installation steps.",
+    outcome: "Output: an installed channel",
+    icon: Radio,
+  },
+];
+
+const sectionDefinitions = {
+  "Your assistant": {
+    job: "Source of truth",
+    work: "Business profile, knowledge sources, approval status, and source checks.",
+    boundary: "Rules and customer conversations stay in their own sections.",
+    next: "Workflows" as Page,
+    nextLabel: "Define behavior",
+  },
+  Workflows: {
+    job: "Behavior rules",
+    work: "Steps, tool jobs, approvals, handoffs, and internal path tests.",
+    boundary: "Customer-facing reply quality is reviewed in Conversations.",
+    next: "Conversations" as Page,
+    nextLabel: "Test conversations",
+  },
+  Conversations: {
+    job: "Customer experience test",
+    work: "Sample prompts, final replies, activity traces, and approval moments.",
+    boundary: "Edit source facts in Your assistant and logic in Workflows.",
+    next: "Channels" as Page,
+    nextLabel: "Prepare a channel",
+  },
+  Channels: {
+    job: "Delivery & installation",
+    work: "Widget preview, publish readiness, embed instructions, and channel status.",
+    boundary: "Knowledge and workflow tools are linked here, not duplicated here.",
+  },
+  Settings: {
+    job: "Studio controls",
+    work: "Practice visibility, privacy context, and disposable session data.",
+    boundary: "Assistant content, workflow logic, and installation do not live here.",
+  },
+} as const;
+
+function SectionDefinition({
+  page,
+  onNavigate,
+}: {
+  page: keyof typeof sectionDefinitions;
+  onNavigate: (target: Page) => void;
+}) {
+  const definition = sectionDefinitions[page];
+  return (
+    <section className="section-definition" aria-label={`${page} section guide`}>
+      <div>
+        <span>SECTION JOB</span>
+        <strong>{definition.job}</strong>
+      </div>
+      <div>
+        <span>WORK HERE</span>
+        <p>{definition.work}</p>
+      </div>
+      <div>
+        <span>KEEP SEPARATE</span>
+        <p>{definition.boundary}</p>
+      </div>
+      {"next" in definition && (
+        <button type="button" onClick={() => onNavigate(definition.next)}>
+          {definition.nextLabel} <ArrowRight size={15} />
+        </button>
+      )}
+    </section>
+  );
+}
 type Message = {
   role: "customer" | "assistant";
   text: string;
@@ -113,10 +281,30 @@ export default function Studio() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [showWelcome, setShowWelcome] = useState(true);
   const [activityOpen, setActivityOpen] = useState(true);
   const lock = useRef(false);
   const end = useRef<HTMLDivElement>(null);
+  const navigationStarted = useRef(false);
+  useEffect(() => {
+    const initialFrame = window.requestAnimationFrame(() => {
+      if (!navigationStarted.current) setPage(pageFromUrl());
+    });
+    const handleHistory = () => setPage(pageFromUrl());
+    window.addEventListener("popstate", handleHistory);
+    return () => {
+      window.cancelAnimationFrame(initialFrame);
+      window.removeEventListener("popstate", handleHistory);
+    };
+  }, []);
+  function navigate(target: Page) {
+    if (target === page) return;
+    navigationStarted.current = true;
+    setPage(target);
+    const url = new URL(window.location.href);
+    if (target === "Home") url.searchParams.delete("section");
+    else url.searchParams.set("section", pageSlugs[target]);
+    window.history.pushState({}, "", url);
+  }
   async function run(
     scenario?: Scenario,
     decision?: { id: string; value: "approve" | "reject" },
@@ -128,7 +316,7 @@ export default function Studio() {
     lock.current = true;
     setBusy(true);
     setError("");
-    setPage("Conversations");
+    navigate("Conversations");
     const current = session ?? fresh();
     setSession(current);
     if (scenario) {
@@ -187,6 +375,13 @@ export default function Studio() {
   }
   function reset() {
     if (busy) return;
+    if (
+      messages.length > 0 &&
+      !window.confirm(
+        "Clear this disposable practice conversation and its sample approvals?",
+      )
+    )
+      return;
     setSession(fresh());
     setMessages([]);
     setDraftMessage("");
@@ -196,6 +391,9 @@ export default function Studio() {
     session?.approvals.filter((a) => a.status === "pending") ?? [];
   return (
     <div className="studio-shell">
+      <a className="skip-link" href="#studio-main-content">
+        Skip to main content
+      </a>
       <aside className="sidebar">
         <Link href="/" className="sidebar-brand">
           <Brand />
@@ -209,21 +407,27 @@ export default function Studio() {
           <span className="badge">Demo</span>
         </div>
         <nav aria-label="Studio navigation">
-          {pages.map((p) => (
-            <button
-              key={p.name}
-              className={page === p.name ? "active" : ""}
-              onClick={() => setPage(p.name)}
-              aria-current={page === p.name ? "page" : undefined}
-            >
-              <p.icon size={20} />
-              {p.name}
-              {p.name === "Conversations" && messages.length > 0 && (
-                <span className="nav-count">
-                  {messages.filter((m) => m.role === "customer").length}
-                </span>
-              )}
-            </button>
+          {navGroups.map((group) => (
+            <div className="sidebar-nav-group" key={group.label}>
+              <span className="sidebar-nav-label">{group.label}</span>
+              {group.items.map((item) => (
+                <button
+                  type="button"
+                  key={item.name}
+                  className={page === item.name ? "active" : ""}
+                  onClick={() => navigate(item.name)}
+                  aria-current={page === item.name ? "page" : undefined}
+                >
+                  <item.icon size={20} aria-hidden="true" />
+                  {item.name}
+                  {item.name === "Conversations" && messages.length > 0 && (
+                    <span className="nav-count">
+                      {messages.filter((m) => m.role === "customer").length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -240,7 +444,10 @@ export default function Studio() {
       </aside>
       <div className="studio-main">
         <header className="studio-header">
-          <span>{page}</span>
+          <div className="studio-location">
+            <span>{pageMeta[page].phase}</span>
+            <strong>{page}</strong>
+          </div>
           <div>
             <span className="badge">
               <span className="dot" /> Practice mode
@@ -248,7 +455,7 @@ export default function Studio() {
             <span className="avatar">You</span>
           </div>
         </header>
-        <main className="studio-content">
+        <main className="studio-content" id="studio-main-content" tabIndex={-1}>
           <div className="demo-notice">
             <ShieldCheck size={17} />
             <span>
@@ -260,107 +467,76 @@ export default function Studio() {
             <>
               <div className="page-heading">
                 <div>
-                  <span className="eyebrow">YOUR LITTLE HELPING HAND</span>
+                  <span className="eyebrow">YOUR HELLOCREW MAP</span>
                   <h1>
-                    Welcome to your crew<span className="green-text">.</span>
+                    One clear path from facts to website
+                    <span className="green-text">.</span>
                   </h1>
-                  <p>Let’s see what a little help could look like.</p>
+                  <p>{pageMeta.Home.purpose}</p>
                 </div>
                 <span className="heading-flower">✳</span>
               </div>
-              {showWelcome && (
-                <section className="welcome-card">
+              <section className="welcome-card overview-welcome">
+                <div>
+                  <span className="badge pale">Start with the source of truth</span>
+                  <h2>
+                    Build once.
+                    <br />
+                    Move forward with confidence.
+                  </h2>
+                  <p>
+                    Each section owns one part of the assistant. Follow the four
+                    stages below; return here whenever you need orientation.
+                  </p>
                   <button
-                    className="icon-button dismiss"
-                    aria-label="Dismiss welcome"
-                    onClick={() => setShowWelcome(false)}
+                    type="button"
+                    className="button dark"
+                    onClick={() => navigate("Your assistant")}
                   >
-                    <X size={18} />
+                    Start with Your assistant <ArrowRight size={18} />
                   </button>
-                  <div>
-                    <span className="badge pale">
-                      Start here · about 1 minute
-                    </span>
-                    <h2>
-                      Meet your assistant.
-                      <br />
-                      Try a conversation.
-                    </h2>
-                    <p>
-                      Choose a sample question. Your assistant will find an
-                      answer, show its work, and check with you before the next
-                      step.
-                    </p>
-                    <button
-                      className="button dark"
-                      onClick={() => run("hours")}
-                    >
-                      Say your first hello <ArrowRight size={18} />
-                    </button>
-                  </div>
-                  <div className="welcome-art">
-                    <Buddy />
-                    <span className="welcome-spark">✦</span>
-                  </div>
-                </section>
-              )}
+                </div>
+                <div className="welcome-art">
+                  <Buddy />
+                  <span className="welcome-spark">✦</span>
+                </div>
+              </section>
               <div className="section-heading">
-                <h2>A few things to try</h2>
-                <span>No setup needed</span>
+                <h2>How the parts fit together</h2>
+                <span>Follow from left to right</span>
               </div>
-              <div className="scenario-grid">
-                {scenarios.map((s) => (
-                  <button
-                    key={s.id}
-                    className="scenario-card"
-                    onClick={() => run(s.id)}
-                    disabled={busy}
-                  >
-                    <span className={`scenario-icon ${s.id}`}>
-                      <s.icon size={22} />
-                    </span>
-                    <h3>{s.label}</h3>
-                    <p>{s.description}</p>
-                    <span className="scenario-bottom">
-                      Try it out <ArrowUpRight size={19} />
-                    </span>
-                  </button>
+              <ol className="setup-map">
+                {setupPath.map((item) => (
+                  <li key={item.step}>
+                    <button
+                      type="button"
+                      className="setup-map-card"
+                      onClick={() => navigate(item.page)}
+                    >
+                      <span className="setup-map-topline">
+                        <span>{item.step}</span>
+                        <item.icon size={19} aria-hidden="true" />
+                      </span>
+                      <span className="setup-map-verb">{item.verb}</span>
+                      <strong>{item.title}</strong>
+                      <p>{item.description}</p>
+                      <span className="setup-map-outcome">
+                        {item.outcome} <ArrowRight size={15} />
+                      </span>
+                    </button>
+                  </li>
                 ))}
-              </div>
-              <div className="home-bottom">
-                <section className="simple-card">
-                  <span className="card-icon">
-                    <Radio size={20} />
-                  </span>
-                  <h3>One home. A few ways to say hello.</h3>
+              </ol>
+              <section className="home-boundary-note">
+                <ShieldCheck size={20} aria-hidden="true" />
+                <div>
+                  <strong>Home is your map, not another workspace.</strong>
                   <p>
-                    The website demo is ready to explore. WhatsApp and phone are
-                    future connections.
+                    Create and edit inside the four sections above. Use Settings
+                    only for practice controls and temporary session data.
                   </p>
-                  <button
-                    className="text-link"
-                    onClick={() => setPage("Channels")}
-                  >
-                    Explore channels <ArrowRight size={16} />
-                  </button>
-                </section>
-                <section className="simple-card">
-                  <span className="card-icon">
-                    <ShieldCheck size={20} />
-                  </span>
-                  <h3>You’re in the driver’s seat.</h3>
-                  <p>
-                    See which tools are used, review sample approvals, and start
-                    over whenever you like.
-                  </p>
-                  <button
-                    className="text-link"
-                    onClick={() => setPage("Your assistant")}
-                  >
-                    Meet your assistant <ArrowRight size={16} />
-                  </button>
-                </section>
-              </div>
+                </div>
+              </section>
             </>
           )}
           {page === "Conversations" && (
@@ -384,6 +560,7 @@ export default function Studio() {
                   <RotateCcw size={16} /> Start fresh
                 </button>
               </div>
+              <SectionDefinition page="Conversations" onNavigate={navigate} />
               <div className="conversation-layout">
                 <section className="conversation-card">
                   <div className="conversation-top">
@@ -613,6 +790,7 @@ export default function Studio() {
                   <p>Curate the facts your future crew is allowed to use.</p>
                 </div>
               </div>
+              <SectionDefinition page="Your assistant" onNavigate={navigate} />
               <div className="assistant-overview">
                 <span className="assistant-portrait">✳</span>
                 <div>
@@ -625,74 +803,11 @@ export default function Studio() {
                   </p>
                 </div>
               </div>
-              <section className="simple-card readiness-card">
-                <span className="badge">{readiness.label}</span>
-                <h2>Your next steps</h2>
-                <ol>
-                  {readiness.steps.map((step) => (
-                    <li key={step}>{step}</li>
-                  ))}
-                </ol>
-                <p>
-                  Supabase credentials are configured locally, but tenant-safe
-                  persistence stays off until authentication and RLS policies
-                  are installed and verified.
-                </p>
-              </section>
               <KnowledgeManager
                 business={business}
                 disabled={busy}
                 onSave={setBusiness}
               />
-              <div className="settings-grid">
-                <section className="simple-card">
-                  <h3>What it knows</h3>
-                  <dl>
-                    <dt>Example business</dt>
-                    <dd>{business.name}</dd>
-                    <dt>Sample hours</dt>
-                    <dd>{business.hours}</dd>
-                    <dt>Sample service</dt>
-                    <dd>
-                      {business.services
-                        .map((s) => `${s.name}: ${s.price}`)
-                        .join(" · ")}
-                    </dd>
-                  </dl>
-                </section>
-                <section className="simple-card">
-                  <h3>What it can do here</h3>
-                  <ul className="check-list">
-                    <li>
-                      <Check /> Look up a sample FAQ
-                    </li>
-                    <li>
-                      <Check /> Read a sample service price
-                    </li>
-                    <li>
-                      <Check /> Ask for a practice approval
-                    </li>
-                    <li>
-                      <Check /> Prepare a sample handoff
-                    </li>
-                  </ul>
-                </section>
-                <section className="simple-card wide">
-                  <h3>Under the friendly surface</h3>
-                  <p>
-                    A real LangGraph StateGraph connects a deterministic
-                    practice provider and typed tools. It does not call a
-                    language model. Conservative free-text matching shows the
-                    workflow without needing an API key.
-                  </p>
-                  <button
-                    className="button dark compact"
-                    onClick={() => setPage("Conversations")}
-                  >
-                    Try a conversation <ArrowRight size={16} />
-                  </button>
-                </section>
-              </div>
             </>
           )}
           {page === "Channels" && (
@@ -708,63 +823,11 @@ export default function Studio() {
                   </p>
                 </div>
               </div>
-              <div className="channel-list">
-                {[
-                  {
-                    icon: Globe,
-                    name: "Website",
-                    status: "Practice available",
-                    text: "Explore the sample conversation in this app. A customer-facing embed is not connected.",
-                    ready: true,
-                  },
-                  {
-                    icon: MessageCircle,
-                    name: "WhatsApp",
-                    status: "Not connected",
-                    text: "Future adapter. No WhatsApp account or messaging service is connected.",
-                    ready: false,
-                  },
-                  {
-                    icon: Phone,
-                    name: "Phone",
-                    status: "Not connected",
-                    text: "Future adapter. No number, calling service, or voice provider is connected.",
-                    ready: false,
-                  },
-                ].map((c) => (
-                  <section className="channel-card" key={c.name}>
-                    <span className="channel-icon">
-                      <c.icon size={25} />
-                    </span>
-                    <div>
-                      <h2>{c.name}</h2>
-                      <p>{c.text}</p>
-                    </div>
-                    <span className={`badge ${!c.ready ? "neutral" : ""}`}>
-                      {c.status}
-                    </span>
-                    {c.ready ? (
-                      <button
-                        className="icon-button"
-                        aria-label="Try website demo"
-                        onClick={() => setPage("Conversations")}
-                      >
-                        <ChevronRight />
-                      </button>
-                    ) : (
-                      <span className="future-label">Later</span>
-                    )}
-                  </section>
-                ))}
-              </div>
-              <div className="info-panel">
-                <ShieldCheck size={20} />
-                <p>
-                  Connecting a real channel will need authentication, shared
-                  usage limits, durable approval records, and a provider.
-                  Nothing here sends messages to real customers.
-                </p>
-              </div>
+              <SectionDefinition page="Channels" onNavigate={navigate} />
+              <WebsiteChatGuide
+                businessName={business.name}
+                onNavigate={navigate}
+              />
             </>
           )}
           {page === "Workflows" && (
@@ -782,6 +845,7 @@ export default function Studio() {
                 </div>
                 <span className="badge neutral">Templates + builder</span>
               </div>
+              <SectionDefinition page="Workflows" onNavigate={navigate} />
               <WorkflowBuilder />
               <div className="info-panel workflow-info">
                 <ShieldCheck size={20} />
@@ -804,6 +868,7 @@ export default function Studio() {
                   <p>Your demo, your pace.</p>
                 </div>
               </div>
+              <SectionDefinition page="Settings" onNavigate={navigate} />
               <div className="settings-grid">
                 <section className="simple-card">
                   <h3>Practice mode</h3>
@@ -812,18 +877,6 @@ export default function Studio() {
                     No login, API key, model usage, or paid service is needed for
                     this practice area. Live AI is deliberately disabled.
                   </p>
-                </section>
-                <section className="simple-card">
-                  <h3>Owner workspace</h3>
-                  <span className="badge neutral">Supabase foundation</span>
-                  <p>
-                    Approved owners can sign in with Google to verify their
-                    protected tenant workspace. Practice drafts remain local
-                    until durable saves are connected.
-                  </p>
-                  <Link className="button outline compact" href="/workspace">
-                    Owner sign in <ArrowUpRight size={15} />
-                  </Link>
                 </section>
                 <section className="simple-card">
                   <h3>Privacy by simplicity</h3>

@@ -1,6 +1,6 @@
 # Channel integration roadmap
 
-Status: web demo is the first planned channel. WhatsApp and Phone are future disabled adapters. No phone number, messaging account, or external channel has been connected.
+Status: the in-app web practice channel and guided installation preview are implemented. The preview does not create a site installation or load on an external website. WhatsApp and Phone are future disabled adapters. No phone number, messaging account, or external channel has been connected.
 
 ## Shared channel contract
 
@@ -12,7 +12,7 @@ Preserve received, accepted, sent, delivered, failed, and unknown states where s
 
 ## Stage 1 Web demo
 
-Provide a practice conversation in the HelloCrew application with synthetic data and no authentication requirement. Demonstrate grounded answers, booking-link behavior, simulated actions, and handoff. Maintain visible demo labels on desktop and mobile. No embedded production widget, external outbound messages, or live customer data is required.
+Provide a practice conversation in the HelloCrew application with synthetic data and no authentication requirement. Demonstrate grounded answers, booking-link behavior, simulated actions, and handoff. Maintain visible demo labels on desktop and mobile. Guide the owner from knowledge and workflows into conversation testing, and show how a future one-script installation will work without issuing a real installation ID. No embedded production widget, external outbound messages, or live customer data is required.
 
 ## Stage 2 Live web pilot
 
