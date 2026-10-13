@@ -20,7 +20,7 @@ import {
   LoaderCircle,
   Workflow,
 } from "lucide-react";
-import { KnowledgeManager } from "./knowledge-manager";
+import { AssistantSetup } from "./knowledge-manager";
 import { WebsiteChatGuide } from "./website-chat-guide";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
 import { Brand, Buddy } from "./brand";
@@ -77,8 +77,7 @@ function pageFromUrl(): Page {
   const slug = new URLSearchParams(window.location.search).get("section");
   return (
     (Object.entries(pageSlugs).find(([, value]) => value === slug)?.[0] as
-      | Page
-      | undefined) ?? "Home"
+      Page | undefined) ?? "Home"
   );
 }
 
@@ -89,7 +88,8 @@ const pageMeta: Record<Page, { phase: string; purpose: string }> = {
   },
   "Your assistant": {
     phase: "Build · 1 of 2",
-    purpose: "Define the business facts and sources the assistant can trust.",
+    purpose:
+      "Define who the assistant is, who it represents, and which facts it may use.",
   },
   Workflows: {
     phase: "Build · 2 of 2",
@@ -101,7 +101,8 @@ const pageMeta: Record<Page, { phase: string; purpose: string }> = {
   },
   Channels: {
     phase: "Launch",
-    purpose: "Preview, publish, and install the assistant where customers visit.",
+    purpose:
+      "Preview, publish, and install the assistant where customers visit.",
   },
   Settings: {
     phase: "Manage",
@@ -122,9 +123,10 @@ const setupPath: {
     step: "01",
     verb: "Teach",
     page: "Your assistant",
-    title: "Create the source of truth",
-    description: "Add business details and approve the knowledge it may use.",
-    outcome: "Output: trusted answers",
+    title: "Build the assistant foundation",
+    description:
+      "Set its identity, add business context, and approve the knowledge it may use.",
+    outcome: "Output: a grounded assistant",
     icon: SlidersHorizontal,
   },
   {
@@ -141,7 +143,8 @@ const setupPath: {
     verb: "Test",
     page: "Conversations",
     title: "Review the customer experience",
-    description: "Ask sample questions and inspect the answer and activity trace.",
+    description:
+      "Ask sample questions and inspect the answer and activity trace.",
     outcome: "Output: reviewed conversations",
     icon: MessageCircle,
   },
@@ -150,7 +153,8 @@ const setupPath: {
     verb: "Launch",
     page: "Channels",
     title: "Put it on your website",
-    description: "Preview the widget and follow publishing and installation steps.",
+    description:
+      "Preview the widget and follow publishing and installation steps.",
     outcome: "Output: an installed channel",
     icon: Radio,
   },
@@ -158,9 +162,9 @@ const setupPath: {
 
 const sectionDefinitions = {
   "Your assistant": {
-    job: "Source of truth",
-    work: "Business profile, knowledge sources, approval status, and source checks.",
-    boundary: "Rules and customer conversations stay in their own sections.",
+    job: "Assistant foundation",
+    work: "Identity, business profile, approved knowledge, and source checks.",
+    boundary: "Behavior rules and customer replies stay in their own sections.",
     next: "Workflows" as Page,
     nextLabel: "Define behavior",
   },
@@ -181,12 +185,14 @@ const sectionDefinitions = {
   Channels: {
     job: "Delivery & installation",
     work: "Widget preview, publish readiness, embed instructions, and channel status.",
-    boundary: "Knowledge and workflow tools are linked here, not duplicated here.",
+    boundary:
+      "Knowledge and workflow tools are linked here, not duplicated here.",
   },
   Settings: {
     job: "Studio controls",
     work: "Practice visibility, privacy context, and disposable session data.",
-    boundary: "Assistant content, workflow logic, and installation do not live here.",
+    boundary:
+      "Assistant content, workflow logic, and installation do not live here.",
   },
 } as const;
 
@@ -199,7 +205,10 @@ function SectionDefinition({
 }) {
   const definition = sectionDefinitions[page];
   return (
-    <section className="section-definition" aria-label={`${page} section guide`}>
+    <section
+      className="section-definition"
+      aria-label={`${page} section guide`}
+    >
       <div>
         <span>SECTION JOB</span>
         <strong>{definition.job}</strong>
@@ -478,7 +487,9 @@ export default function Studio() {
               </div>
               <section className="welcome-card overview-welcome">
                 <div>
-                  <span className="badge pale">Start with the source of truth</span>
+                  <span className="badge pale">
+                    Start with the assistant foundation
+                  </span>
                   <h2>
                     Build once.
                     <br />
@@ -787,23 +798,14 @@ export default function Studio() {
                   <h1>
                     Your assistant<span className="green-text">.</span>
                   </h1>
-                  <p>Curate the facts your future crew is allowed to use.</p>
-                </div>
-              </div>
-              <SectionDefinition page="Your assistant" onNavigate={navigate} />
-              <div className="assistant-overview">
-                <span className="assistant-portrait">✳</span>
-                <div>
-                  <span className="badge">Practice assistant</span>
-                  <h2>Friendly. Clear. Careful.</h2>
                   <p>
-                    Answers only from approved business knowledge. Drafts and
-                    outdated sources stay out of retrieval, while risky actions
-                    still wait for approval.
+                    Define who it is, who it represents, and what it is allowed
+                    to know.
                   </p>
                 </div>
               </div>
-              <KnowledgeManager
+              <SectionDefinition page="Your assistant" onNavigate={navigate} />
+              <AssistantSetup
                 business={business}
                 disabled={busy}
                 onSave={setBusiness}
@@ -874,8 +876,8 @@ export default function Studio() {
                   <h3>Practice mode</h3>
                   <span className="badge">Always on in this version</span>
                   <p>
-                    No login, API key, model usage, or paid service is needed for
-                    this practice area. Live AI is deliberately disabled.
+                    No login, API key, model usage, or paid service is needed
+                    for this practice area. Live AI is deliberately disabled.
                   </p>
                 </section>
                 <section className="simple-card">

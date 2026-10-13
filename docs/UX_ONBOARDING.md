@@ -33,7 +33,7 @@ Verify contrast for each actual text/background combination; a palette does not 
 The studio follows one visible operating sequence instead of a flat list:
 
 1. **Overview — Home:** orientation, current path, and the next section. No editing or testing happens here.
-2. **Build — Your assistant:** business profile, approved knowledge, source status, and source-level retrieval checks.
+2. **Build — Your assistant:** assistant identity, business profile, approved knowledge, source status, and source-level retrieval checks.
 3. **Build — Workflows:** behavior rules, tool jobs, approvals, handoffs, and internal path tests.
 4. **Test — Conversations:** customer-facing prompts, final replies, activity traces, and approval moments.
 5. **Launch — Channels:** website preview, publish readiness, installation instructions, and channel status.
@@ -47,11 +47,13 @@ The Workflows page separates **My workflows** from the **Template library**. Gui
 
 The Google Review Assistant starter exposes business locations, reply voice, languages, risk rules, and follow-up timing. It labels Google Business Profile as disconnected until OAuth and API access are complete. All public replies require review of the exact proposed text; low ratings and sensitive topics create internal dashboard tasks rather than implying a private Google conversation.
 
-Your assistant contains a business knowledge manager plus three plain-language sections. The manager separates draft, approved, and outdated sources; shows EN/FA/ZH coverage; previews small uploads; and includes an approved-only retrieval test before any AI is enabled.
+Your assistant is organized as three visible setup steps with separate ownership:
 
-- **What it knows:** Business details and approved FAQs.
-- **How it speaks:** Name, greeting, tone, and response examples.
-- **What it can do:** Available tools, permission rules, booking link, and human handoff.
+- **Identity — who speaks:** assistant name, primary role, visitor greeting, voice, and the safe response used when no approved answer exists.
+- **Business profile — who it represents:** public business name, factual description, and optional booking destination. The summary points to operational facts without duplicating their editor.
+- **Knowledge — what it may use:** hours, services, FAQs, policies, and document previews. It separates draft, approved, and outdated sources; shows EN/FA/ZH coverage; and includes an approved-only retrieval test before any AI is enabled.
+
+Behavior, tools, permissions, approvals, and handoff rules belong to **Workflows**. End-to-end customer replies belong to **Conversations**. This prevents identity, facts, and actions from being edited in overlapping places.
 
 Technical model, tracing, persistence, and adapter settings belong under Advanced. Do not require a beginner to understand an orchestration framework to configure their business.
 
@@ -59,7 +61,7 @@ Technical model, tracing, persistence, and adapter settings belong under Advance
 
 Home is the product map, not a second workspace. It shows one recommended action and a four-stage sequence:
 
-1. **Teach:** create trusted answers in Your assistant.
+1. **Teach:** define identity, business context, and trusted answers in Your assistant.
 2. **Design:** define behavior rules in Workflows.
 3. **Test:** review customer-facing results in Conversations.
 4. **Launch:** publish and install through Channels.

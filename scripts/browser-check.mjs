@@ -126,6 +126,45 @@ await page
   )
   .waitFor();
 await page.getByRole("button", { name: "Your assistant", exact: true }).click();
+await page
+  .getByRole("heading", { name: "Assistant identity", exact: true })
+  .waitFor();
+await page.screenshot({
+  path: "/tmp/hellocrew-assistant-identity-desktop.png",
+  fullPage: true,
+});
+await page
+  .getByRole("button", {
+    name: "Save & continue to Business profile",
+    exact: true,
+  })
+  .click();
+await page
+  .getByRole("heading", { name: "Business profile", exact: true })
+  .waitFor();
+await page.screenshot({
+  path: "/tmp/hellocrew-business-profile-desktop.png",
+  fullPage: true,
+});
+await page.locator('input[name="booking-url"]').fill("javascript:alert(1)");
+await page
+  .getByRole("button", {
+    name: "Save & continue to Knowledge",
+    exact: true,
+  })
+  .click();
+await page
+  .getByText("Use a full http or https link", { exact: false })
+  .waitFor();
+await page
+  .locator('input[name="booking-url"]')
+  .fill("https://example.com/book");
+await page
+  .getByRole("button", {
+    name: "Save & continue to Knowledge",
+    exact: true,
+  })
+  .click();
 await page.getByText("Business knowledge", { exact: true }).waitFor();
 await page.getByRole("button", { name: "Test retrieval", exact: true }).click();
 await page.getByText("Exact approved FAQ", { exact: false }).waitFor();
@@ -177,19 +216,6 @@ await page
 await page
   .getByText("I don’t have a matching answer", { exact: false })
   .waitFor();
-await page.getByRole("button", { name: "Your assistant", exact: true }).click();
-await page
-  .getByText("Business profile and booking link", { exact: true })
-  .click();
-await page
-  .getByLabel("Booking link", { exact: true })
-  .fill("javascript:alert(1)");
-await page
-  .getByRole("button", { name: "Save business profile", exact: true })
-  .click();
-await page
-  .getByText("Use a full http or https link", { exact: false })
-  .waitFor();
 await page.getByRole("button", { name: "Channels", exact: true }).click();
 await page
   .getByRole("heading", { name: "Publish and install the website chat." })
@@ -198,9 +224,7 @@ await page.getByText("created-after-publish", { exact: false }).waitFor();
 await page
   .getByRole("button", { name: "Close website chat preview", exact: true })
   .click();
-await page
-  .getByRole("button", { name: "Show preview", exact: true })
-  .click();
+await page.getByRole("button", { name: "Show preview", exact: true }).click();
 await page.waitForTimeout(400);
 await page.screenshot({
   path: "/tmp/hellocrew-website-channel-desktop.png",
@@ -265,14 +289,16 @@ await page.screenshot({
   fullPage: true,
 });
 await page.getByRole("button", { name: "Your assistant", exact: true }).click();
-await page.getByText("Business knowledge", { exact: true }).waitFor();
+await page
+  .getByRole("heading", { name: "Assistant identity", exact: true })
+  .waitFor();
 assert.ok(
   await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
   ),
 );
 await page.screenshot({
-  path: "/tmp/hellocrew-knowledge-mobile.png",
+  path: "/tmp/hellocrew-assistant-identity-mobile.png",
   fullPage: true,
 });
 await page.getByRole("button", { name: "Channels", exact: true }).click();
