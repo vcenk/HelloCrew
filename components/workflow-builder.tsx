@@ -73,6 +73,14 @@ import {
   type WorkflowKind,
   type WorkflowTemplate,
 } from "@/lib/workflow";
+import {
+  getAssistantPurposePreset,
+  type AssistantPurpose,
+} from "@/lib/assistant";
+import {
+  getWorkflowRecommendations,
+  type WorkflowRecommendation,
+} from "@/lib/workflow-recommendations";
 
 type CanvasData = {
   kind: WorkflowKind;
@@ -821,13 +829,17 @@ function BuilderCanvas({
 
 function TemplateCard({
   template,
+  recommendation,
   onUse,
 }: {
   template: WorkflowTemplate;
+  recommendation?: WorkflowRecommendation;
   onUse: () => void;
 }) {
   return (
-    <article className="workflow-library-card">
+    <article
+      className={`workflow-library-card ${recommendation ? `recommended ${recommendation.fit}` : ""}`}
+    >
       <div className="template-card-top">
         <span className="template-card-icon">
           {template.category === "Clinic" ? (
@@ -840,10 +852,22 @@ function TemplateCard({
             <MessageSquareReply size={21} />
           )}
         </span>
-        <span className="badge neutral">{template.category}</span>
+        <div className="template-card-badges">
+          {recommendation && (
+            <span className={`template-fit ${recommendation.fit}`}>
+              {recommendation.fit === "best" ? "Recommended" : "Good fit"}
+            </span>
+          )}
+          <span className="badge neutral">{template.category}</span>
+        </div>
       </div>
       <h3>{template.name}</h3>
       <p>{template.description}</p>
+      {recommendation && (
+        <p className="template-recommendation-reason">
+          <Sparkles size={13} aria-hidden="true" /> {recommendation.reason}
+        </p>
+      )}
       <div className="template-meta">
         <span>
           <Clock3 size={14} /> About {template.setupMinutes} min
@@ -864,6 +888,7 @@ function TemplateCard({
 }
 
 function WorkflowLibrary({
+  assistantPurpose,
   workflows,
   onUseTemplate,
   onOpen,
@@ -871,6 +896,7 @@ function WorkflowLibrary({
   onArchive,
   onDelete,
 }: {
+  assistantPurpose: AssistantPurpose;
   workflows: SavedWorkflow[];
   onUseTemplate: (templateId: string) => void;
   onOpen: (workflow: SavedWorkflow) => void;
@@ -880,6 +906,27 @@ function WorkflowLibrary({
 }) {
   const [tab, setTab] = useState<"mine" | "templates">(
     workflows.length > 0 ? "mine" : "templates",
+  );
+  const purposePreset =
+    getAssistantPurposePreset(assistantPurpose) ??
+    getAssistantPurposePreset("custom")!;
+  const recommendations = getWorkflowRecommendations(assistantPurpose);
+  const recommendationByTemplate = new Map(
+    recommendations.map((recommendation) => [
+      recommendation.templateId,
+      recommendation,
+    ]),
+  );
+  const orderedTemplates = [...workflowTemplates].sort((left, right) => {
+    const fitScore = (templateId: string) => {
+      const fit = recommendationByTemplate.get(templateId)?.fit;
+      return fit === "best" ? 0 : fit === "good" ? 1 : 2;
+    };
+    return fitScore(left.id) - fitScore(right.id);
+  });
+  const bestRecommendation = recommendations[0];
+  const bestTemplate = workflowTemplates.find(
+    (template) => template.id === bestRecommendation?.templateId,
   );
   return (
     <section className="workflow-library" aria-label="Workflow library">
@@ -911,19 +958,40 @@ function WorkflowLibrary({
 
       {tab === "templates" ? (
         <>
-          <div className="workflow-library-intro">
-            <span className="eyebrow">READY-TO-USE STARTING POINTS</span>
-            <h2>Choose the closest fit.</h2>
-            <p>
-              The safe workflow structure is already prepared. Users only add
-              their own business information and choose connected services.
-            </p>
+          <div className="workflow-library-heading-row">
+            <div className="workflow-library-intro">
+              <span className="eyebrow">READY-TO-USE STARTING POINTS</span>
+              <h2>Choose the closest fit.</h2>
+              <p>
+                The safe workflow structure is already prepared. Users only add
+                their own business information and choose connected services.
+              </p>
+            </div>
+            {bestTemplate && bestRecommendation && (
+              <aside className="workflow-purpose-recommendation">
+                <span className="workflow-recommendation-icon">
+                  <Sparkles size={18} aria-hidden="true" />
+                </span>
+                <div>
+                  <span className="eyebrow">
+                    RECOMMENDED FOR {purposePreset.label.toUpperCase()}
+                  </span>
+                  <h3>{bestTemplate.name} is the closest fit.</h3>
+                  <p>{bestRecommendation.reason}</p>
+                  <small>
+                    Suggestion only · Nothing is added until you choose a
+                    template.
+                  </small>
+                </div>
+              </aside>
+            )}
           </div>
           <div className="workflow-template-grid">
-            {workflowTemplates.map((template) => (
+            {orderedTemplates.map((template) => (
               <TemplateCard
                 key={template.id}
                 template={template}
+                recommendation={recommendationByTemplate.get(template.id)}
                 onUse={() => onUseTemplate(template.id)}
               />
             ))}
@@ -1039,7 +1107,11 @@ function WorkflowLibrary({
   );
 }
 
-export function WorkflowBuilder() {
+export function WorkflowBuilder({
+  assistantPurpose,
+}: {
+  assistantPurpose: AssistantPurpose;
+}) {
   const [workflows, setWorkflows] =
     useState<SavedWorkflow[]>(readSavedWorkflows);
   const [editor, setEditor] = useState<EditorDraft | null>(null);
@@ -1121,6 +1193,7 @@ export function WorkflowBuilder() {
         />
       ) : (
         <WorkflowLibrary
+          assistantPurpose={assistantPurpose}
           workflows={workflows}
           onUseTemplate={useTemplate}
           onOpen={(workflow) => setEditor(workflow)}

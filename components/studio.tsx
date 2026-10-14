@@ -883,7 +883,7 @@ export default function Studio() {
                 <span className="badge neutral">Templates + builder</span>
               </div>
               <SectionDefinition page="Workflows" onNavigate={navigate} />
-              <WorkflowBuilder />
+              <WorkflowBuilder assistantPurpose={assistantIdentity.purpose} />
               <div className="info-panel workflow-info">
                 <ShieldCheck size={20} />
                 <p>

@@ -261,10 +261,36 @@ await page
   .click();
 await page.waitForURL("**/app?section=workflows");
 await page.getByText("Choose the closest fit.", { exact: true }).waitFor();
+await page
+  .getByText("RECOMMENDED FOR BOOKING ASSISTANT", { exact: true })
+  .waitFor();
+await page
+  .getByRole("heading", {
+    name: "Salon reception is the closest fit.",
+    exact: true,
+  })
+  .waitFor();
+await page
+  .getByText(
+    "Suggestion only · Nothing is added until you choose a template.",
+    { exact: true },
+  )
+  .waitFor();
 await page.screenshot({
   path: "/tmp/hellocrew-template-library-desktop.png",
   fullPage: true,
 });
+await page.setViewportSize({ width: 390, height: 844 });
+assert.ok(
+  await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
+  ),
+);
+await page.screenshot({
+  path: "/tmp/hellocrew-template-library-mobile.png",
+  fullPage: true,
+});
+await page.setViewportSize({ width: 1440, height: 1000 });
 await page
   .getByRole("button", { name: "Use this template", exact: true })
   .first()
@@ -399,6 +425,6 @@ await page.screenshot({
 });
 assert.deepEqual(errors, []);
 console.log(
-  "Browser QA passed: desktop/mobile, shared assistant identity, organized setup map, deep-linked sections, website-channel guide, workflow canvas/save, all scenarios, approve/decline, reset, refresh, overflow, no page errors.",
+  "Browser QA passed: desktop/mobile, shared assistant identity, purpose-aware workflow recommendations, organized setup map, deep-linked sections, website-channel guide, workflow canvas/save, all scenarios, approve/decline, reset, refresh, overflow, no page errors.",
 );
 await browser.close();

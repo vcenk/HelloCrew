@@ -2625,9 +2625,16 @@ p {
   color: #315b48;
   font-size: 9px;
 }
+.workflow-library-heading-row {
+  padding: 28px 4px 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(360px, 1.18fr);
+  gap: 24px;
+  align-items: stretch;
+}
 .workflow-library-intro {
   max-width: 680px;
-  padding: 34px 4px 24px;
+  padding: 6px 0;
 }
 .workflow-library-intro h2 {
   margin-top: 8px;
@@ -2638,6 +2645,50 @@ p {
 .workflow-library-intro p {
   margin-top: 7px;
   font-size: 12px;
+}
+.workflow-purpose-recommendation {
+  min-width: 0;
+  padding: 18px;
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+  border: 1px solid #bfcfbe;
+  border-radius: 17px;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(240, 215, 105, 0.2),
+      transparent 34%
+    ),
+    #edf3e8;
+}
+.workflow-recommendation-icon {
+  width: 37px;
+  height: 37px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #214733;
+  background: #efd96f;
+}
+.workflow-purpose-recommendation h3 {
+  margin-top: 7px;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+}
+.workflow-purpose-recommendation p {
+  margin-top: 5px;
+  color: #53645a;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.workflow-purpose-recommendation small {
+  margin-top: 9px;
+  display: block;
+  color: #748078;
+  font-size: 8px;
 }
 .workflow-template-grid {
   display: grid;
@@ -2663,10 +2714,47 @@ p {
   border-color: #b8c5bb;
   box-shadow: 0 13px 35px rgba(35, 41, 35, 0.08);
 }
+.workflow-library-card.recommended.best {
+  border-color: #62836f;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(239, 217, 111, 0.16),
+      transparent 26%
+    ),
+    #fbfdf8;
+  box-shadow: 0 12px 34px rgba(36, 78, 56, 0.1);
+}
+.workflow-library-card.recommended.good {
+  border-color: #c7d3c3;
+  background: #fdfdf9;
+}
 .template-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+.template-card-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.template-fit {
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.template-fit.best {
+  color: #fff;
+  background: #315b48;
+}
+.template-fit.good {
+  color: #5e5636;
+  background: #eee4ba;
 }
 .template-card-icon {
   width: 42px;
@@ -2689,6 +2777,23 @@ p {
   margin-top: 7px;
   font-size: 11px;
   line-height: 1.6;
+}
+.workflow-library-card > .template-recommendation-reason {
+  min-height: 54px;
+  margin: 0 0 12px;
+  padding: 10px;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  border-radius: 10px;
+  color: #375443;
+  background: #edf3e9;
+  font-size: 8px;
+  line-height: 1.45;
+}
+.template-recommendation-reason svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
 }
 .template-meta {
   display: flex;
@@ -4116,6 +4221,9 @@ p {
 }
 
 @media (max-width: 1020px) {
+  .workflow-library-heading-row {
+    grid-template-columns: 1fr;
+  }
   .assistant-identity-layout,
   .assistant-business-layout {
     grid-template-columns: 1fr;

@@ -45,6 +45,8 @@ Every working section begins with a compact definition of its job, what belongs 
 
 The Workflows page separates **My workflows** from the **Template library**. Guided templates lock the safe graph and let users edit only registered job settings; the advanced canvas remains available without implying that a local draft is live.
 
+The Template library may recommend a workflow from the saved assistant purpose. It shows one clearly explained best fit and, where useful, one good-fit alternative; recommended templates are ordered first. Recommendation is guidance only: nothing is copied, saved, activated, or published until the owner explicitly chooses a template and completes the normal review flow.
+
 The Google Review Assistant starter exposes business locations, reply voice, languages, risk rules, and follow-up timing. It labels Google Business Profile as disconnected until OAuth and API access are complete. All public replies require review of the exact proposed text; low ratings and sensitive topics create internal dashboard tasks rather than implying a private Google conversation.
 
 Your assistant is organized as three visible setup steps with separate ownership:
