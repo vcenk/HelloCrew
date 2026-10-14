@@ -81,6 +81,12 @@ import {
   getWorkflowRecommendations,
   type WorkflowRecommendation,
 } from "@/lib/workflow-recommendations";
+import {
+  LEGACY_WORKFLOW_STORAGE_KEY,
+  WORKFLOW_STORAGE_KEY,
+  summarizeWorkflowReadiness,
+  type WorkflowReadiness,
+} from "@/lib/workflow-readiness";
 
 type CanvasData = {
   kind: WorkflowKind;
@@ -93,9 +99,6 @@ type CanvasData = {
 type CanvasNode = Node<CanvasData, "workflow">;
 type EditorDraft = WorkflowRecord;
 type SavedWorkflow = WorkflowRecord;
-
-const STORAGE_KEY = "hellocrew:workflows:v2";
-const LEGACY_STORAGE_KEY = "hellocrew:workflows:v1";
 
 const palette: {
   kind: WorkflowKind;
@@ -268,8 +271,8 @@ function readSavedWorkflows(): SavedWorkflow[] {
   if (typeof window === "undefined") return [];
   try {
     const raw =
-      localStorage.getItem(STORAGE_KEY) ??
-      localStorage.getItem(LEGACY_STORAGE_KEY);
+      localStorage.getItem(WORKFLOW_STORAGE_KEY) ??
+      localStorage.getItem(LEGACY_WORKFLOW_STORAGE_KEY);
     if (!raw) return [];
     return parseWorkflowStore(JSON.parse(raw)).workflows;
   } catch {
@@ -1109,8 +1112,10 @@ function WorkflowLibrary({
 
 export function WorkflowBuilder({
   assistantPurpose,
+  onReadinessChange,
 }: {
   assistantPurpose: AssistantPurpose;
+  onReadinessChange: (readiness: WorkflowReadiness) => void;
 }) {
   const [workflows, setWorkflows] =
     useState<SavedWorkflow[]>(readSavedWorkflows);
@@ -1118,8 +1123,9 @@ export function WorkflowBuilder({
 
   function persist(next: SavedWorkflow[]) {
     setWorkflows(next);
+    onReadinessChange(summarizeWorkflowReadiness(next));
     localStorage.setItem(
-      STORAGE_KEY,
+      WORKFLOW_STORAGE_KEY,
       JSON.stringify({
         formatVersion: WORKFLOW_STORAGE_VERSION,
         workflows: next,

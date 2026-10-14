@@ -5164,13 +5164,25 @@ p {
 }
 .channel-prerequisite-title span {
   flex: 0 0 auto;
+  max-width: 112px;
   border-radius: 999px;
   padding: 4px 6px;
   color: #315b48;
   background: #e0ebda;
   font-size: 0.55rem;
   font-weight: 800;
-  white-space: nowrap;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.channel-prerequisite-title span.attention {
+  color: #785414;
+  background: #f5e8ba;
+}
+
+.channel-prerequisite-title span.missing {
+  color: #755148;
+  background: #efe2dc;
 }
 .channel-prerequisite .channel-step-copy p {
   margin-top: 7px;

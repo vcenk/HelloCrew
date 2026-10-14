@@ -30,6 +30,13 @@ import {
   type AssistantIdentity,
 } from "@/lib/assistant";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
+import {
+  LEGACY_WORKFLOW_STORAGE_KEY,
+  WORKFLOW_STORAGE_KEY,
+  missingWorkflowReadiness,
+  parseStoredWorkflowReadiness,
+  type WorkflowReadiness,
+} from "@/lib/workflow-readiness";
 import { Brand, Buddy } from "./brand";
 import type { Activity, DemoSession, Scenario, DemoResult } from "@/lib/demo";
 
@@ -301,6 +308,9 @@ export default function Studio() {
   const [page, setPage] = useState<Page>("Home");
   const [session, setSession] = useState<DemoSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [workflowReadiness, setWorkflowReadiness] = useState<WorkflowReadiness>(
+    missingWorkflowReadiness,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [activityOpen, setActivityOpen] = useState(true);
@@ -313,6 +323,12 @@ export default function Studio() {
       setAssistantIdentity(
         parseStoredAssistantIdentity(
           localStorage.getItem(ASSISTANT_IDENTITY_STORAGE_KEY),
+        ),
+      );
+      setWorkflowReadiness(
+        parseStoredWorkflowReadiness(
+          localStorage.getItem(WORKFLOW_STORAGE_KEY) ??
+            localStorage.getItem(LEGACY_WORKFLOW_STORAGE_KEY),
         ),
       );
     });
@@ -426,6 +442,9 @@ export default function Studio() {
   }
   const pending =
     session?.approvals.filter((a) => a.status === "pending") ?? [];
+  const conversationReviewed = messages.some(
+    (message) => message.role === "assistant",
+  );
   return (
     <div className="studio-shell">
       <a className="skip-link" href="#studio-main-content">
@@ -861,9 +880,11 @@ export default function Studio() {
               </div>
               <SectionDefinition page="Channels" onNavigate={navigate} />
               <WebsiteChatGuide
-                businessName={business.name}
+                business={business}
+                conversationReviewed={conversationReviewed}
                 identity={assistantIdentity}
                 onNavigate={navigate}
+                workflowReadiness={workflowReadiness}
               />
             </>
           )}
@@ -883,7 +904,10 @@ export default function Studio() {
                 <span className="badge neutral">Templates + builder</span>
               </div>
               <SectionDefinition page="Workflows" onNavigate={navigate} />
-              <WorkflowBuilder assistantPurpose={assistantIdentity.purpose} />
+              <WorkflowBuilder
+                assistantPurpose={assistantIdentity.purpose}
+                onReadinessChange={setWorkflowReadiness}
+              />
               <div className="info-panel workflow-info">
                 <ShieldCheck size={20} />
                 <p>

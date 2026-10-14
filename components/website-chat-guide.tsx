@@ -20,13 +20,17 @@ import {
   getAssistantPurposePreset,
   type AssistantIdentity,
 } from "@/lib/assistant";
+import type { BusinessProfile } from "@/lib/business";
+import type { WorkflowReadiness } from "@/lib/workflow-readiness";
 
 type NavigateTarget = "Your assistant" | "Workflows" | "Conversations";
 
 type WebsiteChatGuideProps = {
-  businessName: string;
+  business: BusinessProfile;
+  conversationReviewed: boolean;
   identity: AssistantIdentity;
   onNavigate: (target: NavigateTarget) => void;
+  workflowReadiness: WorkflowReadiness;
 };
 
 const exampleSnippet = `<script
@@ -34,39 +38,6 @@ const exampleSnippet = `<script
   src="https://chat.hellocrew.ai/widget.js"
   data-site="created-after-publish"
 ></script>`;
-
-const prerequisites: {
-  number: string;
-  title: string;
-  description: string;
-  action: string;
-  target: NavigateTarget;
-}[] = [
-  {
-    number: "02",
-    title: "Knowledge",
-    description:
-      "Confirm the facts, policies, and approved sources this channel will use.",
-    action: "Review in Your assistant",
-    target: "Your assistant",
-  },
-  {
-    number: "03",
-    title: "Workflow",
-    description:
-      "Choose the website behavior, approvals, and human handoff path.",
-    action: "Review in Workflows",
-    target: "Workflows",
-  },
-  {
-    number: "04",
-    title: "Conversation test",
-    description:
-      "Review what visitors will read and verify the activity behind each reply.",
-    action: "Review in Conversations",
-    target: "Conversations",
-  },
-];
 
 const installationSteps = [
   {
@@ -96,14 +67,32 @@ const installationSteps = [
 ];
 
 export function WebsiteChatGuide({
-  businessName,
+  business,
+  conversationReviewed,
   identity,
   onNavigate,
+  workflowReadiness,
 }: WebsiteChatGuideProps) {
   const [previewOpen, setPreviewOpen] = useState(true);
   const purpose =
     getAssistantPurposePreset(identity.purpose) ??
     getAssistantPurposePreset("custom")!;
+  const knowledgeFactCount =
+    (business.hours.trim() ? 1 : 0) +
+    business.services.length +
+    business.faqs.length;
+  const knowledgeReady = knowledgeFactCount > 0;
+  const workflowPublished = workflowReadiness.status === "published";
+  const workflowStatus = workflowPublished
+    ? `Published v${workflowReadiness.version}`
+    : workflowReadiness.status === "draft"
+      ? "Draft saved"
+      : "Not saved";
+  const workflowDescription = workflowPublished
+    ? `${workflowReadiness.name} is published for this practice browser.`
+    : workflowReadiness.status === "draft"
+      ? `${workflowReadiness.name} is saved as a draft. Publish a version before launch.`
+      : "Choose and save a workflow, then publish a version before launch.";
   const readinessSteps = [
     {
       number: "01",
@@ -111,10 +100,52 @@ export function WebsiteChatGuide({
       description: `${identity.name} is configured as a ${purpose.label.toLowerCase()} with an editable greeting and safe fallback.`,
       action: "Review in Your assistant",
       target: "Your assistant" as const,
+      status: "Configured",
+      state: "ready" as const,
       ready: true,
     },
-    ...prerequisites.map((step) => ({ ...step, ready: false })),
+    {
+      number: "02",
+      title: "Knowledge",
+      description: knowledgeReady
+        ? `${knowledgeFactCount} approved practice fact${knowledgeFactCount === 1 ? "" : "s"} available from hours, services, and FAQs.`
+        : "Add at least one approved business fact for grounded answers.",
+      action: "Review in Your assistant",
+      target: "Your assistant" as const,
+      status: knowledgeReady
+        ? "Practice knowledge available"
+        : "No facts added",
+      state: knowledgeReady ? ("ready" as const) : ("missing" as const),
+      ready: knowledgeReady,
+    },
+    {
+      number: "03",
+      title: "Workflow",
+      description: workflowDescription,
+      action: "Review in Workflows",
+      target: "Workflows" as const,
+      status: workflowStatus,
+      state: workflowPublished
+        ? ("ready" as const)
+        : workflowReadiness.status === "draft"
+          ? ("attention" as const)
+          : ("missing" as const),
+      ready: workflowPublished,
+    },
+    {
+      number: "04",
+      title: "Conversation test",
+      description: conversationReviewed
+        ? "A practice reply has been reviewed in this disposable session."
+        : "Send a practice message and review the reply before launch.",
+      action: "Review in Conversations",
+      target: "Conversations" as const,
+      status: conversationReviewed ? "Test reviewed" : "Not reviewed",
+      state: conversationReviewed ? ("ready" as const) : ("missing" as const),
+      ready: conversationReviewed,
+    },
   ];
+  const readyCount = readinessSteps.filter((step) => step.ready).length;
 
   return (
     <div className="website-chat-guide">
@@ -146,7 +177,7 @@ export function WebsiteChatGuide({
           </div>
           <div className="channel-status-line">
             <span>
-              <Check size={15} /> Practice path available
+              <Check size={15} /> {readyCount} of 4 practice inputs ready
             </span>
             <span>
               <LockKeyhole size={15} /> Live embed locked
@@ -162,10 +193,10 @@ export function WebsiteChatGuide({
             <div>yourwebsite.com</div>
           </div>
           <div className="widget-site-preview">
-            <span className="widget-site-mark">{businessName.charAt(0)}</span>
+            <span className="widget-site-mark">{business.name.charAt(0)}</span>
             <div>
               <small>WELCOME TO</small>
-              <strong>{businessName}</strong>
+              <strong>{business.name}</strong>
               <p>Thoughtful service, with a little more breathing room.</p>
             </div>
           </div>
@@ -178,7 +209,7 @@ export function WebsiteChatGuide({
                 <div>
                   <strong>{identity.name}</strong>
                   <small>
-                    {businessName} · {purpose.label}
+                    {business.name} · {purpose.label}
                   </small>
                 </div>
                 <button
@@ -225,7 +256,9 @@ export function WebsiteChatGuide({
               Check the inputs. Edit them where they belong.
             </h2>
           </div>
-          <span className="badge neutral">Linked, not duplicated</span>
+          <span className="badge neutral">
+            {readyCount} of 4 practice inputs ready
+          </span>
         </div>
         <ol className="channel-prerequisite-list">
           {readinessSteps.map((step) => (
@@ -234,7 +267,7 @@ export function WebsiteChatGuide({
               <div className="channel-step-copy">
                 <div className="channel-prerequisite-title">
                   <h3>{step.title}</h3>
-                  {step.ready && <span>Ready for preview</span>}
+                  <span className={step.state}>{step.status}</span>
                 </div>
                 <p>{step.description}</p>
                 <button

@@ -246,7 +246,14 @@ await page
     { exact: true },
   )
   .waitFor();
-await page.getByText("Ready for preview", { exact: true }).waitFor();
+await page.getByText("Configured", { exact: true }).waitFor();
+await page.getByText("Practice knowledge available", { exact: true }).waitFor();
+await page.getByText("Not saved", { exact: true }).waitFor();
+await page.getByText("Test reviewed", { exact: true }).waitFor();
+await page
+  .getByText("3 of 4 practice inputs ready", { exact: true })
+  .first()
+  .waitFor();
 await page
   .getByRole("button", { name: "Close website chat preview", exact: true })
   .click();
@@ -321,6 +328,16 @@ assert.ok(
 await page.getByRole("button", { name: "My workflows", exact: true }).click();
 await page.getByText("Salon reception", { exact: true }).last().waitFor();
 await page.getByText("published", { exact: true }).waitFor();
+await page.getByRole("button", { name: "Channels", exact: true }).click();
+await page.getByText("Published v1", { exact: true }).waitFor();
+await page
+  .getByText("4 of 4 practice inputs ready", { exact: true })
+  .first()
+  .waitFor();
+await page.screenshot({
+  path: "/tmp/hellocrew-website-channel-ready-desktop.png",
+  fullPage: true,
+});
 await page.getByRole("button", { name: "Settings", exact: true }).click();
 page.once("dialog", (dialog) => dialog.accept());
 await page
@@ -356,6 +373,12 @@ await page.screenshot({
 await page.getByRole("button", { name: "Channels", exact: true }).click();
 await page
   .getByRole("heading", { name: "Publish and install the website chat." })
+  .waitFor();
+await page.getByText("Published v1", { exact: true }).waitFor();
+await page.getByText("Not reviewed", { exact: true }).waitFor();
+await page
+  .getByText("3 of 4 practice inputs ready", { exact: true })
+  .first()
   .waitFor();
 await page.waitForTimeout(700);
 assert.ok(
@@ -425,6 +448,6 @@ await page.screenshot({
 });
 assert.deepEqual(errors, []);
 console.log(
-  "Browser QA passed: desktop/mobile, shared assistant identity, purpose-aware workflow recommendations, organized setup map, deep-linked sections, website-channel guide, workflow canvas/save, all scenarios, approve/decline, reset, refresh, overflow, no page errors.",
+  "Browser QA passed: desktop/mobile, shared assistant identity, calculated channel readiness before/after workflow publishing and conversation reset, purpose-aware workflow recommendations, organized setup map, deep-linked sections, website-channel guide, workflow canvas/save, all scenarios, approve/decline, refresh, overflow, no page errors.",
 );
 await browser.close();
