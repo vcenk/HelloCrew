@@ -1,0 +1,284 @@
+:global(html),
+:global(body) {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  color: #213129;
+  font-family: "DM Sans", sans-serif;
+}
+
+.root button,
+.root input {
+  font: inherit;
+}
+
+.panel {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  border: 1px solid rgba(30, 64, 45, 0.16);
+  border-radius: 24px;
+  background: #fffef9;
+  box-shadow: 0 24px 70px rgba(20, 45, 32, 0.24);
+}
+
+.header {
+  padding: 16px;
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  color: #fff;
+  background:
+    radial-gradient(
+      circle at 85% 10%,
+      rgba(241, 219, 114, 0.18),
+      transparent 32%
+    ),
+    #28543e;
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  color: #28543e;
+  background: #f1d96f;
+}
+
+.header div {
+  min-width: 0;
+  flex: 1;
+}
+
+.header strong,
+.header small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header strong {
+  font-size: 0.88rem;
+}
+
+.header small {
+  margin-top: 2px;
+  color: #d7e7dc;
+  font-size: 0.66rem;
+}
+
+.header button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.practiceBanner {
+  padding: 8px 14px;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: #5f5833;
+  background: #f8edbd;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.timeline {
+  min-height: 0;
+  padding: 18px 16px 12px;
+  overflow-y: auto;
+  background:
+    linear-gradient(rgba(255, 254, 249, 0.87), rgba(255, 254, 249, 0.96)),
+    repeating-linear-gradient(0deg, transparent 0 35px, #e8ece5 36px);
+}
+
+.message {
+  width: fit-content;
+  max-width: 84%;
+  margin-bottom: 11px;
+}
+
+.message p {
+  padding: 10px 12px;
+  color: #34423a;
+  background: #edf2ec;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.assistant p {
+  border-radius: 5px 15px 15px;
+}
+
+.visitor {
+  margin-left: auto;
+}
+
+.visitor p {
+  border-radius: 15px 5px 15px 15px;
+  color: #fff;
+  background: #315b48;
+}
+
+.message small {
+  margin-top: 4px;
+  display: block;
+  color: #818981;
+  font-size: 0.57rem;
+}
+
+.thinking {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: #697269;
+  font-size: 0.65rem;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+.suggestions {
+  padding: 0 14px 12px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.suggestions button {
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border: 1px solid #ceddd1;
+  border-radius: 999px;
+  color: #315b48;
+  background: #fff;
+  font-size: 0.62rem;
+}
+
+.error {
+  margin: 0 14px 9px;
+  color: #8b3f36;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.composer {
+  padding: 10px 12px;
+  border-top: 1px solid #e5e8e1;
+}
+
+.composer label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.composer > div {
+  display: flex;
+  gap: 8px;
+}
+
+.composer input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #dce2dc;
+  border-radius: 13px;
+  color: #26372e;
+  background: #f8f8f3;
+  outline: 0;
+  font-size: 0.74rem;
+}
+
+.composer input:focus {
+  border-color: #5c826c;
+  box-shadow: 0 0 0 3px rgba(76, 119, 91, 0.13);
+}
+
+.composer button {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 13px;
+  color: #fff;
+  background: #315b48;
+}
+
+.composer button:disabled {
+  opacity: 0.42;
+}
+
+.panel footer {
+  padding: 0 14px 10px;
+  display: flex;
+  justify-content: space-between;
+  color: #929892;
+  font-size: 0.55rem;
+  font-weight: 700;
+}
+
+.launcher {
+  width: 70px;
+  height: 70px;
+  margin: 7px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 24px 24px 8px 24px;
+  color: #fff;
+  background:
+    radial-gradient(
+      circle at 72% 24%,
+      rgba(241, 219, 114, 0.26),
+      transparent 28%
+    ),
+    #2f6248;
+  box-shadow: 0 15px 35px rgba(29, 61, 43, 0.3);
+}
+
+.launcher span {
+  margin-top: -13px;
+  color: #dbe9df;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

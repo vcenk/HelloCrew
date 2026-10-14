@@ -59,7 +59,7 @@ Behavior, tools, permissions, approvals, and handoff rules belong to **Workflows
 
 The saved Identity is reused consistently: Conversations shows the configured assistant name and greeting and uses its safe fallback only when the grounded lookup reports no matching information; the website preview shows the same name, purpose, and greeting; Channels links back to Identity as a readiness input. These surfaces preview and test the configuration but do not edit it.
 
-Technical model, tracing, persistence, and adapter settings belong under Advanced. Do not require a beginner to understand an orchestration framework to configure their business.
+Model routing, tracing, persistence, and adapter settings belong under Settings or a later advanced view. The implemented Settings panel keeps the practice engine, future OpenAI adapter, and future Anthropic adapter separate from assistant identity and channel installation. Do not require a beginner to understand an orchestration framework to configure their business.
 
 ## First home screen
 
@@ -104,7 +104,7 @@ Web is the first channel. Channels owns delivery only: the widget preview, readi
 
 The practice readiness count is derived rather than decorative. Identity uses the saved assistant configuration; knowledge counts available approved practice facts; workflow distinguishes missing, saved draft, and immutable published version; conversation testing becomes reviewed only after an assistant reply exists in the current disposable session. Refreshing clears that conversation gate, while browser-local workflow versions remain. These gates describe practice readiness only and never unlock the live embed.
 
-The implemented practice screen shows the future channel-specific sequence—publish a safe version, create an installation ID, add the snippet, and verify the widget. It includes an interactive preview and an example embed snippet labeled “Not installable yet.” All four installation steps stay locked until the secure visitor-session and installation backend exists. WhatsApp and Phone appear as later work with short explanations and no working Connect button. Do not invent account links or claim a number is connected.
+The practice screen shows the future channel-specific sequence—publish a safe version, create an installation ID, add the snippet, and verify the widget. A working practice loader and isolated iframe use one fixed public demo installation with server-owned fictional facts. The owner can copy the deployment-specific practice snippet or open `/widget-test` to verify the real loader and responsive widget. This does not satisfy the four production gates: it does not publish browser-local configuration, prove domain ownership, create a visitor session, or connect a live model. WhatsApp and Phone remain later work with short explanations and no working Connect button.
 
 ## States and accessibility
 

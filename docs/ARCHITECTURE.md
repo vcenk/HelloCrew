@@ -36,7 +36,7 @@ Folders describe ownership, not a requirement to create empty files. Keep secret
 3. Authorize the requested operation and verify mode, channel, assistant version, and kill switches.
 4. Acquire the durable conversation/run concurrency guard for live operation.
 5. Build graph state from authorized published knowledge, explicit conversation context, and policy configuration.
-6. Run a bounded graph step. Demo uses deterministic intent matching; live may use a provider behind a separate budget reservation gate.
+6. Run a bounded graph step. Demo uses deterministic intent matching; live may use a server-side provider adapter behind a separate budget reservation gate. The channel calls a stable HelloCrew response contract and never chooses OpenAI, Anthropic, a model ID, or a fallback itself.
 7. Validate proposed tool calls against the server's registry and schemas.
 8. Persist a review requirement or execute an authorized tool with deduplication.
 9. Save outcome, audit events, and usage reconciliation. Return a sanitized response.
@@ -50,6 +50,8 @@ LangGraph coordinates state transitions between classify, retrieve, plan, valida
 The demo must run an actual graph and produce real graph-state transitions. Its planner and tool implementations are deterministic and its effects are simulated. This allows low-cost verification without pretending that a scripted demo is a live autonomous system.
 
 LangGraph supports mixtures of deterministic and model-driven nodes. Using its open-source runtime does not require adopting a paid observability or deployment service. Pin the actual supported package versions during implementation and use their matching API documentation. See [official LangGraph overview](https://docs.langchain.com/oss/javascript/langgraph/overview).
+
+Model policy is workspace/server configuration, not assistant identity, workflow structure, or channel configuration. OpenAI and Anthropic adapters must implement the same bounded request/reply contract, keep credentials server-only, declare model/capability metadata, and pass the same safety and evaluation suite. Provider switching must not require changing the installed widget. Fallbacks remain empty until cost limits, retry semantics, data handling, and failure behavior are explicitly approved.
 
 ## Runtime and persistence
 

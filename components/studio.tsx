@@ -38,6 +38,7 @@ import {
   type WorkflowReadiness,
 } from "@/lib/workflow-readiness";
 import { Brand, Buddy } from "./brand";
+import { ModelManagement } from "./model-management";
 import type { Activity, DemoSession, Scenario, DemoResult } from "@/lib/demo";
 
 const WorkflowBuilder = dynamic(
@@ -204,7 +205,7 @@ const sectionDefinitions = {
   },
   Settings: {
     job: "Studio controls",
-    work: "Practice visibility, privacy context, and disposable session data.",
+    work: "Practice visibility, AI model routing, privacy context, and disposable session data.",
     boundary:
       "Assistant content, workflow logic, and installation do not live here.",
   },
@@ -930,6 +931,7 @@ export default function Studio() {
                 </div>
               </div>
               <SectionDefinition page="Settings" onNavigate={navigate} />
+              <ModelManagement />
               <div className="settings-grid">
                 <section className="simple-card">
                   <h3>Practice mode</h3>

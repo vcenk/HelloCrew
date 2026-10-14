@@ -238,7 +238,7 @@ await page.getByRole("button", { name: "Channels", exact: true }).click();
 await page
   .getByRole("heading", { name: "Publish and install the website chat." })
   .waitFor();
-await page.getByText("created-after-publish", { exact: false }).waitFor();
+await page.getByText("demo-hellocrew", { exact: false }).waitFor();
 await page.getByText("Booking guide", { exact: true }).first().waitFor();
 await page
   .getByText(
@@ -263,6 +263,57 @@ await page.screenshot({
   path: "/tmp/hellocrew-website-channel-desktop.png",
   fullPage: true,
 });
+const widgetFrameResponse = await page.request.get(
+  `${baseUrl}/widget/demo-hellocrew`,
+);
+assert.equal(widgetFrameResponse.status(), 200);
+assert.equal(widgetFrameResponse.headers()["x-frame-options"], undefined);
+assert.match(
+  widgetFrameResponse.headers()["content-security-policy"],
+  /frame-ancestors \*/,
+);
+const widgetPopupPromise = page.waitForEvent("popup");
+await page
+  .getByRole("link", { name: "Open test website", exact: true })
+  .click();
+const widgetPage = await widgetPopupPromise;
+widgetPage.on("pageerror", (e) => errors.push(`widget: ${e.message}`));
+await widgetPage.waitForLoadState("networkidle");
+await widgetPage
+  .getByRole("heading", { name: "A quiet place for bright ideas." })
+  .waitFor();
+const embeddedWidget = widgetPage.frameLocator(
+  'iframe[title="Chat with this business"]',
+);
+await embeddedWidget
+  .getByRole("button", { name: "Open website chat", exact: true })
+  .click();
+await embeddedWidget
+  .getByText("Public practice widget · no live AI or real messages", {
+    exact: true,
+  })
+  .waitFor();
+await embeddedWidget
+  .getByRole("button", { name: "When are you open?", exact: true })
+  .click();
+await embeddedWidget
+  .getByText("Saved sample hours: Monday–Friday, 9am–5pm", { exact: true })
+  .waitFor();
+await widgetPage.screenshot({
+  path: "/tmp/hellocrew-installed-widget-desktop.png",
+  fullPage: true,
+});
+await widgetPage.setViewportSize({ width: 390, height: 844 });
+assert.ok(
+  await widgetPage.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
+  ),
+);
+await widgetPage.screenshot({
+  path: "/tmp/hellocrew-installed-widget-mobile.png",
+  fullPage: true,
+});
+await widgetPage.close();
 await page
   .getByRole("button", { name: "Review in Workflows", exact: true })
   .click();
@@ -339,6 +390,16 @@ await page.screenshot({
   fullPage: true,
 });
 await page.getByRole("button", { name: "Settings", exact: true }).click();
+await page
+  .getByRole("heading", { name: "One assistant. Flexible engines." })
+  .waitFor();
+await page.getByText("OpenAI", { exact: true }).waitFor();
+await page.getByText("Anthropic", { exact: true }).waitFor();
+assert.equal(await page.getByText("Not connected", { exact: true }).count(), 2);
+await page.screenshot({
+  path: "/tmp/hellocrew-model-routing-desktop.png",
+  fullPage: true,
+});
 page.once("dialog", (dialog) => dialog.accept());
 await page
   .getByRole("button", { name: "Clear practice session", exact: false })
@@ -448,6 +509,6 @@ await page.screenshot({
 });
 assert.deepEqual(errors, []);
 console.log(
-  "Browser QA passed: desktop/mobile, shared assistant identity, calculated channel readiness before/after workflow publishing and conversation reset, purpose-aware workflow recommendations, organized setup map, deep-linked sections, website-channel guide, workflow canvas/save, all scenarios, approve/decline, refresh, overflow, no page errors.",
+  "Browser QA passed: production desktop/mobile, installed iframe widget and grounded reply, widget security headers and resizing, model-routing states, shared assistant identity, calculated channel readiness, purpose-aware workflow recommendations, workflow save/publish, all scenarios, refresh, overflow, no page errors.",
 );
 await browser.close();

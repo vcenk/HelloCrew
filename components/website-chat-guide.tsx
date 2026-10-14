@@ -5,7 +5,9 @@ import {
   ArrowRight,
   Bot,
   Check,
+  Copy,
   Code2,
+  ExternalLink,
   Globe,
   LockKeyhole,
   MessageCircle,
@@ -22,6 +24,7 @@ import {
 } from "@/lib/assistant";
 import type { BusinessProfile } from "@/lib/business";
 import type { WorkflowReadiness } from "@/lib/workflow-readiness";
+import { DEMO_WIDGET_INSTALLATION_ID } from "@/lib/widget";
 
 type NavigateTarget = "Your assistant" | "Workflows" | "Conversations";
 
@@ -35,8 +38,8 @@ type WebsiteChatGuideProps = {
 
 const exampleSnippet = `<script
   async
-  src="https://chat.hellocrew.ai/widget.js"
-  data-site="created-after-publish"
+  src="https://YOUR-HELLOCREW-DOMAIN/widget.js"
+  data-installation="${DEMO_WIDGET_INSTALLATION_ID}"
 ></script>`;
 
 const installationSteps = [
@@ -74,6 +77,9 @@ export function WebsiteChatGuide({
   workflowReadiness,
 }: WebsiteChatGuideProps) {
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [snippetCopyState, setSnippetCopyState] = useState<
+    "idle" | "copied" | "error"
+  >("idle");
   const purpose =
     getAssistantPurposePreset(identity.purpose) ??
     getAssistantPurposePreset("custom")!;
@@ -146,6 +152,20 @@ export function WebsiteChatGuide({
     },
   ];
   const readyCount = readinessSteps.filter((step) => step.ready).length;
+
+  async function copyPracticeSnippet() {
+    try {
+      const snippet = exampleSnippet.replace(
+        "https://YOUR-HELLOCREW-DOMAIN",
+        window.location.origin,
+      );
+      await navigator.clipboard.writeText(snippet);
+      setSnippetCopyState("copied");
+      window.setTimeout(() => setSnippetCopyState("idle"), 1800);
+    } catch {
+      setSnippetCopyState("error");
+    }
+  }
 
   return (
     <div className="website-chat-guide">
@@ -320,32 +340,52 @@ export function WebsiteChatGuide({
           <span className="embed-icon">
             <Code2 size={22} />
           </span>
-          <span className="eyebrow">WHAT INSTALLATION WILL LOOK LIKE</span>
+          <span className="eyebrow">WORKING PRACTICE INSTALLATION</span>
           <h2>One snippet. No secret keys.</h2>
           <p>
-            After publishing, HelloCrew will create a public installation ID.
-            The owner pastes one script before their website’s closing body tag,
-            or uses a future platform-specific guide.
+            The loader and isolated iframe now work with a fixed public demo
+            installation. Open the test website or copy the practice snippet to
+            verify how installation behaves before account publishing exists.
           </p>
           <div className="embed-safety-note">
             <ShieldCheck size={18} />
             <span>
-              The installation ID identifies the published assistant. It cannot
-              grant dashboard access or expose private Supabase credentials.
+              The demo ID exposes fictional practice answers only. Production
+              IDs will be server-owned, domain-bound, and separate from model
+              provider credentials.
             </span>
           </div>
         </div>
         <div className="embed-code-card">
           <div className="embed-code-head">
-            <span>Example only</span>
-            <span className="badge neutral">Not installable yet</span>
+            <span>Practice snippet</span>
+            <span className="badge neutral">Public demo fixture</span>
           </div>
           <pre>
             <code>{exampleSnippet}</code>
           </pre>
-          <button className="button outline compact" type="button" disabled>
-            Copy after publishing
-          </button>
+          <div className="embed-code-actions">
+            <button
+              className="button outline compact"
+              type="button"
+              onClick={() => void copyPracticeSnippet()}
+            >
+              <Copy size={15} />
+              {snippetCopyState === "copied"
+                ? "Copied"
+                : snippetCopyState === "error"
+                  ? "Copy unavailable"
+                  : "Copy practice snippet"}
+            </button>
+            <a
+              className="button outline compact"
+              href="/widget-test"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open test website <ExternalLink size={15} />
+            </a>
+          </div>
         </div>
       </section>
 
@@ -386,8 +426,9 @@ export function WebsiteChatGuide({
       <div className="info-panel channel-safety-panel">
         <ShieldCheck size={20} />
         <p>
-          This page is a truthful setup guide and visual preview. It does not
-          create an installation ID, load a customer website, or send messages
+          The installation lab uses one fixed public demo ID and fictional
+          server-owned facts. It does not publish this browser’s assistant,
+          authorize a customer domain, connect an AI provider, or send messages
           outside this practice app.
         </p>
       </div>

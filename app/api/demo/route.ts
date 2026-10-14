@@ -1,32 +1,11 @@
 import { runDemo } from "@/lib/demo";
+import { isSameOrigin } from "@/lib/server/request-safety";
+
+export { isSameOrigin };
+
 export const runtime = "nodejs";
 export const maxDuration = 10;
 const MAX_BYTES = 32768;
-
-export function isSameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-
-  try {
-    const originUrl = new URL(origin);
-    const requestUrl = new URL(request.url);
-    const forwardedHost = request.headers
-      .get("x-forwarded-host")
-      ?.split(",")[0]
-      ?.trim();
-    const host =
-      forwardedHost || request.headers.get("host") || requestUrl.host;
-    const forwardedProtocol = request.headers
-      .get("x-forwarded-proto")
-      ?.split(",")[0]
-      ?.trim();
-    const protocol = forwardedProtocol || requestUrl.protocol.replace(":", "");
-
-    return originUrl.host === host && originUrl.protocol === `${protocol}:`;
-  } catch {
-    return false;
-  }
-}
 
 export async function POST(request: Request) {
   if (!request.headers.get("content-type")?.startsWith("application/json"))

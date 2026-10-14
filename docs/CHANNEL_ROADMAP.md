@@ -1,6 +1,6 @@
 # Channel integration roadmap
 
-Status: the in-app web practice channel and guided installation preview are implemented. The preview does not create a site installation or load on an external website. WhatsApp and Phone are future disabled adapters. No phone number, messaging account, or external channel has been connected.
+Status: the in-app web practice channel, real script loader, isolated iframe, fixed public demo installation, and separate installation test website are implemented. The demo can be embedded, but it exposes fictional practice facts only and is not a tenant-owned production installation. WhatsApp and Phone are future disabled adapters. No phone number, messaging account, customer domain, or external channel has been connected.
 
 ## Shared channel contract
 
@@ -12,7 +12,7 @@ Preserve received, accepted, sent, delivered, failed, and unknown states where s
 
 ## Stage 1 Web demo
 
-Provide a practice conversation in the HelloCrew application with synthetic data and no authentication requirement. Demonstrate grounded answers, booking-link behavior, simulated actions, and handoff. Maintain visible demo labels on desktop and mobile. Guide the owner from knowledge and workflows into conversation testing, and show how a future one-script installation will work without issuing a real installation ID. No embedded production widget, external outbound messages, or live customer data is required.
+Provide a practice conversation in the HelloCrew application with synthetic data and no authentication requirement. Demonstrate grounded answers, booking-link behavior, simulated actions, and handoff. Maintain visible demo labels on desktop and mobile. The implemented `widget.js` loader and `demo-hellocrew` installation exercise the one-script iframe contract without issuing a tenant-owned installation ID. No external outbound messages, live model call, or live customer data is permitted.
 
 ## Stage 2 Live web pilot
 

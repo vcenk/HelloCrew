@@ -5373,14 +5373,22 @@ p {
 }
 
 .embed-code-card .button {
-  margin: 0 17px 18px;
   border-color: rgba(255, 255, 255, 0.2);
   color: #bac4bd;
 }
 
-.embed-code-card .button:disabled {
-  cursor: not-allowed;
-  opacity: 0.62;
+.embed-code-actions {
+  margin: 0 17px 18px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.embed-code-actions .button {
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 13px;
+  font-size: 0.68rem;
 }
 
 .future-channels {
