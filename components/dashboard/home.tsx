@@ -22,11 +22,36 @@ function greetingForNow() {
 }
 
 export function HomeView() {
-  const { identity, purpose, business, conversation, hydrated, decide } =
-    useDashboard();
+  const {
+    identity,
+    purpose,
+    business,
+    conversation,
+    hydrated,
+    decide,
+    decideLive,
+  } = useDashboard();
   const { steps, done } = useLaunchChecklist();
-  const pending =
-    conversation.session?.approvals.filter((a) => a.status === "pending") ?? [];
+  const pending = [
+    ...(conversation.session?.approvals ?? [])
+      .filter((a) => a.status === "pending")
+      .map((a) => ({
+        key: a.id,
+        detail:
+          "1 studio visit, $40. Sample request from a practice conversation.",
+        onDecide: (value: "approve" | "reject") => void decide(a.id, value),
+      })),
+    ...conversation.messages.flatMap((m) =>
+      (m.liveApprovals ?? [])
+        .filter((a) => a.status === "pending")
+        .map((a) => ({
+          key: a.id,
+          detail: `${a.summary}. Requested in a live AI conversation.`,
+          onDecide: (value: "approve" | "reject") =>
+            decideLive(m.id, a.id, value),
+        })),
+    ),
+  ];
   const replies = conversation.messages.filter((m) => m.role === "assistant");
   const unanswered = replies.filter(
     (m) => m.source === "No matching information",
@@ -174,23 +199,20 @@ export function HomeView() {
           ) : (
             <ul className="decision-list">
               {pending.map((approval) => (
-                <li key={approval.id}>
+                <li key={approval.key}>
                   <span className="decision-icon" aria-hidden="true">
                     <CalendarCheck size={18} />
                   </span>
                   <div>
                     <strong>Booking request</strong>
-                    <p>
-                      1 studio visit, $40. Sample request from a test
-                      conversation.
-                    </p>
+                    <p>{approval.detail}</p>
                   </div>
                   <div className="decision-actions">
                     <button
                       type="button"
                       className="ui-btn ui-btn-ghost ui-btn-sm"
                       disabled={conversation.busy}
-                      onClick={() => decide(approval.id, "reject")}
+                      onClick={() => approval.onDecide("reject")}
                     >
                       Decline
                     </button>
@@ -198,7 +220,7 @@ export function HomeView() {
                       type="button"
                       className="ui-btn ui-btn-primary ui-btn-sm"
                       disabled={conversation.busy}
-                      onClick={() => decide(approval.id, "approve")}
+                      onClick={() => approval.onDecide("approve")}
                     >
                       Approve
                     </button>

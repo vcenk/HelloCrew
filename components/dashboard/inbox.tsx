@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Sparkles,
   UserRound,
+  Zap,
 } from "lucide-react";
 
 import type { Scenario } from "@/lib/demo";
@@ -38,13 +39,18 @@ export function InboxView() {
     showActivity,
     setShowActivity,
     toast,
+    engine,
+    setEngine,
+    liveStatus,
+    decideLive,
   } = useDashboard();
+  const liveReady = liveStatus?.state === "ready" && liveStatus.enabled;
   const [draft, setDraft] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const turns = conversation.session?.turn ?? 0;
-  const limitReached = turns >= MAX_PRACTICE_TURNS;
+  const limitReached = engine === "practice" && turns >= MAX_PRACTICE_TURNS;
   const replies = conversation.messages.filter((m) => m.role === "assistant");
   const selected =
     replies.find((m) => m.id === selectedId) ?? replies[replies.length - 1];
@@ -101,17 +107,44 @@ export function InboxView() {
         title="Inbox"
         description="Chat as a customer would, and see exactly how each reply was made."
         actions={
-          <Button
-            icon={RotateCcw}
-            disabled={conversation.busy || conversation.messages.length === 0}
-            onClick={() => {
-              resetConversation();
-              setSelectedId(null);
-              toast("New test conversation started", "info");
-            }}
-          >
-            New conversation
-          </Button>
+          <>
+            {liveReady && (
+              <div
+                className="segmented"
+                role="radiogroup"
+                aria-label="Reply engine"
+              >
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={engine === "practice"}
+                  onClick={() => setEngine("practice")}
+                >
+                  Practice
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={engine === "live"}
+                  onClick={() => setEngine("live")}
+                >
+                  <Zap size={15} aria-hidden="true" />
+                  Live AI
+                </button>
+              </div>
+            )}
+            <Button
+              icon={RotateCcw}
+              disabled={conversation.busy || conversation.messages.length === 0}
+              onClick={() => {
+                resetConversation();
+                setSelectedId(null);
+                toast("New test conversation started", "info");
+              }}
+            >
+              New conversation
+            </Button>
+          </>
         }
       />
       <div className="inbox-grid">
@@ -126,9 +159,15 @@ export function InboxView() {
                 {purpose.label} for {business.name}
               </small>
             </div>
-            <Pill tone={limitReached ? "attention" : "neutral"}>
-              {turns}/{MAX_PRACTICE_TURNS} turns
-            </Pill>
+            {engine === "live" && liveStatus?.state === "ready" ? (
+              <Pill tone="success">
+                <Zap size={13} aria-hidden="true" /> Live AI
+              </Pill>
+            ) : (
+              <Pill tone={limitReached ? "attention" : "neutral"}>
+                {turns}/{MAX_PRACTICE_TURNS} turns
+              </Pill>
+            )}
           </header>
 
           <div className="thread-body" aria-live="polite">
@@ -156,6 +195,9 @@ export function InboxView() {
                 busy={conversation.busy}
                 onDecide={(value) =>
                   message.pendingId && decide(message.pendingId, value)
+                }
+                onDecideLive={(approvalId, value) =>
+                  decideLive(message.id, approvalId, value)
                 }
               />
             ))}
@@ -260,6 +302,15 @@ export function InboxView() {
           ) : (
             <>
               <p className="trace-quote">{selected.text}</p>
+              {selected.usage && (
+                <div className="trace-source">
+                  <span>Model</span>
+                  <strong>
+                    {selected.usage.model}, $
+                    {(selected.usage.costMicroUsd / 1e6).toFixed(4)}
+                  </strong>
+                </div>
+              )}
               {selected.source && (
                 <div className="trace-source">
                   <span>Source</span>
@@ -281,8 +332,9 @@ export function InboxView() {
             </>
           )}
           <p className="trace-note">
-            Practice replies come from your saved facts with fixed rules. No AI
-            model is called yet, and nothing is booked or sent.
+            {engine === "live"
+              ? "Live replies use your approved knowledge from the workspace. Bookings wait for your approval, and nothing is sent outside HelloCrew."
+              : "Practice replies come from your saved facts with fixed rules. No AI model is called, and nothing is booked or sent."}
           </p>
         </aside>
       </div>
@@ -298,6 +350,7 @@ function MessageRow({
   approval,
   busy,
   onDecide,
+  onDecideLive,
 }: {
   message: ChatMessage;
   assistantName: string;
@@ -306,6 +359,7 @@ function MessageRow({
   approval?: { status: "pending" | "approved" | "rejected" };
   busy: boolean;
   onDecide: (value: "approve" | "reject") => void;
+  onDecideLive: (approvalId: string, value: "approve" | "reject") => void;
 }) {
   const { showActivity } = useDashboard();
   if (message.role === "customer")
@@ -373,6 +427,46 @@ function MessageRow({
               : "Booking declined"}
           </Pill>
         ))}
+      {message.liveApprovals?.map((item) =>
+        item.status === "pending" ? (
+          <div className="approval-card" key={item.id}>
+            <span className="decision-icon" aria-hidden="true">
+              <CalendarCheck size={18} />
+            </span>
+            <div>
+              <strong>Approve this booking request?</strong>
+              <p>{item.summary}</p>
+            </div>
+            <div className="decision-actions">
+              <button
+                type="button"
+                className="ui-btn ui-btn-ghost ui-btn-sm"
+                disabled={busy}
+                onClick={() => onDecideLive(item.id, "reject")}
+              >
+                Decline
+              </button>
+              <button
+                type="button"
+                className="ui-btn ui-btn-primary ui-btn-sm"
+                disabled={busy}
+                onClick={() => onDecideLive(item.id, "approve")}
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        ) : (
+          <Pill
+            key={item.id}
+            tone={item.status === "approved" ? "success" : "neutral"}
+          >
+            {item.status === "approved"
+              ? "Booking approved"
+              : "Booking declined"}
+          </Pill>
+        ),
+      )}
     </div>
   );
 }

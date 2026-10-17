@@ -15,7 +15,7 @@ import {
 
 import { signOutOfDashboard } from "@/app/app/actions";
 
-import { ModelManagement } from "@/components/model-management";
+import { LiveAiPanel } from "./live-ai-panel";
 import { useDashboard, type Theme } from "./provider";
 import { Button, ButtonLink, PageHeader, Panel, Pill } from "./ui";
 
@@ -42,7 +42,7 @@ export function SettingsView() {
     <div className="settings">
       <PageHeader
         title="Settings"
-        description="Appearance, AI models and the practice data stored in this browser."
+        description="Your account, live AI, appearance and the data stored in this browser."
       />
       <Panel title="Account" className="settings-account">
         {account.status === "signed_in" ? (
@@ -150,7 +150,7 @@ export function SettingsView() {
         </Panel>
       </div>
 
-      <ModelManagement />
+      <LiveAiPanel />
 
       <dialog ref={confirm} className="ui-dialog" aria-labelledby="reset-title">
         <h2 id="reset-title">Reset all practice data?</h2>

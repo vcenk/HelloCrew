@@ -57,6 +57,16 @@ Signed out, the dashboard saves to browser storage. Signed in with Google, the A
 
 The RLS rules for the new table can be checked on any plain Postgres: run `supabase/tests/00-supabase-stubs.sql`, every migration, then `supabase/tests/10-workspace-documents-rls.sql`.
 
+## Live AI
+
+The Inbox can answer with OpenAI instead of the practice rules. It needs, in `.env.local` (server-only):
+
+- `OPENAI_API_KEY`
+- `SUPABASE_SECRET_KEY` (service role; used only for the usage ledger and workspace limits)
+- optional `OPENAI_MODEL` (default `gpt-4o-mini`) and its prices `OPENAI_INPUT_USD_PER_MTOK` / `OPENAI_OUTPUT_USD_PER_MTOK`
+
+Then sign in, open Settings → Live AI and switch it on (owner only). Each workspace has a $5/month budget and the whole platform a $20/month cap (`HELLOCREW_PLATFORM_MONTHLY_CAP_USD`). When a budget is used up, replies fall back to practice mode. Bookings proposed by the AI always wait for the owner's approval; no calendar is connected yet.
+
 ## Run locally
 
 Requires Node.js 22.12+ (verified with Node.js 24).

@@ -1643,6 +1643,55 @@ button.bubble-assistant:hover {
   background: var(--d-primary-soft);
   color: var(--d-primary);
 }
+.live-ai {
+  margin-bottom: 20px;
+}
+.live-ai .switch-row {
+  margin-top: 0;
+}
+.live-ai code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--d-surface-2);
+  font-size: 12.5px;
+}
+.budget {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--d-line);
+}
+.budget-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+}
+.budget-head span {
+  color: var(--d-ink-3);
+}
+.budget-head strong {
+  font-variant-numeric: tabular-nums;
+}
+.budget-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--d-surface-3);
+  overflow: hidden;
+}
+.budget-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--d-primary);
+  transition: width 500ms var(--d-ease);
+}
+.budget-bar[data-warn="true"] span {
+  background: var(--d-marigold);
+}
+.budget p {
+  margin-top: 8px;
+  font-size: 12.5px;
+}
 .settings-copy {
   font-size: 13.5px;
 }

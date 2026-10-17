@@ -1,0 +1,211 @@
+import {
+  AIMessage,
+  HumanMessage,
+  SystemMessage,
+  ToolMessage,
+  type BaseMessage,
+} from "@langchain/core/messages";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import type { StructuredToolInterface } from "@langchain/core/tools";
+import {
+  Annotation,
+  END,
+  MessagesAnnotation,
+  START,
+  StateGraph,
+} from "@langchain/langgraph";
+
+import type { Activity } from "@/lib/demo";
+import type { AgentContext } from "./context";
+import { buildSystemPrompt } from "./prompt";
+import {
+  buildTools,
+  toolEffects,
+  type Handoff,
+  type PendingApproval,
+  type TurnEffects,
+} from "./tools";
+
+export const MAX_MODEL_ROUNDS = 3;
+export const MAX_HISTORY_MESSAGES = 20;
+
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+
+export type AgentTurnResult = {
+  reply: string;
+  activity: Activity[];
+  approvals: PendingApproval[];
+  handoffs: Handoff[];
+  usage: { inputTokens: number; outputTokens: number; modelRounds: number };
+};
+
+const AgentState = Annotation.Root({
+  ...MessagesAnnotation.spec,
+  rounds: Annotation<number>({ reducer: (_, b) => b, default: () => 0 }),
+  activity: Annotation<Activity[]>({
+    reducer: (a, b) => a.concat(b),
+    default: () => [],
+  }),
+});
+
+function toolLabel(name: string) {
+  return (
+    {
+      search_knowledge: "Searched approved knowledge",
+      get_business_details: "Read business details",
+      request_booking: "Prepared a booking request",
+      handoff_to_human: "Passed to a person",
+    }[name] ?? name
+  );
+}
+
+export function buildAgentGraph(
+  model: BaseChatModel,
+  context: AgentContext,
+  effects: TurnEffects,
+) {
+  const tools = buildTools(context, effects);
+  const byName = new Map<string, StructuredToolInterface>(
+    tools.map((t) => [t.name, t]),
+  );
+  if (!model.bindTools) throw new Error("Model does not support tools.");
+  const withTools = model.bindTools(tools);
+  const system = new SystemMessage(buildSystemPrompt(context));
+
+  async function agent(state: typeof AgentState.State) {
+    // On the last allowed round the model must answer without more tools.
+    const runnable = state.rounds + 1 >= MAX_MODEL_ROUNDS ? model : withTools;
+    const response = await runnable.invoke([system, ...state.messages]);
+    return { messages: [response], rounds: state.rounds + 1 };
+  }
+
+  // Policy gate: only registered tools run, with schema-validated arguments.
+  // Effects that need the owner are recorded, never executed here.
+  async function runTools(state: typeof AgentState.State) {
+    const last = state.messages[state.messages.length - 1] as AIMessage;
+    const results: BaseMessage[] = [];
+    const activity: Activity[] = [];
+    for (const call of last.tool_calls ?? []) {
+      const selected = byName.get(call.name);
+      const id = call.id ?? crypto.randomUUID();
+      if (!selected || !(call.name in toolEffects)) {
+        results.push(
+          new ToolMessage({ tool_call_id: id, content: "Tool not available." }),
+        );
+        activity.push({
+          label: "Blocked an unknown tool",
+          detail: call.name,
+          kind: "error",
+        });
+        continue;
+      }
+      try {
+        const output = await selected.invoke(call.args);
+        results.push(
+          new ToolMessage({ tool_call_id: id, content: String(output) }),
+        );
+        activity.push({
+          label: toolLabel(call.name),
+          detail:
+            toolEffects[call.name] === "needs_approval"
+              ? "Waiting for your approval. Nothing was booked."
+              : call.name === "search_knowledge"
+                ? `Query: ${String((call.args as { query?: string }).query ?? "")}`
+                : "Ran with your approved information.",
+          kind:
+            toolEffects[call.name] === "needs_approval" ? "approval" : "tool",
+        });
+      } catch {
+        results.push(
+          new ToolMessage({
+            tool_call_id: id,
+            content: "The tool rejected those arguments.",
+          }),
+        );
+        activity.push({
+          label: `${toolLabel(call.name)} failed`,
+          detail: "Arguments did not pass validation.",
+          kind: "error",
+        });
+      }
+    }
+    return { messages: results, activity };
+  }
+
+  return new StateGraph(AgentState)
+    .addNode("agent", agent)
+    .addNode("tools", runTools)
+    .addEdge(START, "agent")
+    .addConditionalEdges("agent", (state) => {
+      const last = state.messages[state.messages.length - 1] as AIMessage;
+      return last.tool_calls?.length && state.rounds < MAX_MODEL_ROUNDS
+        ? "tools"
+        : END;
+    })
+    .addEdge("tools", "agent")
+    .compile();
+}
+
+function textOf(message: BaseMessage | undefined): string {
+  if (!message) return "";
+  const content = message.content;
+  if (typeof content === "string") return content;
+  return content
+    .map((part) =>
+      typeof part === "string"
+        ? part
+        : part.type === "text" && "text" in part
+          ? String(part.text)
+          : "",
+    )
+    .join("");
+}
+
+export async function runAgentTurn(
+  model: BaseChatModel,
+  context: AgentContext,
+  history: ChatTurn[],
+): Promise<AgentTurnResult> {
+  const effects: TurnEffects = { approvals: [], handoffs: [] };
+  const graph = buildAgentGraph(model, context, effects);
+  const messages = history
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((turn) =>
+      turn.role === "user"
+        ? new HumanMessage(turn.content)
+        : new AIMessage(turn.content),
+    );
+  const output = await graph.invoke(
+    { messages, rounds: 0, activity: [] },
+    { recursionLimit: MAX_MODEL_ROUNDS * 2 + 2 },
+  );
+
+  let inputTokens = 0;
+  let outputTokens = 0;
+  for (const message of output.messages) {
+    const usage = (message as AIMessage).usage_metadata;
+    if (usage) {
+      inputTokens += usage.input_tokens ?? 0;
+      outputTokens += usage.output_tokens ?? 0;
+    }
+  }
+  const finalMessage = [...output.messages]
+    .reverse()
+    .find((m) => m instanceof AIMessage || m.getType() === "ai");
+  const reply = textOf(finalMessage).trim() || context.identity.fallback;
+
+  return {
+    reply,
+    activity: [
+      ...output.activity,
+      {
+        label: "Reply written",
+        detail: `${output.rounds} model call${output.rounds === 1 ? "" : "s"}, grounded in your approved knowledge.`,
+        kind: "done",
+      },
+    ],
+    approvals: effects.approvals,
+    handoffs: effects.handoffs,
+    usage: { inputTokens, outputTokens, modelRounds: output.rounds },
+  };
+}

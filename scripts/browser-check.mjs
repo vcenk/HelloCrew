@@ -388,12 +388,13 @@ await page.screenshot({
   fullPage: true,
 });
 await nav("Settings");
+await page.getByRole("heading", { name: "Live AI" }).waitFor();
 await page
-  .getByRole("heading", { name: "One assistant. Flexible engines." })
+  .getByText("Sign in to use live AI", { exact: true })
+  .or(page.getByText("Server keys needed", { exact: true }))
+  .or(page.getByText("Use live AI for this workspace", { exact: true }))
+  .first()
   .waitFor();
-await page.getByText("OpenAI", { exact: true }).waitFor();
-await page.getByText("Anthropic", { exact: true }).waitFor();
-assert.equal(await page.getByText("Not connected", { exact: true }).count(), 2);
 await page.screenshot({
   path: "/tmp/hellocrew-model-routing-desktop.png",
   fullPage: true,
@@ -508,6 +509,6 @@ await page.screenshot({
 });
 assert.deepEqual(errors, []);
 console.log(
-  "Browser QA passed: production desktop/mobile, installed iframe widget and grounded reply, widget security headers and resizing, model-routing states, shared assistant identity, calculated channel readiness, purpose-aware workflow recommendations, workflow save/publish, all scenarios, refresh, overflow, no page errors.",
+  "Browser QA passed: production desktop/mobile, installed iframe widget and grounded reply, widget security headers and resizing, live AI settings states, shared assistant identity, calculated channel readiness, purpose-aware workflow recommendations, workflow save/publish, all scenarios, refresh, overflow, no page errors.",
 );
 await browser.close();

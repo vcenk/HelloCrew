@@ -116,8 +116,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const current =
     allItems.find((item) => isActive(pathname, item.href)) ?? allItems[0];
   const pending =
-    conversation.session?.approvals.filter((a) => a.status === "pending")
-      .length ?? 0;
+    (conversation.session?.approvals.filter((a) => a.status === "pending")
+      .length ?? 0) +
+    conversation.messages.reduce(
+      (n, m) =>
+        n +
+        (m.liveApprovals?.filter((a) => a.status === "pending").length ?? 0),
+      0,
+    );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

@@ -48,6 +48,18 @@ Exit: lint, typecheck, unit tests, build and browser smoke pass; every page work
 
 ### Phase 2 — Real agent runtime
 
+Progress (2026-10-17):
+
+- [x] OpenAI behind one adapter (`lib/models/openai.ts`, default `gpt-4o-mini`, configurable by env). Anthropic adapter still to add.
+- [x] LangGraph agent (`lib/agent/`): model ↔ tools loop, max 3 model rounds, policy gate that only runs registered tools with schema-checked arguments.
+- [x] Tools: `search_knowledge`, `get_business_details`, `request_booking` (records an owner approval, never books), `handoff_to_human`.
+- [x] Grounding: approved knowledge and identity are loaded server-side from the signed-in workspace; nothing the browser sends is used as knowledge. Prompt-injection rule in the system prompt.
+- [x] Spend controls: `hc_tenant_limits` + `hc_usage_reservations` with service-role-only RPCs; atomic worst-case reservation per turn against the tenant monthly budget ($5 default) and a platform cap ($20 default); settle at measured cost; unknown outcomes stay charged. Migration `20261017152928_live_ai_usage_ledger.sql` applied.
+- [x] Owner opt-in: Settings → Live AI toggle (owner only) with a month-to-date budget meter; Inbox switch between Practice and Live AI; live approvals on Home and in the Inbox.
+- [ ] Durable checkpoints and server-stored approvals/conversations (needed before the public widget uses live AI).
+- [ ] pgvector retrieval once knowledge outgrows the inline prompt budget.
+- [ ] Eval suite (grounding, unknowns, injection, EN/FA/ZH).
+
 - `lib/agent/`: supervisor graph, skill subgraphs, typed tool registry, policy gate, `interrupt()` for approvals.
 - `lib/models/`: Anthropic + OpenAI adapters behind `ModelProvider`; deterministic provider kept for tests and no-key mode.
 - Knowledge retrieval with pgvector (tenant- and publication-filtered), replacing keyword matching.

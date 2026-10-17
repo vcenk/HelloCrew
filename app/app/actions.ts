@@ -9,7 +9,14 @@ import {
   type StoredDocument,
   type WorkspaceRole,
 } from "@/lib/data/workspace";
+import { readLiveConfig } from "@/lib/server/live-config";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import {
+  getTenantLimits,
+  monthSpendMicroUsd,
+  setLiveAiEnabled,
+} from "@/lib/usage/ledger";
 import { createClient } from "@/lib/supabase/server";
 import {
   isWorkspaceDocumentKey,
@@ -93,4 +100,64 @@ export async function signOutOfDashboard() {
     await supabase.auth.signOut();
   }
   redirect("/app");
+}
+
+export type LiveAiStatus =
+  | { state: "signed_out" }
+  | {
+      state: "not_configured";
+      missing: ("openai_key" | "supabase_secret")[];
+    }
+  | {
+      state: "ready";
+      enabled: boolean;
+      canManage: boolean;
+      model: string;
+      budgetMicroUsd: number;
+      spentMicroUsd: number;
+    };
+
+export async function getLiveAiStatus(): Promise<LiveAiStatus> {
+  if (!isSupabaseConfigured()) return { state: "signed_out" };
+  try {
+    const supabase = await createClient();
+    const context = await getWorkspaceContext(supabase);
+    if (!context) return { state: "signed_out" };
+    const live = readLiveConfig();
+    if (!live.ready) return { state: "not_configured", missing: live.missing };
+    const admin = createAdminClient(live.config.supabaseSecretKey);
+    const [limits, spent] = await Promise.all([
+      getTenantLimits(admin, context.tenantId),
+      monthSpendMicroUsd(admin, context.tenantId),
+    ]);
+    return {
+      state: "ready",
+      enabled: limits.liveAiEnabled,
+      canManage: context.role === "owner",
+      model: live.config.model,
+      budgetMicroUsd: limits.monthlyBudgetMicroUsd,
+      spentMicroUsd: spent,
+    };
+  } catch {
+    return { state: "signed_out" };
+  }
+}
+
+// Only the workspace owner can switch live AI on or off. The budget itself is
+// never editable from the dashboard.
+export async function updateLiveAi(enabled: unknown): Promise<LiveAiStatus> {
+  if (typeof enabled !== "boolean") return getLiveAiStatus();
+  if (!isSupabaseConfigured()) return { state: "signed_out" };
+  const supabase = await createClient();
+  const context = await getWorkspaceContext(supabase);
+  if (!context) return { state: "signed_out" };
+  const live = readLiveConfig();
+  if (!live.ready) return { state: "not_configured", missing: live.missing };
+  if (context.role === "owner")
+    await setLiveAiEnabled(
+      createAdminClient(live.config.supabaseSecretKey),
+      context.tenantId,
+      enabled,
+    );
+  return getLiveAiStatus();
 }
