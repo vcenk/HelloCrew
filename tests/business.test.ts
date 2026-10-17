@@ -265,3 +265,17 @@ describe("business names containing intent words", () => {
     },
   );
 });
+
+describe("tolerant FAQ matching", () => {
+  it("answers a reworded FAQ question", async () => {
+    const { answerFromBusiness: answer, sampleBusiness: sample } =
+      await import("../lib/business");
+    expect(answer(sample, "Do you have parking?").source).toBe("Saved FAQ");
+    expect(
+      answer(sample, "is there any parking available nearby").reply,
+    ).toContain("two visitor parking");
+    expect(answer(sample, "Do you sell paint?").source).toBe(
+      "No matching information",
+    );
+  });
+});

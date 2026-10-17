@@ -1,4 +1,5 @@
 import { isSameOrigin } from "@/lib/server/request-safety";
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/server/rate-limit";
 import { respondToWidgetMessage } from "@/lib/server/widget-provider";
 import {
   getWidgetInstallation,
@@ -47,6 +48,8 @@ export async function POST(request: Request) {
     );
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BYTES)
     return Response.json({ error: "Request too large." }, { status: 413 });
+  const limited = rateLimit(clientKey(request, "widget"), 30, 60_000);
+  if (!limited.ok) return tooManyRequests(limited);
 
   try {
     const raw = await readBoundedText(request);

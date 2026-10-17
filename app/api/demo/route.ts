@@ -1,5 +1,6 @@
 import { runDemo } from "@/lib/demo";
 import { isSameOrigin } from "@/lib/server/request-safety";
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/server/rate-limit";
 
 export { isSameOrigin };
 
@@ -17,6 +18,8 @@ export async function POST(request: Request) {
     );
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BYTES)
     return Response.json({ error: "Request too large." }, { status: 413 });
+  const limited = rateLimit(clientKey(request, "demo"), 40, 60_000);
+  if (!limited.ok) return tooManyRequests(limited);
   try {
     const reader = request.body?.getReader();
     if (!reader)

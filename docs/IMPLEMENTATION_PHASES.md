@@ -1,5 +1,7 @@
 # Implementation phases
 
+> The active build order is now [ROADMAP.md](ROADMAP.md) (adopted 2026-10-17). This file keeps the original safety-gated phase definitions that the roadmap must still satisfy.
+
 Status: the public website and synthetic LangGraph practice studio are implemented. The phase details below remain the target roadmap, not a claim that every acceptance criterion is complete. See the README and TESTS_EVALS for the verified current subset. Live-operation phases remain unimplemented.
 
 ## Phase 0 Confirm the project boundary

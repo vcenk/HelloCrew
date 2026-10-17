@@ -127,7 +127,49 @@ export function answerFromBusiness(
       reply: `Saved sample hours: ${profile.hours}`,
       source: "Business hours",
     };
+  const similar = closestFaq(profile, q);
+  if (similar)
+    return {
+      reply: `Saved FAQ answer (sample): ${similar.answer}`,
+      source: "Saved FAQ",
+    };
   return unknownAnswer();
+}
+
+const stopWords = new Set(
+  "a an the is are am do does did you your yours we our ours i me my can could would will should to of for in on at it this that there here be have has any some with and or please tell know what when where how".split(
+    " ",
+  ),
+);
+
+function contentWords(normalized: string) {
+  return normalized
+    .split(" ")
+    .map((word) =>
+      word.length > 4 && word.endsWith("s") ? word.slice(0, -1) : word,
+    )
+    .filter((word) => word.length > 2 && !stopWords.has(word));
+}
+
+// Tolerant FAQ match: most of the saved question's content words must appear in
+// the visitor's message. Deterministic and explainable; replaced by retrieval later.
+function closestFaq(profile: BusinessProfile, normalizedQuestion: string) {
+  const asked = new Set(contentWords(normalizedQuestion));
+  if (asked.size === 0) return undefined;
+  let best: { answer: string; score: number } | undefined;
+  for (const faq of profile.faqs) {
+    const words = [...new Set(contentWords(normalizeQuestion(faq.question)))];
+    if (words.length === 0) continue;
+    const hits = words.filter((word) => asked.has(word));
+    const score = hits.length / words.length;
+    if (
+      hits.some((word) => word.length >= 4) &&
+      score >= 0.5 &&
+      (!best || score > best.score)
+    )
+      best = { answer: faq.answer, score };
+  }
+  return best;
 }
 
 function unknownAnswer() {

@@ -82,3 +82,17 @@ describe("server safety boundaries", () => {
     expect(r.status).toBe(400);
   });
 });
+
+describe("public endpoint rate limiting", () => {
+  it("returns 429 after the per-client window is exhausted", async () => {
+    const { rateLimit, resetRateLimits } =
+      await import("../lib/server/rate-limit");
+    resetRateLimits();
+    const results = Array.from({ length: 4 }, () =>
+      rateLimit("test:1.2.3.4", 3, 60_000, 1000),
+    );
+    expect(results.map((r) => r.ok)).toEqual([true, true, true, false]);
+    expect(results[3].retryAfterSeconds).toBe(60);
+    expect(rateLimit("test:1.2.3.4", 3, 60_000, 62_000).ok).toBe(true);
+  });
+});

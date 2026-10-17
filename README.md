@@ -2,20 +2,21 @@
 
 A welcoming workspace for business owners to set up, test, and supervise an AI assistant that can answer questions and use approved business tools.
 
-**Status: implemented practice prototype plus authenticated owner foundation, not live AI.** The public website is at `/`; the beginner-friendly studio is at `/app`; the isolated public practice widget is demonstrated at `/widget-test`; Google OAuth starts at `/login`; and `/workspace` is protected by a verified Supabase session and tenant RLS. A real LangGraph graph runs deterministic tools against fictional sample data. Durable editor saves, real customers, paid model calls, and external actions are not supported yet.
+**Status: implemented practice prototype plus authenticated owner foundation, not live AI.** The working plan is [docs/ROADMAP.md](docs/ROADMAP.md). The public website is at `/`; the dashboard is at `/app` with routes `/app/inbox`, `/app/assistant`, `/app/workflows`, `/app/channels` and `/app/settings`; the isolated public practice widget is demonstrated at `/widget-test`; Google OAuth starts at `/login`; and `/workspace` is protected by a verified Supabase session and tenant RLS. A real LangGraph graph runs deterministic tools against fictional sample data. Durable editor saves, real customers, paid model calls, and external actions are not supported yet.
 
 ## Start here
 
-1. Read [Product requirements](docs/PRODUCT_REQUIREMENTS.md) for the first release and its boundaries.
-2. Read [UX and onboarding](docs/UX_ONBOARDING.md) for the dashboard, navigation, and setup journey.
-3. Follow [Implementation phases](docs/IMPLEMENTATION_PHASES.md) to build a safe demo before enabling live AI.
-4. Use [Architecture](docs/ARCHITECTURE.md), [Agent and tools](docs/AGENT_TOOLS_APPROVALS.md), and [Data model](docs/DATA_MODEL.md) together when implementing the runtime.
+1. Read the [Roadmap](docs/ROADMAP.md) for the current audit, decisions and build order.
+2. Read [Product requirements](docs/PRODUCT_REQUIREMENTS.md) for the first release and its boundaries.
+3. Read [UX and onboarding](docs/UX_ONBOARDING.md) for the dashboard, navigation, and setup journey.
+4. Follow [Implementation phases](docs/IMPLEMENTATION_PHASES.md) to build a safe demo before enabling live AI.
+5. Use [Architecture](docs/ARCHITECTURE.md), [Agent and tools](docs/AGENT_TOOLS_APPROVALS.md), and [Data model](docs/DATA_MODEL.md) together when implementing the runtime.
 
 ## The first useful experience
 
 A business owner edits fictional business information, and tries a free-text conversation in a clearly labeled demo. This synthetic demo does not require authentication; real private data and live operations require the later security foundation. They can see which information was used, review a simulated action, and practice handing a conversation to a human. The sample booking pauses for approve/decline and only changes disposable demo state; no real reservation is made.
 
-The public landing page takes original visual inspiration from Gaia’s public website. The dashboard is independently designed and should feel approachable to someone who has never configured an AI product. Its navigation follows Overview → Build → Test → Launch → Manage: Home is the map; Your assistant owns assistant identity, business context, and approved knowledge; Workflows owns behavior; Conversations owns customer-experience testing; Channels owns publishing and installation; Settings owns practice controls. The current section is deep-linked in the URL. The workflow library provides guided salon, clinic, service-business, and Google-review templates plus an advanced canvas. Each node explains its registered job and exposes bounded business settings. Users can dry-run a safe execution plan and publish immutable browser-local practice versions without activating outside services.
+The public landing page takes original visual inspiration from Gaia’s public website. The dashboard (v2, October 2026) is independently designed with its own token system, light/dark/system themes, a command menu (Ctrl/⌘ K) and toasts. Navigation: **Home** (assistant badge, launch checklist, decisions waiting for the owner, session numbers); **Inbox** (test conversation, reply trace, inline approvals); **Assistant** (identity, business profile, approved knowledge); **Workflows** (behavior); **Channels** (website chat and installation); **Settings** (appearance, model routing, practice data). Each section is a real App Router route; old `/app?section=…` links redirect. Shared dashboard state lives in `components/dashboard/provider.tsx`, so the test conversation survives navigation and refreshes within the tab. The workflow library provides guided salon, clinic, service-business, and Google-review templates plus an advanced canvas. Each node explains its registered job and exposes bounded business settings. Users can dry-run a safe execution plan and publish immutable browser-local practice versions without activating outside services.
 
 ## Technology decisions
 
@@ -31,6 +32,7 @@ The public landing page takes original visual inspiration from Gaia’s public w
 
 | Document                                                           | What it decides                                               |
 | ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| [Roadmap](docs/ROADMAP.md)                                         | Audit, adopted decisions, phased build order                  |
 | [Product requirements](docs/PRODUCT_REQUIREMENTS.md)               | Users, scope, outcomes, acceptance criteria                   |
 | [Architecture](docs/ARCHITECTURE.md)                               | Boundaries, runtime, deployment design                        |
 | [Data model](docs/DATA_MODEL.md)                                   | Tenant ownership, records, constraints, lifecycles            |
@@ -75,13 +77,14 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Alternatively set `CHROMIUM_PATH` to an already installed Chromium executable. The test covers desktop/mobile layout, all four scenarios, approve/decline, reset, refresh, and navigation. It saves review screenshots under `/tmp`. Use `BASE_URL` for a non-default local server URL.
+Alternatively set `CHROMIUM_PATH` to an already installed Chromium executable. Set `SKIP_AUTH_CHECK=1` when the Supabase variables are not configured locally. The test covers desktop/mobile layout, all four scenarios, approve/decline, reset, refresh, and navigation. It saves review screenshots under `/tmp`. Use `BASE_URL` for a non-default local server URL.
 
 ## Implemented boundaries
 
 - Editable sample business profile, services, FAQs and booking link, with bounded free-text practice and quick prompts. Fictional inputs only; no customer PII. See [next-step implementation](docs/BACKEND_NEXT_STEP.md).
 - Real `StateGraph` provider → typed tool → provider loop with a deterministic structured-call provider; not an LLM.
-- Validated input schemas, 12 demo turns per disposable state, fixed graph recursion limit, 32 KiB request limit, and same-origin browser checks.
+- Validated input schemas, 12 demo turns per disposable state, fixed graph recursion limit, 32 KiB request limit, same-origin browser checks, and best-effort per-IP rate limits on the public demo and widget endpoints (per server instance; not a global quota).
+- Free-text FAQ matching tolerates rewording (content-word overlap with the saved question) and still refuses to invent answers.
 - Browser-memory state resets on refresh. It is untrusted, replayable practice state, **not** authentication, durable storage, a global quota, or secure proof of approval. Repeated decisions are idempotent only within the returned demo state.
 - `/api/live` always returns 503. Adding a model key does not activate it.
 - The **Channels** screen owns website delivery: it reads the current assistant identity, approved practice facts, most recently updated active workflow, and disposable conversation test to show a truthful `n of 4` readiness summary with links to each owning section. Draft workflows remain visibly incomplete; an immutable published version satisfies the practice workflow gate. A working `/widget.js` loader mounts an isolated, responsive iframe using the fixed public `demo-hellocrew` installation; `/widget-test` verifies the exact snippet, iframe resize contract, grounded practice replies, and desktop/mobile behavior. This fixture does not publish the browser-local assistant, authorize a customer domain, or create a production installation.

@@ -1,5 +1,7 @@
 # Architecture
 
+> Target runtime adopted 2026-10-17 is summarized under "Agent runtime (target)" below; build order is in [ROADMAP.md](ROADMAP.md).
+
 Status: proposed. All modules and flows below require implementation and verification.
 
 ## Shape of the system
@@ -85,3 +87,44 @@ Use client-safe data transfer objects. Next.js server placement alone is not aut
 ## Tradeoffs
 
 A single application lowers operational overhead and works with the intended hosting. The durable ledger and tenant authorization add necessary complexity before paid use. A manually curated knowledge base avoids early ingestion/vector costs while remaining inspectable. Advanced channels, task queues, semantic search, and additional integrations should earn their complexity through a concrete pilot requirement.
+
+## Agent runtime (target, adopted 2026-10-17)
+
+The current `lib/demo.ts` graph is a deterministic switch and is kept only for tests and no-key practice mode. The production runtime replaces it:
+
+```text
+Channel (widget / WhatsApp / reviews) -> Conversation API -> Agent runtime
+Agent runtime = LangGraph supervisor graph
+  |- Receptionist skill   (knowledge search, FAQ, hours, services)
+  |- Booking skill        (availability + booking tools -> interrupt() for owner approval)
+  |- Lead & quote skill   (capture contact, quote -> notify owner)
+  |- Review skill         (draft reply -> interrupt() for owner approval)
+Tool registry  = one typed registry (Zod schemas, effect level, approval policy, integration, idempotency key)
+Policy gate    = deterministic code between the model's proposed call and execution
+Model layer    = ModelProvider adapters (Anthropic, OpenAI, deterministic) + per-workspace budget
+Memory         = PostgresSaver checkpoints (thread = conversation id) + pgvector knowledge chunks
+```
+
+Proposed layout:
+
+```text
+lib/agent/graph.ts          supervisor + skill subgraphs
+lib/agent/skills/*.ts       one module per skill (prompt, allowed tools)
+lib/agent/tools/registry.ts tool definitions, schemas, effect + approval metadata
+lib/agent/policy.ts         allow/deny/needs-approval decision for each proposed call
+lib/models/*.ts             provider adapters behind ModelProvider
+lib/data/*.ts               tenant-scoped repositories (Supabase, RLS)
+```
+
+Workflows compile into this runtime: a guided template becomes configuration (enabled skills, approval rules, tone, handoff rules); the advanced canvas compiles to the same graph. A workflow can never grant a tool that the registry or policy gate does not allow.
+
+## Dashboard structure (v2)
+
+```text
+app/app/layout.tsx           DashboardProvider + DashboardShell (sidebar, top bar, command menu, toasts)
+app/app/page.tsx             Home (redirects legacy ?section= links)
+app/app/{inbox,assistant,workflows,channels,settings}/page.tsx
+components/dashboard/        provider, shell, ui primitives, home, inbox, settings, editors (hosts legacy editors)
+app/app/dashboard.css        dashboard tokens and components, scoped to .dash
+app/app/legacy-dark.css      generated dark palette for legacy editors (scripts/theme-legacy-css.mjs)
+```

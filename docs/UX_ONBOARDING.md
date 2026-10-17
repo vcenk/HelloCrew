@@ -1,5 +1,7 @@
 # UX and onboarding
 
+> **Dashboard v2 (2026-10-17).** The navigation below is superseded by: Home, Inbox, Assistant, Workflows, Channels, Settings, each a real route under `/app`. Home shows the assistant as a staff badge, a four-step "Before you open" checklist, decisions waiting for the owner, and session numbers. Inbox combines the test conversation, a "Behind the reply" trace panel and inline approvals. Dashboard tokens: light surfaces `#F3F5F2`/`#FFFFFF`, ink `#15201A`, primary green `#1F5A44`, marigold `#F2B632` reserved for things that need the owner; dark theme with matching tokens. Display type is Bricolage Grotesque, body DM Sans. Copy is sentence case and describes what each control does; disclaimers appear once (top-bar "Practice mode" and the trace note) instead of on every section.
+
 Status: original proposed interface. Visual inspiration was reviewed on the public gaiababy.app landing page and its phone preview, not an authenticated dashboard.
 
 ## Public website and dashboard are separate

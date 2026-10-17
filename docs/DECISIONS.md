@@ -26,6 +26,15 @@ Status: planning baseline for HelloCrew. Update this record when a decision chan
 - There is no free commercial tier. Subscription, onboarding, and integration are managed before customers use live service.
 - No new paid infrastructure, account creation, or provider spending is authorized by these documents.
 
+## Decisions adopted 2026-10-17
+
+- Keep LangGraph JS; restructure into a supervisor graph with skill agents, a typed tool registry and a deterministic policy gate (see ARCHITECTURE "Agent runtime").
+- Workflows are configuration for the runtime, not a separate execution engine.
+- Model access through one `ModelProvider` contract for Anthropic and OpenAI, with a per-workspace hard budget.
+- Dashboard v2: App Router routes under `/app/*`, scoped design tokens with light/dark themes, no Tailwind (avoids global preflight conflicts with the landing page). The landing page is unchanged.
+- Reference projects to borrow patterns from (not fork): langchain-ai/open-agent-platform, langchain-ai/agent-inbox, langchain-ai/agents-from-scratch-ts, Chatwoot, Cal.com API v2.
+- Practice test conversation persists in `sessionStorage` for the tab, so navigating or refreshing no longer loses it. It remains untrusted, disposable practice state.
+
 ## Open decisions that do not block the demo
 
 - Final landing-page copy and visual details within the approved direction.

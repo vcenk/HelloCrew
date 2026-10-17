@@ -11,43 +11,57 @@ const page = await browser.newPage({
   deviceScaleFactor: 1,
 });
 const errors = [];
+// Dashboard navigation lives in a drawer on small screens.
+async function nav(name) {
+  const menu = page.getByRole("button", { name: "Open menu", exact: true });
+  if (await menu.isVisible()) await menu.click();
+  await page
+    .getByRole("navigation")
+    .or(page.locator(".dash-sidebar-foot"))
+    .getByRole("link", { name, exact: true })
+    .first()
+    .click();
+}
 page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await page.screenshot({
   path: "/tmp/hellocrew-landing-desktop.png",
   fullPage: true,
 });
-const authPage = await browser.newPage({
-  viewport: { width: 1280, height: 900 },
-  deviceScaleFactor: 1,
-});
-authPage.on("pageerror", (e) => errors.push(`auth: ${e.message}`));
-await authPage.goto(`${baseUrl}/workspace`, { waitUntil: "networkidle" });
-await authPage.waitForURL("**/login");
-await authPage
-  .getByRole("button", { name: "Continue with Google", exact: true })
-  .waitFor();
-await authPage
-  .getByText("Tenant data is protected with row-level security.", {
-    exact: false,
-  })
-  .waitFor();
-await authPage.screenshot({
-  path: "/tmp/hellocrew-login-desktop.png",
-  fullPage: true,
-});
-await authPage.setViewportSize({ width: 390, height: 844 });
-assert.equal(
-  await authPage.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-  true,
-);
-await authPage.screenshot({
-  path: "/tmp/hellocrew-login-mobile.png",
-  fullPage: true,
-});
-await authPage.close();
+// Needs the Supabase env vars; set SKIP_AUTH_CHECK=1 to skip locally.
+if (process.env.SKIP_AUTH_CHECK !== "1") {
+  const authPage = await browser.newPage({
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 1,
+  });
+  authPage.on("pageerror", (e) => errors.push(`auth: ${e.message}`));
+  await authPage.goto(`${baseUrl}/workspace`, { waitUntil: "networkidle" });
+  await authPage.waitForURL("**/login");
+  await authPage
+    .getByRole("button", { name: "Continue with Google", exact: true })
+    .waitFor();
+  await authPage
+    .getByText("Tenant data is protected with row-level security.", {
+      exact: false,
+    })
+    .waitFor();
+  await authPage.screenshot({
+    path: "/tmp/hellocrew-login-desktop.png",
+    fullPage: true,
+  });
+  await authPage.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await authPage.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+    true,
+  );
+  await authPage.screenshot({
+    path: "/tmp/hellocrew-login-mobile.png",
+    fullPage: true,
+  });
+  await authPage.close();
+}
 await page
   .getByRole("link", { name: "Try the practice demo", exact: true })
   .click();
@@ -56,78 +70,67 @@ await page.screenshot({
   path: "/tmp/hellocrew-studio-desktop.png",
   fullPage: true,
 });
-await page
-  .getByRole("heading", { name: "How the parts fit together", exact: true })
-  .waitFor();
-assert.equal(await page.locator(".setup-map-card").count(), 4);
-await page
-  .getByRole("button", { name: "Conversations", exact: false })
-  .first()
-  .click();
-await page.waitForURL("**/app?section=conversations");
-await page
-  .getByRole("button", { name: "Can I book a studio visit?", exact: false })
-  .click();
-await page
-  .getByRole("button", { name: "Approve sample", exact: true })
-  .waitFor();
+await page.getByRole("heading", { name: "Before you open" }).waitFor();
+assert.equal(await page.locator(".checklist li").count(), 4);
+await nav("Inbox");
+await page.waitForURL("**/app/inbox");
+await page.getByRole("button", { name: "Book a visit", exact: true }).click();
+await page.getByRole("button", { name: "Approve", exact: true }).waitFor();
 await page.screenshot({
   path: "/tmp/hellocrew-approval-desktop.png",
   fullPage: true,
 });
-await page.getByRole("button", { name: "Approve sample", exact: true }).click();
+await page.getByRole("button", { name: "Approve", exact: true }).click();
 await page
+  .locator(".thread")
   .getByText(
     "Practice booking approved. A simulated confirmation is ready; no real appointment was made.",
     { exact: true },
   )
   .waitFor();
 assert.equal(
-  await page
-    .getByRole("button", { name: "Approve sample", exact: true })
-    .count(),
+  await page.getByRole("button", { name: "Approve", exact: true }).count(),
   0,
 );
-await page.getByRole("button", { name: "Home", exact: true }).click();
+await nav("Home");
+await page.getByText("Nothing to approve", { exact: true }).waitFor();
+await nav("Inbox");
 await page
-  .getByRole("button", { name: "Conversations", exact: false })
-  .first()
+  .locator(".thread")
+  .getByText("Booking approved", { exact: true })
+  .waitFor();
+await page
+  .getByRole("button", { name: "New conversation", exact: true })
   .click();
-assert.equal(
-  await page.getByText("Approved (demo)", { exact: true }).count(),
-  1,
-);
-page.once("dialog", (dialog) => dialog.accept());
-await page.getByRole("button", { name: "Start fresh", exact: false }).click();
 await page
+  .locator(".thread")
   .getByText("Hello! What can I help you find today?", { exact: true })
   .waitFor();
-await page
-  .getByRole("button", { name: "Can I book a studio visit?", exact: false })
-  .click();
+await page.getByRole("button", { name: "Book a visit", exact: true }).click();
 await page.getByRole("button", { name: "Decline", exact: true }).click();
 await page
+  .locator(".thread")
   .getByText("Practice booking declined. Nothing was booked.", { exact: true })
   .waitFor();
+await page.getByRole("button", { name: "A price", exact: true }).click();
 await page
-  .getByRole("button", { name: "How much is one studio visit?", exact: false })
-  .click();
-await page
+  .locator(".thread")
   .getByText(
     "Sample catalog entries: Studio visit: $40 USD. These are listed sample prices, not a calculated total or a real offer.",
     { exact: true },
   )
   .waitFor();
 await page
-  .getByRole("button", { name: "Can I speak with a person?", exact: false })
+  .getByRole("button", { name: "Ask for a person", exact: true })
   .click();
 await page
+  .locator(".thread")
   .getByText(
     "A person would need to help with that. This practice mode cannot send a handoff or contact anyone.",
     { exact: true },
   )
   .waitFor();
-await page.getByRole("button", { name: "Your assistant", exact: true }).click();
+await nav("Assistant");
 await page
   .getByRole("heading", { name: "Assistant identity", exact: true })
   .waitFor();
@@ -206,35 +209,30 @@ await page.screenshot({
   path: "/tmp/hellocrew-knowledge-desktop.png",
   fullPage: true,
 });
+await nav("Inbox");
 await page
-  .getByRole("button", { name: "Conversations", exact: false })
-  .first()
-  .click();
-await page
-  .getByLabel("Your practice question", { exact: true })
+  .getByLabel("Message as a customer", { exact: true })
   .fill("Do you offer gift cards?");
+await page.getByRole("button", { name: "Send message", exact: true }).click();
 await page
-  .getByRole("button", { name: "Send practice question", exact: true })
-  .click();
-await page
+  .locator(".thread")
   .getByText(
     "Saved FAQ answer (sample): Yes, sample gift cards are available.",
     { exact: true },
   )
   .waitFor();
 await page
-  .getByLabel("Your practice question", { exact: true })
+  .getByLabel("Message as a customer", { exact: true })
   .fill("What is your refund policy?");
+await page.getByRole("button", { name: "Send message", exact: true }).click();
 await page
-  .getByRole("button", { name: "Send practice question", exact: true })
-  .click();
-await page
+  .locator(".thread")
   .getByText(
-    "I’m not certain from the approved information. A person can help before you book. Practice mode has not contacted anyone.",
+    "I’m not certain from the approved information. A person can help before you book.",
     { exact: true },
   )
   .waitFor();
-await page.getByRole("button", { name: "Channels", exact: true }).click();
+await nav("Channels");
 await page
   .getByRole("heading", { name: "Publish and install the website chat." })
   .waitFor();
@@ -317,7 +315,7 @@ await widgetPage.close();
 await page
   .getByRole("button", { name: "Review in Workflows", exact: true })
   .click();
-await page.waitForURL("**/app?section=workflows");
+await page.waitForURL("**/app/workflows");
 await page.getByText("Choose the closest fit.", { exact: true }).waitFor();
 await page
   .getByText("RECOMMENDED FOR BOOKING ASSISTANT", { exact: true })
@@ -379,7 +377,7 @@ assert.ok(
 await page.getByRole("button", { name: "My workflows", exact: true }).click();
 await page.getByText("Salon reception", { exact: true }).last().waitFor();
 await page.getByText("published", { exact: true }).waitFor();
-await page.getByRole("button", { name: "Channels", exact: true }).click();
+await nav("Channels");
 await page.getByText("Published v1", { exact: true }).waitFor();
 await page
   .getByText("4 of 4 practice inputs ready", { exact: true })
@@ -389,7 +387,7 @@ await page.screenshot({
   path: "/tmp/hellocrew-website-channel-ready-desktop.png",
   fullPage: true,
 });
-await page.getByRole("button", { name: "Settings", exact: true }).click();
+await nav("Settings");
 await page
   .getByRole("heading", { name: "One assistant. Flexible engines." })
   .waitFor();
@@ -400,15 +398,12 @@ await page.screenshot({
   path: "/tmp/hellocrew-model-routing-desktop.png",
   fullPage: true,
 });
-page.once("dialog", (dialog) => dialog.accept());
 await page
-  .getByRole("button", { name: "Clear practice session", exact: false })
+  .getByRole("button", { name: "Clear test conversation", exact: true })
   .click();
-await page
-  .getByText("Current session: 0 practice turns.", { exact: true })
-  .waitFor();
+await page.getByText("Test conversation cleared", { exact: true }).waitFor();
 await page.setViewportSize({ width: 390, height: 844 });
-await page.getByRole("button", { name: "Home", exact: true }).click();
+await nav("Home");
 assert.ok(
   await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -418,7 +413,7 @@ await page.screenshot({
   path: "/tmp/hellocrew-studio-mobile.png",
   fullPage: true,
 });
-await page.getByRole("button", { name: "Your assistant", exact: true }).click();
+await nav("Assistant");
 await page
   .getByRole("heading", { name: "Assistant identity", exact: true })
   .waitFor();
@@ -431,7 +426,7 @@ await page.screenshot({
   path: "/tmp/hellocrew-assistant-identity-mobile.png",
   fullPage: true,
 });
-await page.getByRole("button", { name: "Channels", exact: true }).click();
+await nav("Channels");
 await page
   .getByRole("heading", { name: "Publish and install the website chat." })
   .waitFor();
@@ -451,7 +446,7 @@ await page.screenshot({
   path: "/tmp/hellocrew-website-channel-mobile.png",
   fullPage: true,
 });
-await page.getByRole("button", { name: "Workflows", exact: true }).click();
+await nav("Workflows");
 await page.getByRole("button", { name: "Edit information" }).click();
 await page
   .getByText("Ready to save as a safe draft", { exact: true })
@@ -465,16 +460,15 @@ await page.screenshot({
   path: "/tmp/hellocrew-workflow-mobile.png",
   fullPage: true,
 });
-await page.getByRole("button", { name: "Home", exact: true }).click();
+await nav("Home");
 await page.waitForURL("**/app");
 await page
-  .getByRole("button", { name: /Test Review the customer experience/ })
+  .getByRole("link", { name: "Open inbox: Test a conversation" })
   .click();
-await page.waitForURL("**/app?section=conversations");
+await page.waitForURL("**/app/inbox");
+await page.getByRole("button", { name: "Opening hours", exact: true }).click();
 await page
-  .getByRole("button", { name: "What are your opening hours?", exact: false })
-  .click();
-await page
+  .locator(".thread")
   .getByText("Saved sample hours: Monday–Friday, 9am–5pm", { exact: true })
   .waitFor();
 assert.ok(
@@ -486,12 +480,17 @@ await page.screenshot({
   path: "/tmp/hellocrew-conversation-mobile.png",
   fullPage: true,
 });
+// The test conversation now survives a refresh within the same tab.
 await page.reload();
 await page
-  .getByRole("button", { name: "Conversations", exact: false })
-  .first()
+  .locator(".thread")
+  .getByText("Saved sample hours: Monday–Friday, 9am–5pm", { exact: true })
+  .waitFor();
+await page
+  .getByRole("button", { name: "New conversation", exact: true })
   .click();
 await page
+  .locator(".thread")
   .getByText(
     "Hello! I can help you find the right service and booking option.",
     { exact: true },

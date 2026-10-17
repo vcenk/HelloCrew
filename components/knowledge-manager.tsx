@@ -31,9 +31,7 @@ import { bookingLinkSchema, type BusinessProfile } from "@/lib/business";
 import {
   businessFromKnowledge,
   countLanguageCoverage,
-  createKnowledgeStoreFromBusiness,
   knowledgeKinds,
-  parseKnowledgeStore,
   searchApprovedKnowledge,
   type KnowledgeKind,
   type KnowledgeLanguage,
@@ -41,8 +39,11 @@ import {
   type KnowledgeStatus,
   type KnowledgeStore,
 } from "@/lib/knowledge";
+import {
+  KNOWLEDGE_STORAGE_KEY,
+  readKnowledgeStore,
+} from "@/lib/knowledge-storage";
 
-const STORAGE_KEY = "hellocrew:knowledge:v1";
 const languageLabels: Record<KnowledgeLanguage, string> = {
   en: "English",
   fa: "Farsi",
@@ -55,21 +56,6 @@ const kindLabels: Record<KnowledgeKind, string> = {
   policy: "Policy",
   document: "Document",
 };
-
-function readStore(business: BusinessProfile): KnowledgeStore {
-  if (typeof window === "undefined")
-    return createKnowledgeStoreFromBusiness(business);
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createKnowledgeStoreFromBusiness(business);
-    const parsed = parseKnowledgeStore(JSON.parse(raw));
-    return parsed.success
-      ? parsed.data
-      : createKnowledgeStoreFromBusiness(business);
-  } catch {
-    return createKnowledgeStoreFromBusiness(business);
-  }
-}
 
 type SourceDraft = {
   kind: KnowledgeKind;
@@ -100,7 +86,7 @@ export function AssistantSetup({
   onIdentitySave: (identity: AssistantIdentity) => void;
   onSave: (business: BusinessProfile) => void;
 }) {
-  const [store, setStore] = useState(() => readStore(business));
+  const [store, setStore] = useState(() => readKnowledgeStore(business));
   const [activeStep, setActiveStep] = useState<
     "identity" | "business" | "knowledge"
   >("identity");
@@ -115,7 +101,7 @@ export function AssistantSetup({
   const [hasTested, setHasTested] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    localStorage.setItem(KNOWLEDGE_STORAGE_KEY, JSON.stringify(store));
     onSave(businessFromKnowledge(store));
   }, [onSave, store]);
 
