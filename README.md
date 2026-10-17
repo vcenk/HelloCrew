@@ -49,9 +49,9 @@ The public landing page takes original visual inspiration from Gaia’s public w
 
 ## Accounts and saving
 
-Signed out, the dashboard saves to browser storage. Signed in with Google, the Assistant, Knowledge and Workflows editors autosave to the workspace (`public.hc_workspace_documents`, migration `20261017090000_workspace_documents.sql`) with version checks so a stale tab cannot overwrite newer work. To enable it:
+Signed out, the dashboard saves to browser storage. Signed in with Google, the Assistant, Knowledge and Workflows editors autosave to the workspace (`public.hc_workspace_documents`, migration `20261017052938_workspace_documents.sql`) with version checks so a stale tab cannot overwrite newer work. To enable it:
 
-1. Apply migrations: `supabase link --project-ref yfmoggubjsffgameexfi` then `supabase db push`.
+1. Migrations are already applied to `yfmoggubjsffgameexfi`. For a new project: `supabase link --project-ref <ref>` then `supabase db push`.
 2. In Supabase Auth settings, enable Google and add `http://localhost:3000/auth/callback` (and the production URL) as redirect URLs.
 3. Set the three variables from `.env.example` in `.env.local`.
 
