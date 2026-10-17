@@ -1,4 +1,5 @@
 const EXPECTED_PROJECT_REF = "yfmoggubjsffgameexfi";
+export const AUTH_NEXT_COOKIE = "hc_auth_next";
 
 export function isSupabaseConfigured() {
   return Boolean(

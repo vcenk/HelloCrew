@@ -4,6 +4,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublicConfig, isSupabaseConfigured } from "./config";
 
 export async function updateSession(request: NextRequest) {
+  // If Supabase falls back to the Site URL (redirect URL not allow-listed), the
+  // OAuth code lands on "/". Forward it to the callback so sign-in completes.
+  const { pathname, searchParams } = request.nextUrl;
+  if (pathname === "/" && searchParams.has("code")) {
+    const callback = request.nextUrl.clone();
+    callback.pathname = "/auth/callback";
+    return NextResponse.redirect(callback);
+  }
   let response = NextResponse.next({ request });
   // The public practice dashboard must keep working without Supabase configured.
   if (!isSupabaseConfigured()) return response;
