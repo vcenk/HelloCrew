@@ -37,6 +37,8 @@ export type AgentTurnResult = {
   approvals: PendingApproval[];
   handoffs: Handoff[];
   usage: { inputTokens: number; outputTokens: number; modelRounds: number };
+  // True when the crew had no approved answer, so the owner can teach one.
+  unanswered: boolean;
 };
 
 const AgentState = Annotation.Root({
@@ -194,8 +196,18 @@ export async function runAgentTurn(
     .find((m) => m instanceof AIMessage || m.getType() === "ai");
   const reply = textOf(finalMessage).trim() || context.identity.fallback;
 
+  const fallbackStart = context.identity.fallback.slice(0, 32).toLowerCase();
+  const unanswered =
+    (fallbackStart.length > 10 && reply.toLowerCase().includes(fallbackStart)) ||
+    output.messages.some(
+      (m) =>
+        m.getType() === "tool" &&
+        String(m.content) === "No approved information matches.",
+    );
+
   return {
     reply,
+    unanswered,
     activity: [
       ...output.activity,
       {

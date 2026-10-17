@@ -1,5 +1,5 @@
-import { AssistantView } from "@/components/dashboard/editors";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <AssistantView />;
+  redirect("/app/crew/receptionist/personality");
 }

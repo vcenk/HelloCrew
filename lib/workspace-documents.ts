@@ -2,6 +2,7 @@ import {
   ASSISTANT_IDENTITY_STORAGE_KEY,
   assistantIdentitySchema,
 } from "./assistant";
+import { CREW_STORAGE_KEY, crewStoreSchema } from "./crew";
 import { parseKnowledgeStore } from "./knowledge";
 import { KNOWLEDGE_STORAGE_KEY } from "./knowledge-storage";
 import { parseWorkflowStore } from "./workflow-lifecycle";
@@ -13,6 +14,7 @@ export const workspaceDocumentKeys = [
   "assistant_identity",
   "knowledge",
   "workflows",
+  "crew",
 ] as const;
 export type WorkspaceDocumentKey = (typeof workspaceDocumentKeys)[number];
 
@@ -20,6 +22,7 @@ export const localStorageKeyFor: Record<WorkspaceDocumentKey, string> = {
   assistant_identity: ASSISTANT_IDENTITY_STORAGE_KEY,
   knowledge: KNOWLEDGE_STORAGE_KEY,
   workflows: WORKFLOW_STORAGE_KEY,
+  crew: CREW_STORAGE_KEY,
 };
 
 export const MAX_DOCUMENT_BYTES = 400_000;
@@ -46,6 +49,10 @@ export function validateWorkspaceDocument(
   }
   if (key === "knowledge") {
     const parsed = parseKnowledgeStore(document);
+    return parsed.success ? parsed.data : null;
+  }
+  if (key === "crew") {
+    const parsed = crewStoreSchema.safeParse(document);
     return parsed.success ? parsed.data : null;
   }
   if (!document || typeof document !== "object") return null;

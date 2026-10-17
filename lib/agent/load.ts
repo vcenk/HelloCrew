@@ -12,6 +12,7 @@ import {
   createKnowledgeStoreFromBusiness,
   parseKnowledgeStore,
 } from "@/lib/knowledge";
+import { parseCrewStore } from "@/lib/crew";
 import { buildAgentContext } from "./context";
 
 // Builds the agent's context from the signed-in workspace (RLS-scoped reads).
@@ -30,5 +31,7 @@ export async function loadAgentContext(
     knowledge.success
       ? knowledge.data
       : createKnowledgeStoreFromBusiness(sampleBusiness),
+    new Date(),
+    parseCrewStore(documents.crew?.document).members[0].skills,
   );
 }

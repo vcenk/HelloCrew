@@ -2,7 +2,7 @@
 
 A welcoming workspace for business owners to set up, test, and supervise an AI assistant that can answer questions and use approved business tools.
 
-**Status: implemented practice prototype plus authenticated owner foundation, not live AI.** The working plan is [docs/ROADMAP.md](docs/ROADMAP.md). The public website is at `/`; the dashboard is at `/app` with routes `/app/inbox`, `/app/assistant`, `/app/workflows`, `/app/channels` and `/app/settings`; the isolated public practice widget is demonstrated at `/widget-test`; Google OAuth starts at `/login`; and `/workspace` is protected by a verified Supabase session and tenant RLS. A real LangGraph graph runs deterministic tools against fictional sample data. Durable editor saves, real customers, paid model calls, and external actions are not supported yet.
+**Status: implemented practice prototype plus authenticated owner foundation, not live AI.** The working plan is [docs/ROADMAP.md](docs/ROADMAP.md). The public website is at `/`; the dashboard is at `/app` with routes `/app/conversations`, `/app/crew`, `/app/knowledge` and `/app/settings`; the isolated public practice widget is demonstrated at `/widget-test`; Google OAuth starts at `/login`; and `/workspace` is protected by a verified Supabase session and tenant RLS. A real LangGraph graph runs deterministic tools against fictional sample data. Durable editor saves, real customers, paid model calls, and external actions are not supported yet.
 
 ## Start here
 
@@ -16,7 +16,7 @@ A welcoming workspace for business owners to set up, test, and supervise an AI a
 
 A business owner edits fictional business information, and tries a free-text conversation in a clearly labeled demo. This synthetic demo does not require authentication; real private data and live operations require the later security foundation. They can see which information was used, review a simulated action, and practice handing a conversation to a human. The sample booking pauses for approve/decline and only changes disposable demo state; no real reservation is made.
 
-The public landing page takes original visual inspiration from Gaia’s public website. The dashboard (v2, October 2026) is independently designed with its own token system, light/dark/system themes, a command menu (Ctrl/⌘ K) and toasts. Navigation: **Home** (assistant badge, launch checklist, decisions waiting for the owner, session numbers); **Inbox** (test conversation, reply trace, inline approvals); **Assistant** (identity, business profile, approved knowledge); **Workflows** (behavior); **Channels** (website chat and installation); **Settings** (appearance, model routing, practice data). Each section is a real App Router route; old `/app?section=…` links redirect. Shared dashboard state lives in `components/dashboard/provider.tsx`, so the test conversation survives navigation and refreshes within the tab. The workflow library provides guided salon, clinic, service-business, and Google-review templates plus an advanced canvas. Each node explains its registered job and exposes bounded business settings. Users can dry-run a safe execution plan and publish immutable browser-local practice versions without activating outside services.
+The public landing page takes original visual inspiration from Gaia’s public website. The dashboard (crew layout, October 2026) is independently designed with its own token system, light/dark/system themes, a command menu (Ctrl/⌘ K) and toasts. It is organized around a crew of agents that share one knowledge base: **Today** (what needs the owner: approvals and questions the crew couldn't answer, plus the crew at a glance); **Conversations** (test chat, what each reply used, Teach this answer, reply trace); **Crew** (the website receptionist with Skills, Personality and Channels tabs and a Try panel; WhatsApp, review and phone agents are listed as coming soon); **Knowledge** (hours, services, Q&A, policies and documents with live/draft status); **Settings** (account, live AI, appearance, practice data). Skill switches (Off / Ask me first / On its own) control which tools the live agent gets. Each section is a real App Router route; old `/app?section=…` links redirect. Shared dashboard state lives in `components/dashboard/provider.tsx`, so the test conversation survives navigation and refreshes within the tab. The workflow library provides guided salon, clinic, service-business, and Google-review templates plus an advanced canvas. Each node explains its registered job and exposes bounded business settings. Users can dry-run a safe execution plan and publish immutable browser-local practice versions without activating outside services.
 
 ## Technology decisions
 
@@ -59,7 +59,7 @@ The RLS rules for the new table can be checked on any plain Postgres: run `supab
 
 ## Live AI
 
-The Inbox can answer with OpenAI instead of the practice rules. It needs, in `.env.local` (server-only):
+Conversations can answer with OpenAI instead of the practice rules. It needs, in `.env.local` (server-only):
 
 - `OPENAI_API_KEY`
 - `SUPABASE_SECRET_KEY` (service role; used only for the usage ledger and workspace limits)

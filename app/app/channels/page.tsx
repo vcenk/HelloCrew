@@ -1,5 +1,5 @@
-import { ChannelsView } from "@/components/dashboard/editors";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ChannelsView />;
+  redirect("/app/crew/receptionist/channels");
 }

@@ -1,5 +1,5 @@
-import { InboxView } from "@/components/dashboard/inbox";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <InboxView />;
+  redirect("/app/conversations");
 }

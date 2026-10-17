@@ -3,16 +3,22 @@
 import Link from "next/link";
 import {
   CalendarCheck,
-  Check,
   ChevronRight,
-  Inbox,
+  GraduationCap,
+  Globe,
   MessageCircle,
-  PencilLine,
+  Phone,
   ShieldCheck,
+  Star,
+  Users,
 } from "lucide-react";
 
+import { crewJobs, receptionistSkills } from "@/lib/crew";
+import { UNANSWERED } from "./chat-thread";
 import { useDashboard, useLaunchChecklist } from "./provider";
 import { ButtonLink, EmptyState, Panel, Pill } from "./ui";
+
+const jobIcon = { receptionist: Globe, whatsapp: MessageCircle, reviews: Star, phone: Phone } as const;
 
 function greetingForNow() {
   const hour = new Date().getHours();
@@ -22,23 +28,16 @@ function greetingForNow() {
 }
 
 export function HomeView() {
-  const {
-    identity,
-    purpose,
-    business,
-    conversation,
-    hydrated,
-    decide,
-    decideLive,
-  } = useDashboard();
+  const { identity, business, conversation, hydrated, decide, decideLive, crew } = useDashboard();
   const { steps, done } = useLaunchChecklist();
-  const pending = [
+  const skills = crew.members[0].skills;
+
+  const approvals = [
     ...(conversation.session?.approvals ?? [])
       .filter((a) => a.status === "pending")
       .map((a) => ({
         key: a.id,
-        detail:
-          "1 studio visit, $40. Sample request from a practice conversation.",
+        detail: "Sample booking from a practice chat. Nothing is booked for real.",
         onDecide: (value: "approve" | "reject") => void decide(a.id, value),
       })),
     ...conversation.messages.flatMap((m) =>
@@ -46,32 +45,31 @@ export function HomeView() {
         .filter((a) => a.status === "pending")
         .map((a) => ({
           key: a.id,
-          detail: `${a.summary}. Requested in a live AI conversation.`,
-          onDecide: (value: "approve" | "reject") =>
-            decideLive(m.id, a.id, value),
+          detail: `${a.summary}. From a live AI test chat.`,
+          onDecide: (value: "approve" | "reject") => decideLive(m.id, a.id, value),
         })),
     ),
   ];
+
+  // Questions the crew couldn't answer, deduplicated, newest first.
+  const unanswered: string[] = [];
+  conversation.messages.forEach((m, i) => {
+    if (m.role !== "assistant" || m.source !== UNANSWERED) return;
+    const q = [...conversation.messages.slice(0, i)].reverse().find((c) => c.role === "customer")?.text;
+    if (q && !unanswered.includes(q)) unanswered.unshift(q);
+  });
+
   const replies = conversation.messages.filter((m) => m.role === "assistant");
-  const unanswered = replies.filter(
-    (m) => m.source === "No matching information",
-  ).length;
+  const questions = conversation.messages.filter((m) => m.role === "customer").length;
   const handoffs = replies.filter(
-    (m) =>
-      m.activity?.some((a) => /handoff/i.test(a.label)) ||
-      m.source === "Practice handoff policy",
+    (m) => m.activity?.some((a) => /handoff|person/i.test(a.label)) || m.source === "Practice handoff policy",
   ).length;
   const answered = replies.filter(
-    (m) =>
-      m.source &&
-      m.source !== "No matching information" &&
-      m.source !== "Practice handoff policy",
+    (m) => m.source && m.source !== UNANSWERED && m.source !== "Practice handoff policy",
   ).length;
+  const needsYou = approvals.length + unanswered.length;
   const nextStep = steps.find((s) => !s.done);
-  const recent = conversation.messages
-    .filter((m) => m.role === "customer")
-    .slice(-3)
-    .reverse();
+  const skillsOn = receptionistSkills.filter((s) => !s.comingSoon && skills[s.id] !== "off");
 
   return (
     <div className="home" data-ready={hydrated}>
@@ -79,78 +77,29 @@ export function HomeView() {
         <div>
           <h1>{greetingForNow()}</h1>
           <p>
-            {done === steps.length
-              ? `${identity.name} is ready for a website test run.`
-              : `${done} of ${steps.length} setup steps done for ${business.name}.`}
+            {needsYou > 0
+              ? `${needsYou} thing${needsYou === 1 ? "" : "s"} need${needsYou === 1 ? "s" : ""} you today.`
+              : questions > 0
+                ? `Your crew handled ${questions} test question${questions === 1 ? "" : "s"}. Nothing needs you.`
+                : `Your crew at ${business.name} is ready. Nothing needs you.`}
           </p>
         </div>
-        {nextStep && (
-          <ButtonLink
-            href={nextStep.href}
-            variant="primary"
-            icon={ChevronRight}
-          >
-            {nextStep.action}
-          </ButtonLink>
-        )}
+        <ButtonLink href="/app/conversations" variant="primary" icon={MessageCircle}>
+          Test a chat
+        </ButtonLink>
       </div>
 
-      <div className="home-top">
-        <article
-          className="crew-badge"
-          aria-label={`${identity.name}, your assistant`}
-        >
-          <span className="crew-badge-clip" aria-hidden="true" />
-          <div className="crew-badge-head">
-            <span className="crew-badge-avatar" aria-hidden="true">
-              {identity.name.slice(0, 1).toUpperCase()}
-            </span>
-            <div>
-              <span className="crew-badge-org">{business.name}</span>
-              <h2>{identity.name}</h2>
-              <span className="crew-badge-role">{purpose.label}</span>
-            </div>
-          </div>
-          <blockquote>“{identity.greeting}”</blockquote>
-          <dl className="crew-badge-facts">
-            <div>
-              <dt>Voice</dt>
-              <dd>{identity.tone}</dd>
-            </div>
-            <div>
-              <dt>When unsure</dt>
-              <dd>{identity.fallback}</dd>
-            </div>
-          </dl>
-          <footer>
-            <span className="crew-badge-status">
-              <span className="dash-status-dot" aria-hidden="true" />
-              On duty in practice
-            </span>
-            <div>
-              <ButtonLink
-                href="/app/assistant"
-                size="sm"
-                variant="ghost"
-                icon={PencilLine}
-              >
-                Edit
-              </ButtonLink>
-              <ButtonLink
-                href="/app/inbox"
-                size="sm"
-                variant="primary"
-                icon={MessageCircle}
-              >
-                Talk to {identity.name}
-              </ButtonLink>
-            </div>
-          </footer>
-        </article>
-
-        <Panel title="Before you open" className="checklist">
-          <div
-            className="checklist-progress"
+      {nextStep && (
+        <Link href={nextStep.href} className="setup-bar">
+          <span className="setup-bar-count">
+            {done}/{steps.length}
+          </span>
+          <span className="setup-bar-text">
+            <strong>Setup: {nextStep.title}</strong>
+            <small>{nextStep.detail}</small>
+          </span>
+          <span
+            className="setup-bar-track"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={steps.length}
@@ -158,53 +107,32 @@ export function HomeView() {
             aria-label="Setup progress"
           >
             <span style={{ width: `${(done / steps.length) * 100}%` }} />
-          </div>
-          <ol>
-            {steps.map((step) => (
-              <li key={step.id} data-done={step.done}>
-                <span className="checklist-mark" aria-hidden="true">
-                  {step.done ? <Check size={14} strokeWidth={3} /> : null}
-                </span>
-                <div>
-                  <strong>{step.title}</strong>
-                  <p>{step.detail}</p>
-                </div>
-                <Link
-                  href={step.href}
-                  className="checklist-link"
-                  aria-label={`${step.action}: ${step.title}`}
-                >
-                  <ChevronRight size={17} />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        </Panel>
-      </div>
+          </span>
+          <span className="setup-bar-action">
+            {nextStep.action} <ChevronRight size={16} aria-hidden="true" />
+          </span>
+        </Link>
+      )}
 
-      <div className="home-bottom">
+      <div className="today-grid">
         <Panel
-          title="Waiting for you"
-          actions={
-            pending.length > 0 ? (
-              <Pill tone="attention">{pending.length} to review</Pill>
-            ) : undefined
-          }
+          title="Needs you"
+          className="needs-you"
+          actions={needsYou > 0 ? <Pill tone="attention">{needsYou} open</Pill> : undefined}
         >
-          {pending.length === 0 ? (
-            <EmptyState icon={ShieldCheck} title="Nothing to approve">
-              Bookings and public replies that need your OK land here before
-              anything happens.
+          {needsYou === 0 ? (
+            <EmptyState icon={ShieldCheck} title="All clear">
+              Booking requests waiting for your OK and questions your crew couldn’t answer show up here.
             </EmptyState>
           ) : (
             <ul className="decision-list">
-              {pending.map((approval) => (
+              {approvals.map((approval) => (
                 <li key={approval.key}>
                   <span className="decision-icon" aria-hidden="true">
                     <CalendarCheck size={18} />
                   </span>
                   <div>
-                    <strong>Booking request</strong>
+                    <strong>Approve a booking request</strong>
                     <p>{approval.detail}</p>
                   </div>
                   <div className="decision-actions">
@@ -227,71 +155,93 @@ export function HomeView() {
                   </div>
                 </li>
               ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel
-          title="This test session"
-          actions={
-            <ButtonLink href="/app/inbox" size="sm" variant="ghost">
-              Open inbox
-            </ButtonLink>
-          }
-        >
-          <dl className="session-stats">
-            <div>
-              <dt>Questions asked</dt>
-              <dd>
-                {
-                  conversation.messages.filter((m) => m.role === "customer")
-                    .length
-                }
-              </dd>
-            </div>
-            <div>
-              <dt>Answered from your facts</dt>
-              <dd>{answered}</dd>
-            </div>
-            <div>
-              <dt>Didn’t know</dt>
-              <dd data-warn={unanswered > 0}>{unanswered}</dd>
-            </div>
-            <div>
-              <dt>Passed to a person</dt>
-              <dd>{handoffs}</dd>
-            </div>
-          </dl>
-          {recent.length === 0 ? (
-            <EmptyState
-              icon={Inbox}
-              title="No test conversations yet"
-              action={
-                <ButtonLink href="/app/inbox" size="sm" variant="secondary">
-                  Ask a first question
-                </ButtonLink>
-              }
-            >
-              Try the questions your customers ask most.
-            </EmptyState>
-          ) : (
-            <ul className="recent-list">
-              {recent.map((m) => (
-                <li key={m.id}>
-                  <MessageCircle size={15} aria-hidden="true" />
-                  <span>{m.text}</span>
-                  <time dateTime={new Date(m.at).toISOString()}>
-                    {new Date(m.at).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </time>
+              {unanswered.slice(0, 5).map((question) => (
+                <li key={question}>
+                  <span className="decision-icon" data-tone="teach" aria-hidden="true">
+                    <GraduationCap size={18} />
+                  </span>
+                  <div>
+                    <strong>“{question}”</strong>
+                    <p>{identity.name} didn’t know this. Teach it once and every agent can use it.</p>
+                  </div>
+                  <div className="decision-actions">
+                    <ButtonLink href={`/app/knowledge?teach=${encodeURIComponent(question)}`} size="sm" variant="secondary">
+                      Teach this answer
+                    </ButtonLink>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </Panel>
+
+        <Panel title="Test chats so far">
+          <dl className="session-stats">
+            <div>
+              <dt>Questions</dt>
+              <dd>{questions}</dd>
+            </div>
+            <div>
+              <dt>Answered</dt>
+              <dd>{answered}</dd>
+            </div>
+            <div>
+              <dt>Didn’t know</dt>
+              <dd data-warn={unanswered.length > 0}>{unanswered.length}</dd>
+            </div>
+            <div>
+              <dt>To a person</dt>
+              <dd>{handoffs}</dd>
+            </div>
+          </dl>
+          <p className="today-note">Real customer numbers appear once your website chat goes live.</p>
+        </Panel>
       </div>
+
+      <section className="crew-strip" aria-labelledby="crew-strip-title">
+        <header>
+          <h2 id="crew-strip-title">Your crew</h2>
+          <ButtonLink href="/app/crew" size="sm" variant="ghost" icon={Users}>
+            Manage crew
+          </ButtonLink>
+        </header>
+        <div className="crew-strip-row">
+          <Link href="/app/crew/receptionist" className="crew-tile" data-active="true">
+            <span className="crew-tile-avatar" aria-hidden="true">
+              {identity.name.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="crew-tile-text">
+              <strong>{identity.name}</strong>
+              <small>Website receptionist</small>
+            </span>
+            <span className="crew-tile-status">
+              <span className="dash-status-dot" aria-hidden="true" /> On duty
+            </span>
+            <span className="crew-tile-skills">
+              {skillsOn.map((s) => (
+                <span key={s.id}>{s.title}</span>
+              ))}
+            </span>
+          </Link>
+          {crewJobs
+            .filter((j) => !j.available)
+            .map((job) => {
+              const Icon = jobIcon[job.job];
+              return (
+                <div className="crew-tile" data-active="false" key={job.job}>
+                  <span className="crew-tile-avatar" aria-hidden="true">
+                    <Icon size={17} />
+                  </span>
+                  <span className="crew-tile-text">
+                    <strong>{job.title}</strong>
+                    <small>{job.channels}</small>
+                  </span>
+                  <Pill tone="neutral">Coming soon</Pill>
+                </div>
+              );
+            })}
+        </div>
+      </section>
     </div>
   );
 }

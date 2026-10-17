@@ -105,5 +105,11 @@ export function buildTools(context: AgentContext, effects: TurnEffects) {
     },
   );
 
-  return [searchKnowledge, businessDetails, requestBooking, handoff];
+  // Skills the owner switched off are not offered to the model at all.
+  return [
+    searchKnowledge,
+    businessDetails,
+    ...(context.skills.booking === "ask" ? [requestBooking] : []),
+    ...(context.skills.handoff === "auto" ? [handoff] : []),
+  ];
 }

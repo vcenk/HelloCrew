@@ -29,7 +29,7 @@ HelloCrew is an agentic front desk for small, appointment-based businesses (salo
 
 ### Phase 1 — Dashboard v2 and quick fixes (in progress)
 
-- [x] Route-based dashboard: `/app`, `/app/inbox`, `/app/assistant`, `/app/workflows`, `/app/channels`, `/app/settings`. Legacy `?section=` links redirect.
+- [x] Route-based dashboard (first version: `/app`, `/app/inbox`, `/app/assistant`, `/app/workflows`, `/app/channels`, `/app/settings`; replaced by the crew layout below). Legacy `?section=` links redirect.
 - [x] Shared dashboard state provider (assistant identity, business facts, workflow readiness, practice conversation) that survives route changes.
 - [x] Design tokens, light/dark/system theme, new sidebar, top bar, command menu (Ctrl/⌘ K), toasts, empty states.
 - [x] Home: assistant badge, launch checklist, decisions queue, session numbers.
@@ -42,7 +42,14 @@ HelloCrew is an agentic front desk for small, appointment-based businesses (salo
 - [x] Migrations `workspace_documents` and `advisor_hardening` applied to project `yfmoggubjsffgameexfi` (2026-10-17); RLS verified on the live database in a rolled-back transaction (CAS, stale/skip writes blocked, cross-tenant and anon denied). Remaining advisor notice is intentional: checkpoints, approvals and usage reservations are server-only tables with no client policies.
 - [x] Verified end to end with a real Google account (2026-10-17): sign-in, workspace provisioning, autosave of identity and knowledge to `hc_workspace_documents`.
 - Note: many apps sharing `localhost:3000` can accumulate cookies until the dev server returns HTTP 431; clear `localhost` site data in the browser.
-- [ ] Restyle the internals of the Assistant, Workflows and Channels editors with dashboard primitives (they currently keep their original layouts).
+- [x] Crew redesign (2026-10-17), modeled on how Intercom Fin, Chatbase, Podium and Birdeye organize agent products: agents by job, one shared knowledge base, per-skill autonomy. Navigation is now **Today · Conversations · Crew · Knowledge** (+ Settings).
+  - Today: "Needs you" (booking approvals and questions the crew couldn't answer, each with a Teach link), test-chat numbers, slim setup bar, crew strip.
+  - Conversations: conversation list, test chat, "Used" chips on each reply (knowledge or skill, linking to where it is changed), "Teach this answer" when a reply had no matching knowledge, Behind the reply panel.
+  - Crew: one real agent (website receptionist) plus WhatsApp, review and phone jobs shown as coming soon. Agent page with Skills (Off / Ask me first / On its own, limited to what is safe today), Personality and Channels tabs, and a Try panel. The workflow canvas stays as an "Advanced workflow editor".
+  - Knowledge: grouped by kind, live/draft switch per item, add/edit/delete dialog, `?teach=` prefill, suggestions from unanswered questions, free "Check an answer" preview (no AI call), business profile.
+  - Skills are enforced: new `crew` workspace document (`lib/crew.ts`, migration `20261017213940_crew_document`); the live agent only gets `request_booking` when booking is "ask" and `handoff_to_human` when handoff is on, and the prompt changes to match; practice mode follows the same settings.
+  - Old routes `/app/inbox`, `/app/assistant`, `/app/channels` and `?section=` links redirect.
+- [ ] Restyle the internals of the workflow editor and website-chat guide with dashboard primitives.
 
 Exit: lint, typecheck, unit tests, build and browser smoke pass; every page works on desktop and mobile in both themes.
 
@@ -55,7 +62,8 @@ Progress (2026-10-17):
 - [x] Tools: `search_knowledge`, `get_business_details`, `request_booking` (records an owner approval, never books), `handoff_to_human`.
 - [x] Grounding: approved knowledge and identity are loaded server-side from the signed-in workspace; nothing the browser sends is used as knowledge. Prompt-injection rule in the system prompt.
 - [x] Spend controls: `hc_tenant_limits` + `hc_usage_reservations` with service-role-only RPCs; atomic worst-case reservation per turn against the tenant monthly budget ($5 default) and a platform cap ($20 default); settle at measured cost; unknown outcomes stay charged. Migration `20261017152928_live_ai_usage_ledger.sql` applied.
-- [x] Owner opt-in: Settings → Live AI toggle (owner only) with a month-to-date budget meter; Inbox switch between Practice and Live AI; live approvals on Home and in the Inbox.
+- [x] Owner opt-in: Settings → Live AI toggle (owner only) with a month-to-date budget meter; Conversations switch between Practice and Live AI; live approvals on Today and in Conversations.
+- [x] The agent reports `unanswered` when no approved knowledge matched, which drives the "Teach this answer" loop.
 - [ ] Durable checkpoints and server-stored approvals/conversations (needed before the public widget uses live AI).
 - [ ] pgvector retrieval once knowledge outgrows the inline prompt budget.
 - [ ] Eval suite (grounding, unknowns, injection, EN/FA/ZH).

@@ -135,19 +135,28 @@ export function businessFromKnowledge(store: KnowledgeStore): BusinessProfile {
   const approved = store.sources.filter(
     (source) => source.status === "approved",
   );
+  // The practice profile has tighter limits than the knowledge store.
   const services = approved
     .filter((source) => source.kind === "service" && source.price)
-    .map((source) => ({ name: source.title, price: source.price! }));
+    .slice(0, 8)
+    .map((source) => ({
+      name: source.title.slice(0, 80),
+      price: source.price!.slice(0, 80),
+    }));
   const faqs = approved
     .filter((source) => source.kind === "faq")
-    .map((source) => ({ question: source.title, answer: source.content }));
+    .slice(-8)
+    .map((source) => ({
+      question: source.title.slice(0, 160),
+      answer: source.content.slice(0, 500),
+    }));
   const hours =
     approved.find(
       (source) => source.kind === "hours" && source.language === "en",
     ) ?? approved.find((source) => source.kind === "hours");
   return {
     ...store.profile,
-    hours: hours?.content ?? "No approved opening hours are available.",
+    hours: (hours?.content ?? "No approved opening hours are available.").slice(0, 200),
     services,
     faqs,
   };

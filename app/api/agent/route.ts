@@ -144,6 +144,7 @@ export async function POST(request: Request) {
     return Response.json(
       {
         reply: result.reply,
+        unanswered: result.unanswered,
         activity: result.activity,
         approvals: result.approvals,
         handoffs: result.handoffs,

@@ -118,13 +118,22 @@ lib/data/*.ts               tenant-scoped repositories (Supabase, RLS)
 
 Workflows compile into this runtime: a guided template becomes configuration (enabled skills, approval rules, tone, handoff rules); the advanced canvas compiles to the same graph. A workflow can never grant a tool that the registry or policy gate does not allow.
 
-## Dashboard structure (v2)
+## Dashboard structure (v3, crew)
 
 ```text
-app/app/layout.tsx           DashboardProvider + DashboardShell (sidebar, top bar, command menu, toasts)
-app/app/page.tsx             Home (redirects legacy ?section= links)
-app/app/{inbox,assistant,workflows,channels,settings}/page.tsx
-components/dashboard/        provider, shell, ui primitives, home, inbox, settings, editors (hosts legacy editors)
-app/app/dashboard.css        dashboard tokens and components, scoped to .dash
-app/app/legacy-dark.css      generated dark palette for legacy editors (scripts/theme-legacy-css.mjs)
+app/app/layout.tsx                      DashboardProvider + DashboardShell (sidebar, top bar, command menu, toasts)
+app/app/page.tsx                        Today (redirects legacy ?section= links)
+app/app/conversations/page.tsx          Conversations (test chat, used chips, teach loop, reply trace)
+app/app/crew/page.tsx                   Crew (agents by job; coming-soon jobs)
+app/app/crew/receptionist/layout.tsx    Agent page: header, tabs, Try panel
+app/app/crew/receptionist/{page,personality/page,channels/page}.tsx   Skills, Personality, Channels
+app/app/knowledge/page.tsx              Shared knowledge (?teach= prefills a Q&A)
+app/app/{workflows,settings}/page.tsx   Advanced workflow editor, settings
+app/app/{inbox,assistant,channels}      redirects to the new routes
+components/dashboard/                   provider, shell, ui, home, conversations, chat-thread, crew, knowledge, settings, editors
+lib/crew.ts                             crew document: jobs, skills, autonomy modes (off / ask / auto)
+app/app/dashboard.css                   dashboard tokens and components, scoped to .dash
+app/app/legacy-dark.css                 generated dark palette for legacy editors (scripts/theme-legacy-css.mjs)
 ```
+
+Skill modes are data, not prompt text alone: `lib/agent/tools.ts` only registers the tools a skill allows, `lib/agent/prompt.ts` states the same rules, and the provider applies them in practice mode. A mode that needs an integration that does not exist yet (booking "On its own" needs a calendar) cannot be selected.

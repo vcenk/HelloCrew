@@ -4,24 +4,23 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bot,
+  BookOpen,
   Cloud,
   CloudOff,
   LoaderCircle,
   Check,
   CircleAlert,
   Command,
-  Home,
   Inbox,
+  MessageCircle,
   Info,
   Menu,
   Monitor,
   Moon,
-  Radio,
   Search,
   Settings,
   Sun,
-  Workflow,
+  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -35,46 +34,10 @@ export const dashboardNav: { group: string | null; items: NavItem[] }[] = [
   {
     group: null,
     items: [
-      {
-        href: "/app",
-        label: "Home",
-        icon: Home,
-        hint: "Overview and next steps",
-      },
-      {
-        href: "/app/inbox",
-        label: "Inbox",
-        icon: Inbox,
-        hint: "Test conversations and approvals",
-      },
-    ],
-  },
-  {
-    group: "Build",
-    items: [
-      {
-        href: "/app/assistant",
-        label: "Assistant",
-        icon: Bot,
-        hint: "Identity, business and knowledge",
-      },
-      {
-        href: "/app/workflows",
-        label: "Workflows",
-        icon: Workflow,
-        hint: "What it does and when it asks you",
-      },
-    ],
-  },
-  {
-    group: "Launch",
-    items: [
-      {
-        href: "/app/channels",
-        label: "Channels",
-        icon: Radio,
-        hint: "Website chat and installation",
-      },
+      { href: "/app", label: "Today", icon: Sun, hint: "What needs you and how your crew is doing" },
+      { href: "/app/conversations", label: "Conversations", icon: MessageCircle, hint: "Every chat, test and approval" },
+      { href: "/app/crew", label: "Crew", icon: Users, hint: "Your agents, their skills and channels" },
+      { href: "/app/knowledge", label: "Knowledge", icon: BookOpen, hint: "What your whole crew may say" },
     ],
   },
 ];
@@ -91,7 +54,10 @@ const allItems: NavItem[] = [
 ];
 
 function isActive(pathname: string, href: string) {
-  return href === "/app" ? pathname === "/app" : pathname.startsWith(href);
+  if (href === "/app") return pathname === "/app";
+  // The workflow editor is an advanced view of a crew member's skills.
+  if (href === "/app/crew" && pathname.startsWith("/app/workflows")) return true;
+  return pathname.startsWith(href);
 }
 
 function useResolvedTheme(theme: Theme) {
@@ -196,7 +162,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 >
                   <item.icon size={18} aria-hidden="true" />
                   <span>{item.label}</span>
-                  {item.href === "/app/inbox" && pending > 0 && (
+                  {item.href === "/app/conversations" && pending > 0 && (
                     <span
                       className="dash-nav-count"
                       aria-label={`${pending} waiting for you`}
@@ -222,7 +188,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <span>Settings</span>
           </Link>
           <Link
-            href="/app/assistant"
+            href="/app/crew"
             className="dash-mini-badge"
             onClick={() => setNavOpen(false)}
           >
@@ -232,8 +198,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <span>
               <strong>{identity.name}</strong>
               <small>
-                <span className="dash-status-dot" aria-hidden="true" /> On duty
-                in practice
+                <span className="dash-status-dot" aria-hidden="true" /> Receptionist
+                on duty
               </small>
             </span>
           </Link>
@@ -431,7 +397,7 @@ function CommandMenu({
         icon: Inbox,
         run: () => {
           resetConversation();
-          router.push("/app/inbox");
+          router.push("/app/conversations");
           toast("New test conversation started", "info");
         },
       },

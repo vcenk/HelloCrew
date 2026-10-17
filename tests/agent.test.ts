@@ -177,3 +177,40 @@ describe("live AI cost accounting", () => {
     expect(ready.ready && ready.config.model).toBe("gpt-4o-mini");
   });
 });
+
+describe("crew skills control the live agent", () => {
+  it("does not offer booking or handoff tools when switched off", async () => {
+    const { buildTools } = await import("../lib/agent/tools");
+    const off = buildAgentContext(
+      sampleAssistantIdentity,
+      createKnowledgeStoreFromBusiness(sampleBusiness),
+      new Date(),
+      { answer: "auto", booking: "off", handoff: "off", leads: "off" },
+    );
+    const names = buildTools(off, { approvals: [], handoffs: [] }).map((t) => t.name);
+    expect(names).toEqual(["search_knowledge", "get_business_details"]);
+    expect(buildSystemPrompt(off)).toContain("You cannot take bookings");
+    const on = buildTools(context, { approvals: [], handoffs: [] }).map((t) => t.name);
+    expect(on).toContain("request_booking");
+    expect(on).toContain("handoff_to_human");
+  });
+
+  it("clamps stored skills to modes allowed today", async () => {
+    const { parseCrewStore, setSkillMode, defaultCrew } = await import("../lib/crew");
+    const stored = parseCrewStore({
+      formatVersion: 1,
+      members: [
+        {
+          id: "receptionist",
+          job: "receptionist",
+          skills: { answer: "off", booking: "auto", handoff: "auto", leads: "auto" },
+        },
+      ],
+    });
+    expect(stored.members[0].skills).toEqual(defaultCrew.members[0].skills);
+    expect(parseCrewStore("junk")).toEqual(defaultCrew);
+    const changed = setSkillMode(defaultCrew, "booking", "off");
+    expect(changed.members[0].skills.booking).toBe("off");
+    expect(setSkillMode(defaultCrew, "booking", "auto")).toBe(defaultCrew);
+  });
+});

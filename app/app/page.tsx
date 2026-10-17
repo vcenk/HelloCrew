@@ -4,10 +4,12 @@ import { HomeView } from "@/components/dashboard/home";
 
 const legacySections: Record<string, string> = {
   home: "/app",
-  assistant: "/app/assistant",
+  assistant: "/app/crew/receptionist/personality",
+  knowledge: "/app/knowledge",
+  crew: "/app/crew",
   workflows: "/app/workflows",
-  conversations: "/app/inbox",
-  channels: "/app/channels",
+  conversations: "/app/conversations",
+  channels: "/app/crew/receptionist/channels",
   settings: "/app/settings",
 };
 

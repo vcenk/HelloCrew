@@ -18,7 +18,17 @@ import {
   type AssistantIdentity,
   type AssistantPurposePreset,
 } from "@/lib/assistant";
-import { businessFromKnowledge } from "@/lib/knowledge";
+import {
+  businessFromKnowledge,
+  createKnowledgeStoreFromBusiness,
+  type KnowledgeStore,
+} from "@/lib/knowledge";
+import {
+  CREW_STORAGE_KEY,
+  defaultCrew,
+  parseCrewStore,
+  type CrewStore,
+} from "@/lib/crew";
 import { readKnowledgeStore } from "@/lib/knowledge-storage";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
 import type { Activity, DemoResult, DemoSession, Scenario } from "@/lib/demo";
@@ -78,6 +88,10 @@ type Conversation = {
 
 type DashboardState = {
   hydrated: boolean;
+  knowledge: KnowledgeStore;
+  saveKnowledge: (next: KnowledgeStore) => void;
+  crew: CrewStore;
+  saveCrew: (next: CrewStore) => void;
   account: Account;
   saveStatus: SaveStatus;
   retrySave: () => void;
@@ -159,6 +173,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("system");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const lock = useRef(false);
+  const [knowledge, setKnowledge] = useState<KnowledgeStore>(() =>
+    createKnowledgeStoreFromBusiness(sampleBusiness, "2026-01-01T00:00:00.000Z"),
+  );
+  const [crew, setCrew] = useState<CrewStore>(defaultCrew);
   const [liveStatus, setLiveStatus] = useState<LiveAiStatus | null>(null);
   const [engine, setEngineState] = useState<Engine>("practice");
   const toastId = useRef(0);
@@ -204,9 +222,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             safeGet("local", LEGACY_WORKFLOW_STORAGE_KEY),
         ),
       );
-      setBusinessState(
-        businessFromKnowledge(readKnowledgeStore(sampleBusiness)),
-      );
+      const storedKnowledge = readKnowledgeStore(sampleBusiness);
+      setKnowledge(storedKnowledge);
+      setBusinessState(businessFromKnowledge(storedKnowledge));
+      try {
+        const rawCrew = safeGet("local", CREW_STORAGE_KEY);
+        setCrew(parseCrewStore(rawCrew ? JSON.parse(rawCrew) : null));
+      } catch {
+        setCrew(defaultCrew);
+      }
       const storedTheme = safeGet("local", THEME_KEY);
       if (storedTheme === "light" || storedTheme === "dark")
         setThemeState(storedTheme);
@@ -233,6 +257,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     });
     return () => cancelAnimationFrame(frame);
   }, [sync.ready]);
+
+  const saveKnowledge = useCallback((next: KnowledgeStore) => {
+    setKnowledge(next);
+    setBusinessState(businessFromKnowledge(next));
+    persistLocal("knowledge", next);
+  }, []);
+
+  const saveCrew = useCallback((next: CrewStore) => {
+    setCrew(next);
+    persistLocal("crew", next);
+  }, []);
 
   const setBusiness = useCallback((next: BusinessProfile) => {
     setBusinessState(next);
@@ -412,6 +447,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           code?: string;
           error?: string;
           reply: string;
+          unanswered?: boolean;
           activity: Activity[];
           approvals: { id: string; summary: string }[];
           usage: { model: string; costMicroUsd: number; modelRounds: number };
@@ -445,6 +481,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
               activity: result.activity,
               engine: "live",
               usage: result.usage,
+              source: result.unanswered ? "No matching information" : undefined,
               liveApprovals: result.approvals.map((a) => ({
                 ...a,
                 status: "pending" as const,
@@ -545,14 +582,48 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     [business, call, callLive, engine],
   );
 
+  // Practice mode follows the crew's skill settings too, without a server call.
+  const replyLocally = useCallback(
+    (question: string, text: string, label: string) => {
+      const at = Date.now();
+      setConversation((c) => ({
+        ...c,
+        error: "",
+        messages: [
+          ...c.messages,
+          { id: crypto.randomUUID(), role: "customer", text: question, at, engine: "practice" },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            text,
+            at: at + 1,
+            engine: "practice",
+            activity: [{ label, detail: "Changed on the Crew page under Skills.", kind: "done" }],
+          },
+        ],
+      }));
+      return Promise.resolve(true);
+    },
+    [],
+  );
+
   const runScenario = useCallback(
-    (scenario: Scenario, question: string) =>
-      engine === "live"
-        ? callLive(question)
-        : scenario === "booking"
-          ? call({ scenario }, question)
-          : call({ message: question, business }, question),
-    [business, call, callLive, engine],
+    (scenario: Scenario, question: string) => {
+      if (engine === "live") return callLive(question);
+      const skills = crew.members[0].skills;
+      if (scenario === "booking" && skills.booking === "off")
+        return replyLocally(
+          question,
+          `I can’t take bookings here. ${business.bookingUrl ? `You can book at ${business.bookingUrl}.` : "Please contact the business directly to book."}`,
+          "Booking requests are off",
+        );
+      if (scenario === "handoff" && skills.handoff === "off")
+        return replyLocally(question, identity.fallback, "Passing to a person is off");
+      return scenario === "booking"
+        ? call({ scenario }, question)
+        : call({ message: question, business }, question);
+    },
+    [business, call, callLive, crew, engine, identity.fallback, replyLocally],
   );
 
   const decide = useCallback(
@@ -585,6 +656,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<DashboardState>(
     () => ({
       hydrated,
+      knowledge,
+      saveKnowledge,
+      crew,
+      saveCrew,
       account: sync.account,
       saveStatus: sync.saveStatus,
       retrySave: sync.retry,
@@ -616,6 +691,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       hydrated,
+      knowledge,
+      saveKnowledge,
+      crew,
+      saveCrew,
       sync.account,
       sync.saveStatus,
       sync.retry,
@@ -669,21 +748,21 @@ export function useLaunchChecklist() {
   const steps = [
     {
       id: "assistant",
-      title: "Introduce your assistant",
-      detail: `${identity.name} is set up with a greeting and a safe fallback.`,
+      title: "Meet your receptionist",
+      detail: `${identity.name} has a name, a greeting and a safe fallback.`,
       done: Boolean(identity.name && identity.greeting),
-      href: "/app/assistant",
-      action: "Edit identity",
+      href: "/app/crew/receptionist/personality",
+      action: "Edit personality",
     },
     {
       id: "knowledge",
-      title: "Approve what it may say",
+      title: "Approve what your crew may say",
       detail:
         facts > 0
           ? `${facts} approved fact${facts === 1 ? "" : "s"}: hours, services and FAQs.`
           : "Add hours, services and FAQs, then approve them.",
       done: facts > 0,
-      href: "/app/assistant",
+      href: "/app/knowledge",
       action: "Review knowledge",
     },
     {
@@ -709,8 +788,8 @@ export function useLaunchChecklist() {
         ? "You’ve reviewed at least one reply."
         : "Ask a few customer questions and check the answers.",
       done: tested,
-      href: "/app/inbox",
-      action: "Open inbox",
+      href: "/app/conversations",
+      action: "Start a test chat",
     },
   ];
   return { steps, done: steps.filter((s) => s.done).length };

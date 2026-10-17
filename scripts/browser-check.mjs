@@ -1,6 +1,8 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
+
 const baseUrl = process.env.BASE_URL ?? "http://127.0.0.1:3000";
+const shots = process.env.SHOTS_DIR ?? "/tmp";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH,
   headless: true,
@@ -11,504 +13,200 @@ const page = await browser.newPage({
   deviceScaleFactor: 1,
 });
 const errors = [];
+page.on("pageerror", (e) => errors.push(e.message));
+
+const shot = (name) =>
+  page.screenshot({ path: `${shots}/hellocrew-${name}.png`, fullPage: true });
+const text = (value) => page.getByText(value, { exact: true }).first().waitFor();
+const button = (name) => page.getByRole("button", { name, exact: true });
+const noOverflow = async () =>
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+    `horizontal overflow on ${page.url()}`,
+  );
+
 // Dashboard navigation lives in a drawer on small screens.
 async function nav(name) {
-  const menu = page.getByRole("button", { name: "Open menu", exact: true });
+  const menu = button("Open menu");
   if (await menu.isVisible()) await menu.click();
   await page
-    .getByRole("navigation")
-    .or(page.locator(".dash-sidebar-foot"))
+    .locator(".dash-sidebar")
     .getByRole("link", { name, exact: true })
     .first()
     .click();
 }
-page.on("pageerror", (e) => errors.push(e.message));
+
+async function ask(question) {
+  await page.getByLabel("Message as a customer", { exact: true }).first().fill(question);
+  await button("Send message").first().click();
+}
+
+// ---------- Landing and login ----------
 await page.goto(baseUrl, { waitUntil: "networkidle" });
-await page.screenshot({
-  path: "/tmp/hellocrew-landing-desktop.png",
-  fullPage: true,
-});
+await shot("landing-desktop");
+
 // Needs the Supabase env vars; set SKIP_AUTH_CHECK=1 to skip locally.
 if (process.env.SKIP_AUTH_CHECK !== "1") {
-  const authPage = await browser.newPage({
-    viewport: { width: 1280, height: 900 },
-    deviceScaleFactor: 1,
-  });
+  const authPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   authPage.on("pageerror", (e) => errors.push(`auth: ${e.message}`));
   await authPage.goto(`${baseUrl}/workspace`, { waitUntil: "networkidle" });
   await authPage.waitForURL("**/login");
-  await authPage
-    .getByRole("button", { name: "Continue with Google", exact: true })
-    .waitFor();
-  await authPage
-    .getByText("Tenant data is protected with row-level security.", {
-      exact: false,
-    })
-    .waitFor();
-  await authPage.screenshot({
-    path: "/tmp/hellocrew-login-desktop.png",
-    fullPage: true,
-  });
-  await authPage.setViewportSize({ width: 390, height: 844 });
-  assert.equal(
-    await authPage.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-    true,
-  );
-  await authPage.screenshot({
-    path: "/tmp/hellocrew-login-mobile.png",
-    fullPage: true,
-  });
+  await authPage.getByRole("button", { name: "Continue with Google", exact: true }).waitFor();
+  await authPage.screenshot({ path: `${shots}/hellocrew-login-desktop.png`, fullPage: true });
   await authPage.close();
 }
-await page
-  .getByRole("link", { name: "Try the practice demo", exact: true })
-  .click();
+
+// ---------- Today ----------
+await page.getByRole("link", { name: "Try the practice demo", exact: true }).click();
 await page.waitForURL("**/app");
-await page.screenshot({
-  path: "/tmp/hellocrew-studio-desktop.png",
-  fullPage: true,
-});
-await page.getByRole("heading", { name: "Before you open" }).waitFor();
-assert.equal(await page.locator(".checklist li").count(), 4);
-await nav("Inbox");
-await page.waitForURL("**/app/inbox");
-await page.getByRole("button", { name: "Book a visit", exact: true }).click();
-await page.getByRole("button", { name: "Approve", exact: true }).waitFor();
-await page.screenshot({
-  path: "/tmp/hellocrew-approval-desktop.png",
-  fullPage: true,
-});
-await page.getByRole("button", { name: "Approve", exact: true }).click();
-await page
-  .locator(".thread")
-  .getByText(
-    "Practice booking approved. A simulated confirmation is ready; no real appointment was made.",
-    { exact: true },
-  )
-  .waitFor();
-assert.equal(
-  await page.getByRole("button", { name: "Approve", exact: true }).count(),
-  0,
-);
-await nav("Home");
-await page.getByText("Nothing to approve", { exact: true }).waitFor();
-await nav("Inbox");
-await page
-  .locator(".thread")
-  .getByText("Booking approved", { exact: true })
-  .waitFor();
-await page
-  .getByRole("button", { name: "New conversation", exact: true })
-  .click();
-await page
-  .locator(".thread")
-  .getByText("Hello! What can I help you find today?", { exact: true })
-  .waitFor();
-await page.getByRole("button", { name: "Book a visit", exact: true }).click();
-await page.getByRole("button", { name: "Decline", exact: true }).click();
-await page
-  .locator(".thread")
-  .getByText("Practice booking declined. Nothing was booked.", { exact: true })
-  .waitFor();
-await page.getByRole("button", { name: "A price", exact: true }).click();
-await page
-  .locator(".thread")
-  .getByText(
-    "Sample catalog entries: Studio visit: $40 USD. These are listed sample prices, not a calculated total or a real offer.",
-    { exact: true },
-  )
-  .waitFor();
-await page
-  .getByRole("button", { name: "Ask for a person", exact: true })
-  .click();
-await page
-  .locator(".thread")
-  .getByText(
-    "A person would need to help with that. This practice mode cannot send a handoff or contact anyone.",
-    { exact: true },
-  )
-  .waitFor();
-await nav("Assistant");
-await page
-  .getByRole("heading", { name: "Assistant identity", exact: true })
-  .waitFor();
-await page
-  .locator(".assistant-purpose-picker button")
-  .filter({ hasText: "Booking assistant" })
-  .click();
-await page.locator('input[name="assistant-name"]').evaluate((input) => {
-  if (!(input instanceof HTMLInputElement) || input.value !== "Booking guide") {
-    throw new Error("Booking starter did not apply its default identity.");
-  }
-});
-await page
-  .getByText("Share the booking link", { exact: true })
-  .first()
-  .waitFor();
-await page.screenshot({
-  path: "/tmp/hellocrew-assistant-identity-desktop.png",
-  fullPage: true,
-});
-await page
-  .getByRole("button", {
-    name: "Save & continue to Business profile",
-    exact: true,
-  })
-  .click();
-await page
-  .getByRole("heading", { name: "Business profile", exact: true })
-  .waitFor();
-await page.screenshot({
-  path: "/tmp/hellocrew-business-profile-desktop.png",
-  fullPage: true,
-});
-await page.locator('input[name="booking-url"]').fill("javascript:alert(1)");
-await page
-  .getByRole("button", {
-    name: "Save & continue to Knowledge",
-    exact: true,
-  })
-  .click();
-await page
-  .getByText("Use a full http or https link", { exact: false })
-  .waitFor();
-await page
-  .locator('input[name="booking-url"]')
-  .fill("https://example.com/book");
-await page
-  .getByRole("button", {
-    name: "Save & continue to Knowledge",
-    exact: true,
-  })
-  .click();
-await page.getByText("Business knowledge", { exact: true }).waitFor();
-await page.getByRole("button", { name: "Test retrieval", exact: true }).click();
-await page.getByText("Exact approved FAQ", { exact: false }).waitFor();
-await page.getByRole("button", { name: "Add knowledge", exact: true }).click();
-await page
-  .getByLabel("Customer question", { exact: true })
-  .fill("Do you offer gift cards?");
-await page
-  .getByLabel("Approved answer", { exact: true })
-  .fill("Yes, sample gift cards are available.");
-await page.getByRole("button", { name: "Save draft", exact: true }).click();
-const giftCardSource = page
-  .getByRole("article")
-  .filter({ hasText: "Do you offer gift cards?" });
-await giftCardSource
-  .getByRole("button", { name: "Approve", exact: true })
-  .click();
-await page
-  .getByText("Source approved and available to practice retrieval.", {
-    exact: true,
-  })
-  .waitFor();
-await page.screenshot({
-  path: "/tmp/hellocrew-knowledge-desktop.png",
-  fullPage: true,
-});
-await nav("Inbox");
-await page
-  .getByLabel("Message as a customer", { exact: true })
-  .fill("Do you offer gift cards?");
-await page.getByRole("button", { name: "Send message", exact: true }).click();
-await page
-  .locator(".thread")
-  .getByText(
-    "Saved FAQ answer (sample): Yes, sample gift cards are available.",
-    { exact: true },
-  )
-  .waitFor();
-await page
-  .getByLabel("Message as a customer", { exact: true })
-  .fill("What is your refund policy?");
-await page.getByRole("button", { name: "Send message", exact: true }).click();
-await page
-  .locator(".thread")
-  .getByText(
-    "I’m not certain from the approved information. A person can help before you book.",
-    { exact: true },
-  )
-  .waitFor();
-await nav("Channels");
-await page
-  .getByRole("heading", { name: "Publish and install the website chat." })
-  .waitFor();
-await page.getByText("demo-hellocrew", { exact: false }).waitFor();
-await page.getByText("Booking guide", { exact: true }).first().waitFor();
-await page
-  .getByText(
-    "Hello! I can help you find the right service and booking option.",
-    { exact: true },
-  )
-  .waitFor();
-await page.getByText("Configured", { exact: true }).waitFor();
-await page.getByText("Practice knowledge available", { exact: true }).waitFor();
-await page.getByText("Not saved", { exact: true }).waitFor();
-await page.getByText("Test reviewed", { exact: true }).waitFor();
-await page
-  .getByText("3 of 4 practice inputs ready", { exact: true })
-  .first()
-  .waitFor();
-await page
-  .getByRole("button", { name: "Close website chat preview", exact: true })
-  .click();
-await page.getByRole("button", { name: "Show preview", exact: true }).click();
-await page.waitForTimeout(400);
-await page.screenshot({
-  path: "/tmp/hellocrew-website-channel-desktop.png",
-  fullPage: true,
-});
-const widgetFrameResponse = await page.request.get(
-  `${baseUrl}/widget/demo-hellocrew`,
-);
+await page.getByRole("heading", { name: "Needs you" }).waitFor();
+await text("All clear");
+await page.getByRole("heading", { name: "Your crew" }).waitFor();
+assert.equal(await page.locator(".crew-tile").count(), 4);
+await shot("today-desktop");
+
+// Old section links still land on the new pages.
+await page.goto(`${baseUrl}/app/inbox`);
+await page.waitForURL("**/app/conversations");
+await page.goto(`${baseUrl}/app?section=assistant`);
+await page.waitForURL("**/app/crew/receptionist/personality");
+
+// ---------- Conversations: approvals, sources and teaching ----------
+await nav("Conversations");
+await page.waitForURL("**/app/conversations");
+await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
+await button("Book a visit").click();
+await button("Approve").waitFor();
+await text("Skill · Booking requests");
+await nav("Today");
+await text("Approve a booking request");
+await button("Approve").click();
+await text("All clear");
+
+await nav("Conversations");
+await text("Booking approved");
+await button("A price").click();
+await text("Knowledge · Service catalog");
+await ask("Do you have wifi?");
+await page.getByRole("link", { name: "Teach this answer", exact: true }).first().waitFor();
+await shot("conversations-desktop");
+
+await nav("Today");
+await text("“Do you have wifi?”");
+await page.getByRole("link", { name: "Teach this answer", exact: true }).click();
+await page.waitForURL("**/app/knowledge");
+await page.getByRole("heading", { name: "Add knowledge" }).waitFor();
+assert.equal(await page.getByLabel("Customer question").inputValue(), "Do you have wifi?");
+await page.getByLabel("Answer", { exact: true }).fill("Yes, free wifi for every visitor.");
+await button("Save").click();
+await text("Added to knowledge");
+await text("Do you have wifi?");
+await page.getByPlaceholder("Type a customer question").fill("Do you have wifi?");
+await text("Exact approved FAQ · 100%");
+await shot("knowledge-desktop");
+
+await nav("Conversations");
+await ask("Do you have wifi?");
+await text("Saved FAQ answer (sample): Yes, free wifi for every visitor.");
+
+// Draft knowledge is not used.
+await nav("Knowledge");
+await page.getByLabel("Do you have wifi? is live").uncheck({ force: true });
+await text("“Do you have wifi?” moved to draft");
+await page.getByLabel("Do you have wifi? is live").check({ force: true });
+
+// ---------- Crew: skills change what the receptionist does ----------
+await nav("Crew");
+await page.waitForURL("**/app/crew");
+await text("Add to your crew");
+assert.equal(await page.locator(".hire-card").count(), 3);
+await shot("crew-desktop");
+await page.locator(".agent-card").click();
+await page.waitForURL("**/app/crew/receptionist");
+await page.getByRole("radiogroup", { name: "Booking requests mode" }).getByRole("radio", { name: "Off" }).click();
+await text("Booking requests: Off");
+await page.locator(".agent-try").getByRole("button", { name: "Book a visit", exact: true }).click();
+await page.locator(".agent-try").getByText("I can’t take bookings here.", { exact: false }).waitFor();
+await shot("agent-skills-desktop");
+await page.getByRole("radiogroup", { name: "Booking requests mode" }).getByRole("radio", { name: "Ask me first" }).click();
+
+// Personality saves and renames the agent everywhere.
+await page.getByRole("tab", { name: "Personality" }).click();
+await page.waitForURL("**/personality");
+await page.getByLabel("Name", { exact: true }).fill("Mila");
+await button("Save personality").click();
+await text("Personality saved");
+await page.getByRole("heading", { name: "Mila", exact: true }).waitFor();
+await shot("agent-personality-desktop");
+
+// Channels: website chat preview and the installed widget.
+await page.getByRole("tab", { name: "Channels" }).click();
+await page.waitForURL("**/channels");
+await text("Website chat");
+const widgetFrameResponse = await page.request.get(`${baseUrl}/widget/demo-hellocrew`);
 assert.equal(widgetFrameResponse.status(), 200);
-assert.equal(widgetFrameResponse.headers()["x-frame-options"], undefined);
-assert.match(
-  widgetFrameResponse.headers()["content-security-policy"],
-  /frame-ancestors \*/,
-);
-const widgetPopupPromise = page.waitForEvent("popup");
-await page
-  .getByRole("link", { name: "Open test website", exact: true })
-  .click();
-const widgetPage = await widgetPopupPromise;
+assert.match(widgetFrameResponse.headers()["content-security-policy"], /frame-ancestors \*/);
+const popup = page.waitForEvent("popup");
+await page.getByRole("link", { name: "Open test website", exact: true }).click();
+const widgetPage = await popup;
 widgetPage.on("pageerror", (e) => errors.push(`widget: ${e.message}`));
 await widgetPage.waitForLoadState("networkidle");
-await widgetPage
-  .getByRole("heading", { name: "A quiet place for bright ideas." })
-  .waitFor();
-const embeddedWidget = widgetPage.frameLocator(
-  'iframe[title="Chat with this business"]',
-);
-await embeddedWidget
-  .getByRole("button", { name: "Open website chat", exact: true })
-  .click();
-await embeddedWidget
-  .getByText("Public practice widget · no live AI or real messages", {
-    exact: true,
-  })
-  .waitFor();
-await embeddedWidget
-  .getByRole("button", { name: "When are you open?", exact: true })
-  .click();
-await embeddedWidget
-  .getByText("Saved sample hours: Monday–Friday, 9am–5pm", { exact: true })
-  .waitFor();
-await widgetPage.screenshot({
-  path: "/tmp/hellocrew-installed-widget-desktop.png",
-  fullPage: true,
-});
-await widgetPage.setViewportSize({ width: 390, height: 844 });
-assert.ok(
-  await widgetPage.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-);
-await widgetPage.screenshot({
-  path: "/tmp/hellocrew-installed-widget-mobile.png",
-  fullPage: true,
-});
+const embedded = widgetPage.frameLocator('iframe[title="Chat with this business"]');
+await embedded.getByRole("button", { name: "Open website chat", exact: true }).click();
+await embedded.getByRole("button", { name: "When are you open?", exact: true }).click();
+await embedded.getByText("Saved sample hours:", { exact: false }).waitFor();
 await widgetPage.close();
-await page
-  .getByRole("button", { name: "Review in Workflows", exact: true })
-  .click();
+await shot("agent-channels-desktop");
+
+// The advanced workflow editor stays reachable from Skills.
+await page.getByRole("tab", { name: "Skills" }).click();
+await page.getByRole("link", { name: /Advanced workflow editor/ }).click();
 await page.waitForURL("**/app/workflows");
-await page.getByText("Choose the closest fit.", { exact: true }).waitFor();
-await page
-  .getByText("RECOMMENDED FOR BOOKING ASSISTANT", { exact: true })
-  .waitFor();
-await page
-  .getByRole("heading", {
-    name: "Salon reception is the closest fit.",
-    exact: true,
-  })
-  .waitFor();
-await page
-  .getByText(
-    "Suggestion only · Nothing is added until you choose a template.",
-    { exact: true },
-  )
-  .waitFor();
-await page.screenshot({
-  path: "/tmp/hellocrew-template-library-desktop.png",
-  fullPage: true,
-});
-await page.setViewportSize({ width: 390, height: 844 });
-assert.ok(
-  await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-);
-await page.screenshot({
-  path: "/tmp/hellocrew-template-library-mobile.png",
-  fullPage: true,
-});
-await page.setViewportSize({ width: 1440, height: 1000 });
-await page
-  .getByRole("button", { name: "Use this template", exact: true })
-  .first()
-  .click();
-await page
-  .getByText("Ready to save as a safe draft", { exact: true })
-  .waitFor();
-await page.getByRole("button", { name: /Step 3 Draft a response/ }).click();
-await page
-  .getByLabel("Supported languages", { exact: false })
-  .fill("EN, FA, ZH, ES");
-await page.screenshot({
-  path: "/tmp/hellocrew-workflow-desktop.png",
-  fullPage: true,
-});
-await page.getByRole("button", { name: "Test safely", exact: true }).click();
-await page.getByText("Safe test plan", { exact: true }).waitFor();
-await page.getByText("0 external writes", { exact: true }).waitFor();
-await page.getByRole("button", { name: "Save workflow", exact: true }).click();
-await page
-  .getByRole("button", { name: "Saved to My workflows", exact: true })
-  .waitFor();
-await page.getByRole("button", { name: "Publish v1", exact: true }).click();
-await page.getByRole("button", { name: "Publish v2", exact: true }).waitFor();
-assert.ok(
-  await page.evaluate(() => localStorage.getItem("hellocrew:workflows:v2")),
-);
-await page.getByRole("button", { name: "My workflows", exact: true }).click();
-await page.getByText("Salon reception", { exact: true }).last().waitFor();
-await page.getByText("published", { exact: true }).waitFor();
-await nav("Channels");
-await page.getByText("Published v1", { exact: true }).waitFor();
-await page
-  .getByText("4 of 4 practice inputs ready", { exact: true })
-  .first()
-  .waitFor();
-await page.screenshot({
-  path: "/tmp/hellocrew-website-channel-ready-desktop.png",
-  fullPage: true,
-});
+await page.getByRole("heading", { name: "Workflow editor" }).waitFor();
+
+// ---------- Settings and theme ----------
 await nav("Settings");
 await page.getByRole("heading", { name: "Live AI" }).waitFor();
-await page
-  .getByText("Sign in to use live AI", { exact: true })
-  .or(page.getByText("Server keys needed", { exact: true }))
-  .or(page.getByText("Use live AI for this workspace", { exact: true }))
-  .first()
-  .waitFor();
-await page.screenshot({
-  path: "/tmp/hellocrew-model-routing-desktop.png",
-  fullPage: true,
-});
-await page
-  .getByRole("button", { name: "Clear test conversation", exact: true })
-  .click();
-await page.getByText("Test conversation cleared", { exact: true }).waitFor();
+await page.locator(".dash-theme").getByRole("radio", { name: "Dark" }).click();
+await nav("Today");
+await page.locator('.dash[data-theme="dark"]').waitFor();
+await shot("today-dark");
+await nav("Crew");
+await page.locator(".agent-card").click();
+await shot("agent-dark");
+await page.locator(".dash-theme").getByRole("radio", { name: "Light" }).click();
+
+// ---------- Mobile ----------
 await page.setViewportSize({ width: 390, height: 844 });
-await nav("Home");
-assert.ok(
-  await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-);
-await page.screenshot({
-  path: "/tmp/hellocrew-studio-mobile.png",
-  fullPage: true,
-});
-await nav("Assistant");
-await page
-  .getByRole("heading", { name: "Assistant identity", exact: true })
-  .waitFor();
-assert.ok(
-  await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-);
-await page.screenshot({
-  path: "/tmp/hellocrew-assistant-identity-mobile.png",
-  fullPage: true,
-});
-await nav("Channels");
-await page
-  .getByRole("heading", { name: "Publish and install the website chat." })
-  .waitFor();
-await page.getByText("Published v1", { exact: true }).waitFor();
-await page.getByText("Not reviewed", { exact: true }).waitFor();
-await page
-  .getByText("3 of 4 practice inputs ready", { exact: true })
-  .first()
-  .waitFor();
-await page.waitForTimeout(700);
-assert.ok(
-  await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-);
-await page.screenshot({
-  path: "/tmp/hellocrew-website-channel-mobile.png",
-  fullPage: true,
-});
-await nav("Workflows");
-await page.getByRole("button", { name: "Edit information" }).click();
-await page
-  .getByText("Ready to save as a safe draft", { exact: true })
-  .waitFor();
-assert.ok(
-  await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-);
-await page.screenshot({
-  path: "/tmp/hellocrew-workflow-mobile.png",
-  fullPage: true,
-});
-await nav("Home");
-await page.waitForURL("**/app");
-await page
-  .getByRole("link", { name: "Open inbox: Test a conversation" })
-  .click();
-await page.waitForURL("**/app/inbox");
-await page.getByRole("button", { name: "Opening hours", exact: true }).click();
-await page
-  .locator(".thread")
-  .getByText("Saved sample hours: Monday–Friday, 9am–5pm", { exact: true })
-  .waitFor();
-assert.ok(
-  await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-);
-await page.screenshot({
-  path: "/tmp/hellocrew-conversation-mobile.png",
-  fullPage: true,
-});
-// The test conversation now survives a refresh within the same tab.
+for (const [name, file] of [
+  ["Today", "today-mobile"],
+  ["Conversations", "conversations-mobile"],
+  ["Crew", "crew-mobile"],
+  ["Knowledge", "knowledge-mobile"],
+]) {
+  await nav(name);
+  await page.waitForTimeout(250);
+  await noOverflow();
+  await shot(file);
+}
+await page.goto(`${baseUrl}/app/crew/receptionist`);
+await page.waitForTimeout(250);
+await noOverflow();
+await shot("agent-mobile");
+
+// The test conversation survives a refresh within the same tab.
+await nav("Conversations");
 await page.reload();
-await page
-  .locator(".thread")
-  .getByText("Saved sample hours: Monday–Friday, 9am–5pm", { exact: true })
-  .waitFor();
-await page
-  .getByRole("button", { name: "New conversation", exact: true })
-  .click();
-await page
-  .locator(".thread")
-  .getByText(
-    "Hello! I can help you find the right service and booking option.",
-    { exact: true },
-  )
-  .waitFor();
+await text("Saved FAQ answer (sample): Yes, free wifi for every visitor.");
+
 await page.goto(baseUrl, { waitUntil: "networkidle" });
-assert.ok(
-  await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-);
-await page.screenshot({
-  path: "/tmp/hellocrew-landing-mobile.png",
-  fullPage: true,
-});
+await noOverflow();
+await shot("landing-mobile");
+
 assert.deepEqual(errors, []);
 console.log(
-  "Browser QA passed: production desktop/mobile, installed iframe widget and grounded reply, widget security headers and resizing, live AI settings states, shared assistant identity, calculated channel readiness, purpose-aware workflow recommendations, workflow save/publish, all scenarios, refresh, overflow, no page errors.",
+  "Browser QA passed: Today, Conversations (approvals, used chips, teach loop), Knowledge (add, preview, draft), Crew skills gating practice replies, personality, channels + installed widget, workflow editor, dark theme, mobile overflow, refresh, no page errors.",
 );
 await browser.close();
