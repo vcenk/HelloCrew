@@ -37,7 +37,9 @@ HelloCrew is an agentic front desk for small, appointment-based businesses (salo
 - [x] Fixes: tolerant FAQ matching (reworded questions), best-effort per-IP rate limiting on `/api/demo` (40/min) and `/api/widget/message` (30/min).
 - [x] Legacy editors (Assistant, Workflows, Channels, model routing) hosted in the new shell and themed for dark mode via generated tokens (`scripts/theme-legacy-css.mjs`).
 - [x] Browser smoke test updated for the new routes (`SKIP_AUTH_CHECK=1` skips the Supabase login check when env vars are absent).
-- [ ] Persist editors to Supabase when signed in (repository layer + server actions), local fallback when signed out.
+- [x] Persist editors to Supabase when signed in: `hc_workspace_documents` (one versioned document per editor per tenant, compare-and-swap writes, RLS), server actions in `app/app/actions.ts`, debounced autosave with a save indicator, first sign-in uploads the browser setup, workspace copy wins on load. Signed out or unconfigured, everything keeps working from browser storage.
+- [x] Sign-in surfaced in the dashboard ("Sign in to save", Settings → Account, sign out); `/login?next=` returns to the dashboard; `/workspace` redirects to `/app`.
+- [ ] Apply migration `20261017090000_workspace_documents.sql` to project `yfmoggubjsffgameexfi` (`supabase db push`) and verify with a real Google account.
 - [ ] Restyle the internals of the Assistant, Workflows and Channels editors with dashboard primitives (they currently keep their original layouts).
 
 Exit: lint, typecheck, unit tests, build and browser smoke pass; every page works on desktop and mobile in both themes.

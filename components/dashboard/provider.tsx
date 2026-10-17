@@ -22,6 +22,12 @@ import { businessFromKnowledge } from "@/lib/knowledge";
 import { readKnowledgeStore } from "@/lib/knowledge-storage";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
 import type { Activity, DemoResult, DemoSession, Scenario } from "@/lib/demo";
+import { persistLocal } from "@/lib/workspace-documents";
+import {
+  useWorkspaceSync,
+  type Account,
+  type SaveStatus,
+} from "./workspace-sync";
 import {
   LEGACY_WORKFLOW_STORAGE_KEY,
   WORKFLOW_STORAGE_KEY,
@@ -56,6 +62,9 @@ type Conversation = {
 
 type DashboardState = {
   hydrated: boolean;
+  account: Account;
+  saveStatus: SaveStatus;
+  retrySave: () => void;
   business: BusinessProfile;
   setBusiness: (business: BusinessProfile) => void;
   identity: AssistantIdentity;
@@ -126,6 +135,34 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const toastId = useRef(0);
 
   useEffect(() => {
+    if (!hydrated) return;
+    safeSet(
+      "session",
+      CONVERSATION_KEY,
+      JSON.stringify({
+        session: conversation.session,
+        messages: conversation.messages,
+      }),
+    );
+  }, [hydrated, conversation.session, conversation.messages]);
+
+  const toast = useCallback((text: string, tone: Toast["tone"] = "success") => {
+    const id = ++toastId.current;
+    setToasts((list) => [...list.slice(-2), { id, text, tone }]);
+    window.setTimeout(
+      () => setToasts((list) => list.filter((t) => t.id !== id)),
+      3800,
+    );
+  }, []);
+  const dismissToast = useCallback(
+    (id: number) => setToasts((list) => list.filter((t) => t.id !== id)),
+    [],
+  );
+
+  const sync = useWorkspaceSync(toast);
+
+  useEffect(() => {
+    if (!sync.ready) return;
     const frame = requestAnimationFrame(() => {
       setIdentity(
         parseStoredAssistantIdentity(
@@ -166,32 +203,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setHydrated(true);
     });
     return () => cancelAnimationFrame(frame);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    safeSet(
-      "session",
-      CONVERSATION_KEY,
-      JSON.stringify({
-        session: conversation.session,
-        messages: conversation.messages,
-      }),
-    );
-  }, [hydrated, conversation.session, conversation.messages]);
-
-  const toast = useCallback((text: string, tone: Toast["tone"] = "success") => {
-    const id = ++toastId.current;
-    setToasts((list) => [...list.slice(-2), { id, text, tone }]);
-    window.setTimeout(
-      () => setToasts((list) => list.filter((t) => t.id !== id)),
-      3800,
-    );
-  }, []);
-  const dismissToast = useCallback(
-    (id: number) => setToasts((list) => list.filter((t) => t.id !== id)),
-    [],
-  );
+  }, [sync.ready]);
 
   const setBusiness = useCallback((next: BusinessProfile) => {
     setBusinessState(next);
@@ -199,7 +211,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const saveIdentity = useCallback((next: AssistantIdentity) => {
     setIdentity(next);
-    safeSet("local", ASSISTANT_IDENTITY_STORAGE_KEY, JSON.stringify(next));
+    persistLocal("assistant_identity", next);
   }, []);
 
   const setTheme = useCallback((next: Theme) => {
@@ -335,6 +347,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<DashboardState>(
     () => ({
       hydrated,
+      account: sync.account,
+      saveStatus: sync.saveStatus,
+      retrySave: sync.retry,
       business,
       setBusiness,
       identity,
@@ -357,6 +372,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       hydrated,
+      sync.account,
+      sync.saveStatus,
+      sync.retry,
       business,
       setBusiness,
       identity,

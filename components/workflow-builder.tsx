@@ -1,5 +1,6 @@
 "use client";
 
+import { persistLocal } from "@/lib/workspace-documents";
 import { useCallback, useMemo, useState } from "react";
 import {
   addEdge,
@@ -1124,13 +1125,10 @@ export function WorkflowBuilder({
   function persist(next: SavedWorkflow[]) {
     setWorkflows(next);
     onReadinessChange(summarizeWorkflowReadiness(next));
-    localStorage.setItem(
-      WORKFLOW_STORAGE_KEY,
-      JSON.stringify({
-        formatVersion: WORKFLOW_STORAGE_VERSION,
-        workflows: next,
-      }),
-    );
+    persistLocal("workflows", {
+      formatVersion: WORKFLOW_STORAGE_VERSION,
+      workflows: next,
+    });
   }
 
   function useTemplate(templateId: string) {

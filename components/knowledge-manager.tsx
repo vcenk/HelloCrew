@@ -39,10 +39,8 @@ import {
   type KnowledgeStatus,
   type KnowledgeStore,
 } from "@/lib/knowledge";
-import {
-  KNOWLEDGE_STORAGE_KEY,
-  readKnowledgeStore,
-} from "@/lib/knowledge-storage";
+import { readKnowledgeStore } from "@/lib/knowledge-storage";
+import { persistLocal } from "@/lib/workspace-documents";
 
 const languageLabels: Record<KnowledgeLanguage, string> = {
   en: "English",
@@ -101,7 +99,7 @@ export function AssistantSetup({
   const [hasTested, setHasTested] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(KNOWLEDGE_STORAGE_KEY, JSON.stringify(store));
+    persistLocal("knowledge", store);
     onSave(businessFromKnowledge(store));
   }, [onSave, store]);
 

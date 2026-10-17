@@ -1,10 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getSupabasePublicConfig } from "./config";
+import { getSupabasePublicConfig, isSupabaseConfigured } from "./config";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+  // The public practice dashboard must keep working without Supabase configured.
+  if (!isSupabaseConfigured()) return response;
   const { url, publishableKey } = getSupabasePublicConfig();
   const supabase = createServerClient(url, publishableKey, {
     cookies: {

@@ -5,6 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
+  Cloud,
+  CloudOff,
+  LoaderCircle,
   Check,
   CircleAlert,
   Command,
@@ -105,7 +108,7 @@ function useResolvedTheme(theme: Theme) {
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { theme, identity, conversation, toasts, dismissToast } =
+  const { theme, identity, conversation, toasts, dismissToast, hydrated } =
     useDashboard();
   const resolved = useResolvedTheme(theme);
   const [navOpen, setNavOpen] = useState(false);
@@ -252,6 +255,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             >
               Practice mode
             </span>
+            <SaveIndicator />
             <ThemeSwitch />
             <button
               type="button"
@@ -269,7 +273,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           tabIndex={-1}
           key={pathname}
         >
-          {children}
+          {hydrated ? (
+            children
+          ) : (
+            <div
+              className="dash-skeleton"
+              role="status"
+              aria-label="Loading your workspace"
+            >
+              <span />
+              <span />
+              <span />
+            </div>
+          )}
         </main>
       </div>
 
@@ -297,6 +313,60 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function SaveIndicator() {
+  const { account, saveStatus, retrySave } = useDashboard();
+  if (account.status === "loading") return null;
+  if (account.status !== "signed_in")
+    return (
+      <Link
+        href="/login?next=/app"
+        className="dash-save"
+        data-state="local"
+        title="Your setup is saved in this browser only. Sign in to keep it in your workspace."
+        hidden={account.status === "unavailable"}
+      >
+        <CloudOff size={15} aria-hidden="true" />
+        <span>Sign in to save</span>
+      </Link>
+    );
+  if (account.role === "viewer")
+    return (
+      <span className="dash-save" data-state="local">
+        <Cloud size={15} aria-hidden="true" />
+        <span>View only</span>
+      </span>
+    );
+  const label =
+    saveStatus === "saving"
+      ? "Saving"
+      : saveStatus === "error"
+        ? "Not saved. Retry"
+        : saveStatus === "conflict"
+          ? "Changed elsewhere. Reload"
+          : "Saved";
+  const actionable = saveStatus === "error" || saveStatus === "conflict";
+  return (
+    <button
+      type="button"
+      className="dash-save"
+      data-state={saveStatus}
+      onClick={actionable ? retrySave : undefined}
+      aria-disabled={!actionable}
+      title={`Workspace: ${account.workspaceName}`}
+      aria-live="polite"
+    >
+      {saveStatus === "saving" ? (
+        <LoaderCircle size={15} className="spin" aria-hidden="true" />
+      ) : actionable ? (
+        <CircleAlert size={15} aria-hidden="true" />
+      ) : (
+        <Cloud size={15} aria-hidden="true" />
+      )}
+      <span>{label}</span>
+    </button>
   );
 }
 

@@ -361,6 +361,76 @@
   font-size: 12.5px;
   font-weight: 600;
 }
+.dash-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--d-line);
+  border-radius: 999px;
+  background: var(--d-surface);
+  color: var(--d-ink-2);
+  font: 600 12.5px var(--d-body);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: default;
+}
+.dash-save[hidden] {
+  display: none;
+}
+.dash-save[data-state="saved"] svg {
+  color: #2fb36f;
+}
+.dash-save[data-state="local"] {
+  cursor: pointer;
+}
+.dash-save[data-state="local"]:hover {
+  border-color: var(--d-primary);
+  color: var(--d-primary);
+}
+.dash-save[data-state="error"],
+.dash-save[data-state="conflict"] {
+  border-color: color-mix(in srgb, var(--d-danger) 40%, transparent);
+  background: var(--d-danger-soft);
+  color: var(--d-danger);
+  cursor: pointer;
+}
+.dash-skeleton {
+  display: grid;
+  gap: 16px;
+}
+.dash-skeleton span {
+  display: block;
+  height: 120px;
+  border-radius: var(--d-r-md);
+  background:
+    linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in srgb, var(--d-surface) 70%, transparent),
+        transparent
+      )
+      0 0 / 200% 100% no-repeat,
+    var(--d-surface-2);
+  animation: dash-shimmer 1.2s infinite linear;
+}
+.dash-skeleton span:first-child {
+  width: 40%;
+  height: 44px;
+}
+@keyframes dash-shimmer {
+  from {
+    background-position:
+      200% 0,
+      0 0;
+  }
+  to {
+    background-position:
+      -200% 0,
+      0 0;
+  }
+}
 .dash-icon-button {
   display: grid;
   place-items: center;
@@ -1545,6 +1615,34 @@ button.bubble-assistant:hover {
   gap: 20px;
   margin-bottom: 20px;
 }
+.settings-account {
+  margin-bottom: 20px;
+}
+.account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+.account-row > div {
+  flex: 1;
+  min-width: 220px;
+}
+.account-row p {
+  font-size: 13.5px;
+}
+.account-row form {
+  margin: 0;
+}
+.account-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--d-primary-soft);
+  color: var(--d-primary);
+}
 .settings-copy {
   font-size: 13.5px;
 }
@@ -1660,6 +1758,9 @@ button.bubble-assistant:hover {
     padding: 0 16px;
   }
   .dash-mode {
+    display: none;
+  }
+  .dash-save span {
     display: none;
   }
   .dash-content {

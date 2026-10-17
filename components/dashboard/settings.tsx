@@ -1,11 +1,23 @@
 "use client";
 
 import { useRef } from "react";
-import { Monitor, Moon, RotateCcw, Sun, Trash2 } from "lucide-react";
+import {
+  Cloud,
+  CloudOff,
+  LogIn,
+  LogOut,
+  Monitor,
+  Moon,
+  RotateCcw,
+  Sun,
+  Trash2,
+} from "lucide-react";
+
+import { signOutOfDashboard } from "@/app/app/actions";
 
 import { ModelManagement } from "@/components/model-management";
 import { useDashboard, type Theme } from "./provider";
-import { Button, PageHeader, Panel } from "./ui";
+import { Button, ButtonLink, PageHeader, Panel, Pill } from "./ui";
 
 const themes: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -16,6 +28,7 @@ const themes: { value: Theme; label: string; icon: typeof Sun }[] = [
 export function SettingsView() {
   const {
     theme,
+    account,
     setTheme,
     showActivity,
     setShowActivity,
@@ -31,6 +44,54 @@ export function SettingsView() {
         title="Settings"
         description="Appearance, AI models and the practice data stored in this browser."
       />
+      <Panel title="Account" className="settings-account">
+        {account.status === "signed_in" ? (
+          <div className="account-row">
+            <span className="account-icon" aria-hidden="true">
+              <Cloud size={18} />
+            </span>
+            <div>
+              <strong>{account.workspaceName}</strong>
+              <p>
+                Signed in as {account.email ?? "your Google account"}. Your
+                assistant, knowledge and workflows save to this workspace
+                automatically.
+              </p>
+            </div>
+            <Pill tone="success">{account.role}</Pill>
+            <form action={signOutOfDashboard}>
+              <Button type="submit" icon={LogOut} size="sm">
+                Sign out
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <div className="account-row">
+            <span className="account-icon" aria-hidden="true">
+              <CloudOff size={18} />
+            </span>
+            <div>
+              <strong>Saved in this browser only</strong>
+              <p>
+                {account.status === "unavailable"
+                  ? "Accounts aren’t configured on this server yet, so your setup stays in this browser."
+                  : "Sign in with Google to keep your setup in your own workspace and use it on any device."}
+              </p>
+            </div>
+            {account.status === "signed_out" && (
+              <ButtonLink
+                href="/login?next=/app/settings"
+                variant="primary"
+                size="sm"
+                icon={LogIn}
+              >
+                Sign in
+              </ButtonLink>
+            )}
+          </div>
+        )}
+      </Panel>
+
       <div className="settings-grid-v2">
         <Panel title="Appearance">
           <div className="segmented" role="radiogroup" aria-label="Theme">
@@ -63,9 +124,9 @@ export function SettingsView() {
 
         <Panel title="Practice data">
           <p className="settings-copy">
-            Your assistant, knowledge and workflows are saved in this browser
-            until accounts are connected. The test conversation lasts for this
-            tab.
+            {account.status === "signed_in"
+              ? "Resetting clears this browser only; your workspace copy comes back when you reload. The test conversation lasts for this tab."
+              : "Your assistant, knowledge and workflows are saved in this browser. The test conversation lasts for this tab."}
           </p>
           <div className="settings-actions">
             <Button

@@ -47,6 +47,16 @@ The public landing page takes original visual inspiration from Gaia’s public w
 | [Channel roadmap](docs/CHANNEL_ROADMAP.md)                         | Web first and later messaging/voice adapters                  |
 | [Decisions and open questions](docs/DECISIONS.md)                  | Fixed constraints and unresolved choices                      |
 
+## Accounts and saving
+
+Signed out, the dashboard saves to browser storage. Signed in with Google, the Assistant, Knowledge and Workflows editors autosave to the workspace (`public.hc_workspace_documents`, migration `20261017090000_workspace_documents.sql`) with version checks so a stale tab cannot overwrite newer work. To enable it:
+
+1. Apply migrations: `supabase link --project-ref yfmoggubjsffgameexfi` then `supabase db push`.
+2. In Supabase Auth settings, enable Google and add `http://localhost:3000/auth/callback` (and the production URL) as redirect URLs.
+3. Set the three variables from `.env.example` in `.env.local`.
+
+The RLS rules for the new table can be checked on any plain Postgres: run `supabase/tests/00-supabase-stubs.sql`, every migration, then `supabase/tests/10-workspace-documents-rls.sql`.
+
 ## Run locally
 
 Requires Node.js 22.12+ (verified with Node.js 24).

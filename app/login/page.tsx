@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { Brand, Buddy } from "@/components/brand";
+import { safeNextPath } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
 import { signInWithGoogle } from "./actions";
@@ -16,13 +17,13 @@ const errorMessages: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
+  const { error, next: nextParam } = await searchParams;
+  const next = safeNextPath(nextParam ?? "/app");
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  if (data?.claims?.sub) redirect("/workspace");
-
-  const { error } = await searchParams;
+  if (data?.claims?.sub) redirect(next);
 
   return (
     <main className="auth-shell">
@@ -38,8 +39,8 @@ export default async function LoginPage({
             <span className="serif">helpful crew.</span>
           </h1>
           <p>
-            Sign in to enter your protected owner workspace. The public practice
-            studio stays free to explore without an account.
+            Sign in to save your assistant, knowledge and workflows to your own
+            workspace. The dashboard stays free to explore without an account.
           </p>
         </div>
         <div className="auth-buddy" aria-hidden="true">
@@ -59,6 +60,7 @@ export default async function LoginPage({
             </div>
           ) : null}
           <form action={signInWithGoogle}>
+            <input type="hidden" name="next" value={next} />
             <button className="button dark auth-submit" type="submit">
               Continue with Google <ArrowRight size={18} />
             </button>
