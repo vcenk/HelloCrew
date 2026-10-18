@@ -137,6 +137,20 @@ describe("live agent graph", () => {
     expect(result.reply).toBe("Here are our hours.");
   });
 
+  it("declines off-topic questions gently without asking the owner to teach", async () => {
+    expect(buildSystemPrompt(context)).toContain("Off-topic questions");
+    const { model } = scriptedModel([
+      new AIMessage({
+        content: `I can only help with questions about ${sampleBusiness.name}, like our hours, prices or booking a visit.`,
+      }),
+    ]);
+    const result = await runAgentTurn(model, context, [
+      { role: "user", content: "Who is the president of the USA?" },
+    ]);
+    expect(result.reply).toContain("I can only help");
+    expect(result.unanswered).toBe(false);
+  });
+
   it("falls back to the identity's safe answer when the model is silent", async () => {
     const { model } = scriptedModel([new AIMessage({ content: "" })]);
     const result = await runAgentTurn(model, context, [
