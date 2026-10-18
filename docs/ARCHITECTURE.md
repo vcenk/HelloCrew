@@ -136,6 +136,11 @@ lib/conversations.ts                    shared conversation types, status rules,
 lib/data/conversations.ts               server-only reads/writes for conversations, messages, approvals
 app/app/conversation-actions.ts         server actions: list, open, save, take over/hand back/close, decide, needs-you
 components/dashboard/use-conversations.ts   client state for the open conversation and the saved list
+components/dashboard/website-chat.tsx   website chat setup (allowed sites, snippet, on/off)
+lib/server/agent-turn.ts                one stored AI turn (live with budget, or rule-based), shared by dashboard and widget
+lib/server/widget-installations.ts      public widget lookup (service role, 30 s cache), visitor tokens
+lib/server/widget-csp.ts + proxy.ts     per-installation frame-ancestors for /widget/*
+app/api/widget/chat/route.ts            visitor messages (POST) and reply polling (GET)
 app/app/dashboard.css                   dashboard tokens and components, scoped to .dash
 app/app/legacy-dark.css                 generated dark palette for legacy editors (scripts/theme-legacy-css.mjs)
 ```

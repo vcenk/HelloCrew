@@ -29,6 +29,7 @@ import {
 } from "@/lib/crew";
 import { WebsiteChatGuide } from "@/components/website-chat-guide";
 import { ChatThread } from "./chat-thread";
+import { WebsiteChatSetup } from "./website-chat";
 import { useDashboard } from "./provider";
 import { Button, ButtonLink, PageHeader, Pill } from "./ui";
 
@@ -321,18 +322,25 @@ const routeFor = {
 
 export function ChannelsTab() {
   const router = useRouter();
-  const { business, identity, workflowReadiness, conversation } = useDashboard();
+  const { business, identity, workflowReadiness, conversation, account } = useDashboard();
+  const signedIn = account.status === "signed_in";
   return (
     <div className="channels-tab">
+      {signedIn ? (
+        <WebsiteChatSetup />
+      ) : (
+        <ul className="channel-list">
+          <li>
+            <Globe size={17} aria-hidden="true" />
+            <span>
+              <strong>Website chat</strong>
+              <small>Sign in to get your own website chat. Below is the practice preview.</small>
+            </span>
+            <Pill tone="info">Practice preview</Pill>
+          </li>
+        </ul>
+      )}
       <ul className="channel-list">
-        <li>
-          <Globe size={17} aria-hidden="true" />
-          <span>
-            <strong>Website chat</strong>
-            <small>Add one line to your site. Preview it below first.</small>
-          </span>
-          <Pill tone="info">Ready to install</Pill>
-        </li>
         <li data-soon="true">
           <MessageCircle size={17} aria-hidden="true" />
           <span>
@@ -342,17 +350,19 @@ export function ChannelsTab() {
           <Pill tone="neutral">Coming soon</Pill>
         </li>
       </ul>
-      <div className="legacy-host">
-        <WebsiteChatGuide
-          business={business}
-          conversationReviewed={conversation.messages.some((m) => m.role === "assistant")}
-          identity={identity}
-          onNavigate={(target) => router.push(routeFor[target])}
-          workflowReadiness={workflowReadiness}
-        />
-      </div>
+      {!signedIn && (
+        <div className="legacy-host">
+          <WebsiteChatGuide
+            business={business}
+            conversationReviewed={conversation.messages.some((m) => m.role === "assistant")}
+            identity={identity}
+            onNavigate={(target) => router.push(routeFor[target])}
+            workflowReadiness={workflowReadiness}
+          />
+        </div>
+      )}
       <ButtonLink href="/app/conversations" variant="ghost" size="sm">
-        See test conversations
+        See conversations
       </ButtonLink>
     </div>
   );

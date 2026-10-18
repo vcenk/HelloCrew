@@ -396,15 +396,23 @@ export function useConversations(deps: {
     [conversation.id, persist],
   );
 
+  const takeOverFirst = useRef<(() => Promise<void>) | null>(null);
+
   const send = useCallback(
-    (message: string, as: "customer" | "owner" = "customer") => {
+    async (message: string, as: "customer" | "owner" = "customer") => {
       const text = message.trim();
-      if (!text) return Promise.resolve(false);
+      if (!text) return false;
+      // In a real customer chat the owner can only reply as themselves, which
+      // takes the chat over from the AI.
+      if (conversation.channel === "website") {
+        if (conversation.mode === "ai") await takeOverFirst.current?.();
+        return sendWhileHuman(text, "owner");
+      }
       if (conversation.mode === "human" || as === "owner") return sendWhileHuman(text, as);
       if (engine === "live") return callLive(text);
       return call({ message: text, business }, text);
     },
-    [business, call, callLive, conversation.mode, engine, sendWhileHuman],
+    [business, call, callLive, conversation.channel, conversation.mode, engine, sendWhileHuman],
   );
 
   const runScenario = useCallback(
@@ -502,6 +510,25 @@ export function useConversations(deps: {
     [conversation.id, refreshThreads, toast],
   );
 
+  // Re-reads the open saved conversation (new visitor messages, decisions).
+  const reloadActive = useCallback(async () => {
+    if (!signedIn || lock.current) return;
+    const id = conversation.id;
+    const result = await openConversation(id).catch(() => null);
+    if (!result?.ok) return;
+    setConversation((c) =>
+      c.id !== id || c.busy
+        ? c
+        : {
+            ...c,
+            messages: result.messages.map((m) => fromStored(m, result.approvals)),
+            mode: result.thread.mode,
+            status: result.thread.status,
+            channel: result.thread.channel,
+          },
+    );
+  }, [conversation.id, signedIn]);
+
   const changeThread = useCallback(
     async (action: "take_over" | "hand_back" | "close" | "reopen") => {
       if (!signedIn) {
@@ -537,6 +564,10 @@ export function useConversations(deps: {
     [conversation.id, conversation.messages.length, signedIn, toast, updateThread],
   );
 
+  useEffect(() => {
+    takeOverFirst.current = () => changeThread("take_over");
+  }, [changeThread]);
+
   const deleteThread = useCallback(
     async (id: string) => {
       const result = await removeConversation(id).catch(() => null);
@@ -557,6 +588,7 @@ export function useConversations(deps: {
     threads,
     needsYou,
     refreshThreads,
+    reloadActive,
     openThread,
     changeThread,
     deleteThread,

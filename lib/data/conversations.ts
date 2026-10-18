@@ -15,6 +15,10 @@ import {
 } from "@/lib/conversations";
 import type { WorkspaceContext } from "./workspace";
 
+// Writes and reads that only need the tenant (server-side callers pass the
+// tenant they already verified).
+type Tenant = Pick<WorkspaceContext, "tenantId">;
+
 type Row = Record<string, unknown>;
 
 const threadColumns =
@@ -145,7 +149,7 @@ export type NewMessage = {
 // dashboard can safely retry after a network error.
 export async function appendMessages(
   db: SupabaseClient,
-  workspace: WorkspaceContext,
+  workspace: Tenant,
   conversationId: string,
   messages: NewMessage[],
 ) {
@@ -170,7 +174,7 @@ export async function appendMessages(
 
 export async function historyForModel(
   db: SupabaseClient,
-  workspace: WorkspaceContext,
+  workspace: Tenant,
   conversationId: string,
   max: number,
 ) {

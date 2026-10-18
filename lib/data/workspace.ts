@@ -58,7 +58,7 @@ export async function getWorkspaceContext(
 
 export async function loadDocuments(
   supabase: SupabaseClient,
-  context: WorkspaceContext,
+  context: Pick<WorkspaceContext, "tenantId">,
 ): Promise<Partial<Record<WorkspaceDocumentKey, StoredDocument>>> {
   const { data, error } = await supabase
     .from("hc_workspace_documents")

@@ -2695,6 +2695,74 @@ a.crew-tile:hover {
   font-size: 12.5px;
 }
 
+/* ---------- Website chat setup ---------- */
+.website-chat {
+  display: grid;
+  gap: 16px;
+}
+.website-chat-engine {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--d-r-md);
+  background: var(--d-primary-soft);
+  color: var(--d-ink);
+  font-size: 13.5px;
+}
+.website-chat-engine svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--d-primary);
+}
+.origin-add {
+  display: flex;
+  gap: 8px;
+}
+.origin-add input {
+  flex: 1;
+  min-width: 0;
+}
+.origin-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.origin-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 2px 10px;
+  border: 1px solid var(--d-line);
+  border-radius: 999px;
+  background: var(--d-surface-2);
+  font-size: 13px;
+}
+.origin-list .dash-icon-button {
+  width: 26px;
+  height: 26px;
+}
+.snippet {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-md);
+  background: var(--d-surface-2);
+}
+.snippet code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--d-ink);
+  font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1320px) {
   .convo-grid {

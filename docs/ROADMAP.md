@@ -83,7 +83,14 @@ Exit: a signed-in owner can chat with their own assistant, grounded in their app
 ### Phase 3 — Website channel and first integrations
 
 - [x] Conversations/messages/contacts tables, human takeover and hand-back (done in Phase 2b above).
-- Website widget per workspace with live AI: allowed-origin list, anonymous visitor contact, chats land in Conversations, polling or realtime updates.
+- [x] Website chat per workspace (2026-10-18, migration `20261018174518_widget_installations`):
+  - `hc_widget_installations`: one public id (`w-…`) per workspace, up to 10 allowed websites, on/off. Created and edited from Crew → Receptionist → Channels, with the install snippet and a test-page link.
+  - Domain lock: `proxy.ts` sets `frame-ancestors 'self' <allowed sites>` on `/widget/w-…`, so browsers refuse to show the chat anywhere else; unknown ids get `'none'`. The public demo stays embeddable anywhere.
+  - Visitors: `POST /api/widget/chat` starts an anonymous `website` conversation and returns a secret token (only its SHA-256 is stored, and the dashboard role can't read it); `GET` polls for new replies every 4 s while the chat is open. The widget remembers the chat in the visitor's browser.
+  - Replies: live AI when the owner has it on and budget allows, otherwise free rule-based answers from approved knowledge (also the fallback if the model fails). Booking requests become approvals on Today; when the owner has taken over, messages are stored and the visitor sees "A team member will reply here".
+  - Dashboard: website chats appear in Conversations (list refreshes every 6 s, an open website chat too); replying as the owner takes the chat over automatically.
+  - Limits: 12 messages/min per visitor IP, 120/min per site, 1,000 characters per message, 500 messages per conversation, plus the monthly AI budget.
+- Realtime updates instead of polling; email/push notice to the owner for new chats and handoffs.
 - Booking via Cal.com API v2 or Google Calendar; booking-link fallback.
 - Lead capture → email notification to the owner.
 - Widget installations per workspace with allowed-origin list.

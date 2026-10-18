@@ -282,3 +282,12 @@
     animation: none;
   }
 }
+
+.author {
+  display: block;
+  margin: 0 0 2px;
+  color: #6a4900;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}

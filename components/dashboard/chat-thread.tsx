@@ -22,16 +22,39 @@ export const UNANSWERED = "No matching information";
 
 // Chips that show what a reply drew on, linking to where it can be changed.
 function usedChips(message: ChatMessage) {
-  const chips: { label: string; href: string; tone: "knowledge" | "skill" }[] = [];
+  const chips: { label: string; href: string; tone: "knowledge" | "skill" }[] =
+    [];
   if (message.source && message.source !== UNANSWERED)
-    chips.push({ label: `Knowledge · ${message.source}`, href: "/app/knowledge", tone: "knowledge" });
-  const labels = (message.activity ?? []).map((a) => `${a.label} ${a.kind}`.toLowerCase());
-  if (message.pendingId || message.liveApprovals?.length || labels.some((l) => l.includes("booking")))
-    chips.push({ label: "Skill · Booking requests", href: "/app/crew/receptionist", tone: "skill" });
+    chips.push({
+      label: `Knowledge · ${message.source}`,
+      href: "/app/knowledge",
+      tone: "knowledge",
+    });
+  const labels = (message.activity ?? []).map((a) =>
+    `${a.label} ${a.kind}`.toLowerCase(),
+  );
+  if (
+    message.pendingId ||
+    message.liveApprovals?.length ||
+    labels.some((l) => l.includes("booking"))
+  )
+    chips.push({
+      label: "Skill · Booking requests",
+      href: "/app/crew/receptionist",
+      tone: "skill",
+    });
   if (labels.some((l) => l.includes("person") || l.includes("handoff")))
-    chips.push({ label: "Skill · Pass to a person", href: "/app/crew/receptionist", tone: "skill" });
+    chips.push({
+      label: "Skill · Pass to a person",
+      href: "/app/crew/receptionist",
+      tone: "skill",
+    });
   if (message.engine === "live" && labels.some((l) => l.includes("searched")))
-    chips.push({ label: "Knowledge · searched", href: "/app/knowledge", tone: "knowledge" });
+    chips.push({
+      label: "Knowledge · searched",
+      href: "/app/knowledge",
+      tone: "knowledge",
+    });
   return chips;
 }
 
@@ -59,23 +82,46 @@ export function ChatThread({
   } = useDashboard();
   const [draft, setDraft] = useState("");
   const [writeAs, setWriteAs] = useState<"customer" | "owner">("owner");
-  const human = conversation.mode === "human";
+  const website = conversation.channel === "website";
+  const human = conversation.mode === "human" || website;
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const turns = conversation.session?.turn ?? 0;
   const limitReached =
-    engine === "practice" && conversation.mode === "ai" && turns >= MAX_PRACTICE_TURNS;
+    engine === "practice" &&
+    conversation.mode === "ai" &&
+    turns >= MAX_PRACTICE_TURNS;
 
-  const prompts: { id: Scenario; label: string; question: string; icon: typeof BookOpen }[] = [
-    { id: "hours", label: "Opening hours", question: "What are your opening hours?", icon: BookOpen },
+  const prompts: {
+    id: Scenario;
+    label: string;
+    question: string;
+    icon: typeof BookOpen;
+  }[] = [
+    {
+      id: "hours",
+      label: "Opening hours",
+      question: "What are your opening hours?",
+      icon: BookOpen,
+    },
     {
       id: "quote",
       label: "A price",
       question: `How much is one ${business.services[0]?.name.toLowerCase() ?? "service"}?`,
       icon: Calculator,
     },
-    { id: "booking", label: "Book a visit", question: "Can I book a visit this week?", icon: CalendarDays },
-    { id: "handoff", label: "Ask for a person", question: "Can I speak with a person?", icon: UserRound },
+    {
+      id: "booking",
+      label: "Book a visit",
+      question: "Can I book a visit this week?",
+      icon: CalendarDays,
+    },
+    {
+      id: "handoff",
+      label: "Ask for a person",
+      question: "Can I speak with a person?",
+      icon: UserRound,
+    },
   ];
 
   useEffect(() => {
@@ -86,28 +132,49 @@ export function ChatThread({
     const text = draft;
     if (!text.trim() || conversation.busy || limitReached) return;
     setDraft("");
-    const ok = await send(text, human && !compact ? writeAs : "customer");
+    const ok = await send(
+      text,
+      website ? "owner" : human && !compact ? writeAs : "customer",
+    );
     if (!ok) setDraft(text);
     input.current?.focus();
   }
 
-  const lastAssistant = [...conversation.messages].reverse().find((m) => m.role === "assistant");
+  const lastAssistant = [...conversation.messages]
+    .reverse()
+    .find((m) => m.role === "assistant");
   const selected = selectedId ?? lastAssistant?.id;
 
   return (
-    <section className="thread" data-compact={compact} aria-label={`Test conversation with ${identity.name}`}>
+    <section
+      className="thread"
+      data-compact={compact}
+      aria-label={`Test conversation with ${identity.name}`}
+    >
       <header className="thread-head">
         <span className="dash-avatar" aria-hidden="true">
           {identity.name.slice(0, 1).toUpperCase()}
         </span>
         <div>
-          <strong>{compact ? `Try ${identity.name}` : identity.name}</strong>
+          <strong>
+            {compact
+              ? `Try ${identity.name}`
+              : website
+                ? "Website visitor"
+                : identity.name}
+          </strong>
           <small>
-            {compact ? "Uses your latest changes" : `${purpose.label} for ${business.name} · test chat`}
+            {compact
+              ? "Uses your latest changes"
+              : website
+                ? `Chatting with ${identity.name} on your website`
+                : `${purpose.label} for ${business.name} · test chat`}
           </small>
         </div>
-        {human ? (
+        {conversation.mode === "human" ? (
           <Pill tone="attention">You’re in the chat</Pill>
+        ) : website ? (
+          <Pill tone="info">Website</Pill>
         ) : engine === "live" && liveStatus?.state === "ready" ? (
           <Pill tone="success">
             <Zap size={13} aria-hidden="true" /> Live AI
@@ -143,10 +210,16 @@ export function ChatThread({
           const question = [...conversation.messages.slice(0, index)]
             .reverse()
             .find((m) => m.role === "customer")?.text;
-          const approval = conversation.session?.approvals.find((a) => a.id === message.pendingId);
+          const approval = conversation.session?.approvals.find(
+            (a) => a.id === message.pendingId,
+          );
           const chips = usedChips(message);
           return (
-            <div className="row row-assistant" data-selected={selected === message.id} key={message.id}>
+            <div
+              className="row row-assistant"
+              data-selected={selected === message.id}
+              key={message.id}
+            >
               <button
                 type="button"
                 className="bubble bubble-assistant"
@@ -160,25 +233,36 @@ export function ChatThread({
                 <div className="row-used">
                   <span>Used</span>
                   {chips.map((chip) => (
-                    <Link key={chip.label} href={chip.href} className="used-chip" data-tone={chip.tone}>
+                    <Link
+                      key={chip.label}
+                      href={chip.href}
+                      className="used-chip"
+                      data-tone={chip.tone}
+                    >
                       {chip.label}
                     </Link>
                   ))}
                 </div>
               )}
-              {showActivity && !compact && message.activity && message.activity.length > 0 && (
-                <div className="row-steps">
-                  {message.activity.map((step, i) => (
-                    <span key={i} data-kind={step.kind}>
-                      {step.label}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {showActivity &&
+                !compact &&
+                message.activity &&
+                message.activity.length > 0 && (
+                  <div className="row-steps">
+                    {message.activity.map((step, i) => (
+                      <span key={i} data-kind={step.kind}>
+                        {step.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               {message.source === UNANSWERED && question && (
                 <div className="teach-callout">
                   <GraduationCap size={16} aria-hidden="true" />
-                  <span>Not in your knowledge yet. Teach it once and your whole crew uses it.</span>
+                  <span>
+                    Not in your knowledge yet. Teach it once and your whole crew
+                    uses it.
+                  </span>
                   <Link
                     className="ui-btn ui-btn-secondary ui-btn-sm"
                     href={`/app/knowledge?teach=${encodeURIComponent(question)}`}
@@ -224,20 +308,22 @@ export function ChatThread({
         </div>
       )}
 
-      <div className="thread-prompts" aria-label="Quick prompts">
-        {prompts.map((prompt) => (
-          <button
-            key={prompt.id}
-            type="button"
-            className="chip"
-            disabled={conversation.busy || limitReached}
-            onClick={() => void runScenario(prompt.id, prompt.question)}
-          >
-            <prompt.icon size={14} aria-hidden="true" />
-            {prompt.label}
-          </button>
-        ))}
-      </div>
+      {!website && (
+        <div className="thread-prompts" aria-label="Quick prompts">
+          {prompts.map((prompt) => (
+            <button
+              key={prompt.id}
+              type="button"
+              className="chip"
+              disabled={conversation.busy || limitReached}
+              onClick={() => void runScenario(prompt.id, prompt.question)}
+            >
+              <prompt.icon size={14} aria-hidden="true" />
+              {prompt.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <form
         className="composer"
@@ -246,18 +332,37 @@ export function ChatThread({
           void submit();
         }}
       >
-        {human && !compact && (
-          <div className="segmented write-as" role="radiogroup" aria-label="Write as">
-            <button type="button" role="radio" aria-checked={writeAs === "owner"} onClick={() => setWriteAs("owner")}>
+        {human && !compact && !website && (
+          <div
+            className="segmented write-as"
+            role="radiogroup"
+            aria-label="Write as"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={writeAs === "owner"}
+              onClick={() => setWriteAs("owner")}
+            >
               You
             </button>
-            <button type="button" role="radio" aria-checked={writeAs === "customer"} onClick={() => setWriteAs("customer")}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={writeAs === "customer"}
+              onClick={() => setWriteAs("customer")}
+            >
               Customer
             </button>
           </div>
         )}
-        <label htmlFor={compact ? "try-message" : "inbox-message"} className="sr-only">
-          {human && writeAs === "owner" ? "Reply as the business" : "Message as a customer"}
+        <label
+          htmlFor={compact ? "try-message" : "inbox-message"}
+          className="sr-only"
+        >
+          {website || (human && writeAs === "owner")
+            ? "Reply as the business"
+            : "Message as a customer"}
         </label>
         <textarea
           id={compact ? "try-message" : "inbox-message"}
@@ -269,9 +374,11 @@ export function ChatThread({
           placeholder={
             limitReached
               ? "Practice limit reached. Start a new conversation."
-              : human && writeAs === "owner"
-                ? "Reply to the customer yourself"
-                : "Ask like a customer would"
+              : website
+                ? "Reply to the visitor yourself (the AI pauses)"
+                : human && writeAs === "owner"
+                  ? "Reply to the customer yourself"
+                  : "Ask like a customer would"
           }
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -287,7 +394,11 @@ export function ChatThread({
           aria-label="Send message"
           disabled={conversation.busy || !draft.trim() || limitReached}
         >
-          {conversation.busy ? <LoaderCircle size={18} className="spin" /> : <ArrowUp size={18} />}
+          {conversation.busy ? (
+            <LoaderCircle size={18} className="spin" />
+          ) : (
+            <ArrowUp size={18} />
+          )}
         </button>
       </form>
     </section>
@@ -321,10 +432,20 @@ function ApprovalCard({
         <p>{summary}</p>
       </div>
       <div className="decision-actions">
-        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy} onClick={() => onDecide("reject")}>
+        <button
+          type="button"
+          className="ui-btn ui-btn-ghost ui-btn-sm"
+          disabled={busy}
+          onClick={() => onDecide("reject")}
+        >
           Decline
         </button>
-        <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={() => onDecide("approve")}>
+        <button
+          type="button"
+          className="ui-btn ui-btn-primary ui-btn-sm"
+          disabled={busy}
+          onClick={() => onDecide("approve")}
+        >
           Approve
         </button>
       </div>

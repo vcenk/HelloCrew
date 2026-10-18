@@ -60,6 +60,8 @@ export function ConversationsView() {
     setEngine,
     liveStatus,
     hydrated,
+    refreshThreads,
+    reloadActive,
   } = useDashboard();
   const params = useSearchParams();
   const router = useRouter();
@@ -76,6 +78,18 @@ export function ConversationsView() {
     if (!hydrated || !requested) return;
     void openThread(requested).then(() => router.replace("/app/conversations", { scroll: false }));
   }, [hydrated, requested, openThread, router]);
+
+  // Website chats arrive on their own: keep the list and the open chat fresh.
+  const savedWebsite = conversation.channel === "website";
+  useEffect(() => {
+    if (!signedIn) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void refreshThreads();
+      if (savedWebsite) void reloadActive();
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [signedIn, savedWebsite, refreshThreads, reloadActive]);
 
   // The open chat appears in the list even before it is saved.
   const current: ThreadSummary | null =

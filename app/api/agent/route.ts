@@ -1,34 +1,15 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 
-import {
-  runAgentTurn,
-  MAX_HISTORY_MESSAGES,
-  MAX_MODEL_ROUNDS,
-} from "@/lib/agent/graph";
-import { loadAgentContext } from "@/lib/agent/load";
-import { buildSystemPrompt } from "@/lib/agent/prompt";
-import { statusAfterTurn, titleFrom } from "@/lib/conversations";
-import {
-  appendMessages,
-  createThread,
-  historyForModel,
-} from "@/lib/data/conversations";
+import { appendMessages, createThread } from "@/lib/data/conversations";
 import { getWorkspaceContext } from "@/lib/data/workspace";
-import { createOpenAIChatModel } from "@/lib/models/openai";
+import { runLiveTurn } from "@/lib/server/agent-turn";
 import { readLiveConfig } from "@/lib/server/live-config";
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/server/rate-limit";
 import { isSameOrigin } from "@/lib/server/request-safety";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { costMicroUsd, worstCaseMicroUsd } from "@/lib/usage/cost";
-import {
-  getTenantLimits,
-  monthSpendMicroUsd,
-  reserveUsage,
-  settleUsage,
-} from "@/lib/usage/ledger";
+import { getTenantLimits } from "@/lib/usage/ledger";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -126,130 +107,33 @@ export async function POST(request: Request) {
   } catch (error) {
     return fail(500, "error", error instanceof Error ? error.message : "Could not save the message.");
   }
-  const history = await historyForModel(
-    supabase,
-    workspace,
-    body.conversationId,
-    MAX_HISTORY_MESSAGES,
-  );
-
-  const context = await loadAgentContext(supabase, workspace);
-  const promptChars =
-    buildSystemPrompt(context).length +
-    history.reduce((n, m) => n + m.content.length, 0);
-  const worstCase = worstCaseMicroUsd({
-    promptChars,
-    rounds: MAX_MODEL_ROUNDS,
-    maxOutputTokens: config.maxOutputTokens,
-    inputUsdPerMTok: config.inputUsdPerMTok,
-    outputUsdPerMTok: config.outputUsdPerMTok,
+  const turn = await runLiveTurn(admin, config, {
+    tenantId: workspace.tenantId,
+    conversationId: body.conversationId,
+    question: body.message.text,
   });
-  const requestId = crypto.randomUUID();
-  const reservation = await reserveUsage(
-    admin,
-    workspace.tenantId,
-    requestId,
-    worstCase,
-    config.platformMonthlyCapMicroUsd,
+  if (!turn.ok)
+    return turn.code === "budget_exhausted"
+      ? fail(
+          402,
+          "budget_exhausted",
+          "This month's live AI budget is used up. Replies fall back to practice mode.",
+          { budgetMicroUsd: limits.monthlyBudgetMicroUsd },
+        )
+      : fail(502, "model_error", "The AI model did not answer. Try again.");
+  return Response.json(
+    {
+      conversationId: body.conversationId,
+      status: turn.status,
+      messageId: turn.replyId,
+      reply: turn.reply,
+      unanswered: turn.unanswered,
+      activity: turn.activity,
+      approvals: turn.approvals,
+      usage: turn.usage,
+      spentMicroUsd: turn.spentMicroUsd,
+      budgetMicroUsd: limits.monthlyBudgetMicroUsd,
+    },
+    { headers: { "Cache-Control": "no-store" } },
   );
-  if (!reservation)
-    return fail(
-      402,
-      "budget_exhausted",
-      "This month's live AI budget is used up. Replies fall back to practice mode.",
-      { budgetMicroUsd: limits.monthlyBudgetMicroUsd },
-    );
-
-  try {
-    const result = await runAgentTurn(
-      createOpenAIChatModel(config),
-      context,
-      history,
-    );
-    const actual = costMicroUsd(
-      result.usage.inputTokens,
-      result.usage.outputTokens,
-      config.inputUsdPerMTok,
-      config.outputUsdPerMTok,
-    );
-    await settleUsage(admin, workspace.tenantId, reservation, actual);
-    const usage = { ...result.usage, costMicroUsd: actual, model: config.model };
-
-    // Store the reply and any approvals with the service role: these are
-    // server facts, never written by the browser.
-    const replyId = crypto.randomUUID();
-    const handoff = result.handoffs.length > 0;
-    await appendMessages(admin, workspace, body.conversationId, [
-      {
-        id: replyId,
-        role: "assistant",
-        text: result.reply,
-        engine: "live",
-        meta: {
-          activity: result.activity.slice(0, 12),
-          unanswered: result.unanswered || undefined,
-          question: result.unanswered ? body.message.text.slice(0, 500) : undefined,
-          handoff: handoff || undefined,
-          usage: { model: usage.model, costMicroUsd: actual, modelRounds: usage.modelRounds },
-        },
-      },
-    ]);
-    if (result.approvals.length > 0) {
-      const { error: approvalError } = await admin.from("hc_approvals").insert(
-        result.approvals.map((a) => ({
-          tenant_id: workspace.tenantId,
-          id: a.id,
-          conversation_id: body.conversationId,
-          message_id: replyId,
-          kind: a.kind,
-          summary: a.summary.slice(0, 300),
-          details: a.details,
-          action_hash: createHash("sha256").update(JSON.stringify(a.details)).digest("hex"),
-          status: "pending",
-        })),
-      );
-      if (approvalError) throw new Error("Could not store the approval.");
-    }
-    const { count: pending } = await admin
-      .from("hc_approvals")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", workspace.tenantId)
-      .eq("conversation_id", body.conversationId)
-      .eq("status", "pending");
-    const status = statusAfterTurn({ pendingApprovals: pending ?? 0, handoff, mode: "ai" });
-    await admin
-      .from("hc_conversations")
-      .update({ status })
-      .eq("tenant_id", workspace.tenantId)
-      .eq("id", body.conversationId);
-
-    const spent = await monthSpendMicroUsd(admin, workspace.tenantId);
-    return Response.json(
-      {
-        conversationId: body.conversationId,
-        title: titleFrom(history.find((m) => m.role === "user")?.content ?? body.message.text),
-        status,
-        messageId: replyId,
-        reply: result.reply,
-        unanswered: result.unanswered,
-        activity: result.activity,
-        approvals: result.approvals,
-        handoffs: result.handoffs,
-        usage,
-        spentMicroUsd: spent,
-        budgetMicroUsd: limits.monthlyBudgetMicroUsd,
-      },
-      { headers: { "Cache-Control": "no-store" } },
-    );
-  } catch (error) {
-    // Unknown outcome: keep the full reservation charged.
-    await settleUsage(admin, workspace.tenantId, reservation, null).catch(
-      () => undefined,
-    );
-    console.error(
-      "[agent] turn failed:",
-      error instanceof Error ? `${error.name}: ${error.message}` : "unknown",
-    );
-    return fail(502, "model_error", "The AI model did not answer. Try again.");
-  }
 }

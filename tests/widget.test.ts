@@ -146,3 +146,47 @@ describe("website widget", () => {
     ).toHaveLength(1);
   });
 });
+
+describe("workspace website chat", () => {
+  it("accepts only real website origins", async () => {
+    const { normalizeOrigin } = await import("../lib/widget");
+    expect(normalizeOrigin("mysalon.com")).toBe("https://mysalon.com");
+    expect(normalizeOrigin("https://www.MySalon.com/book?x=1")).toBe("https://www.mysalon.com");
+    expect(normalizeOrigin("http://localhost:5173")).toBe("http://localhost:5173");
+    expect(normalizeOrigin("http://mysalon.com")).toBeNull();
+    expect(normalizeOrigin("https://user:pw@mysalon.com")).toBeNull();
+    expect(normalizeOrigin("javascript:alert(1)")).toBeNull();
+    expect(normalizeOrigin("intranet")).toBeNull();
+    expect(normalizeOrigin("")).toBeNull();
+  });
+
+  it("validates visitor chat requests", async () => {
+    const { widgetChatRequestSchema } = await import("../lib/widget");
+    const installationId = "w-abcdefghij0123456789";
+    expect(widgetChatRequestSchema.safeParse({ installationId, message: "Hi" }).success).toBe(true);
+    expect(
+      widgetChatRequestSchema.safeParse({
+        installationId,
+        message: "Hi",
+        conversation: { id: crypto.randomUUID(), token: "a".repeat(43) },
+      }).success,
+    ).toBe(true);
+    expect(widgetChatRequestSchema.safeParse({ installationId: "demo-hellocrew", message: "Hi" }).success).toBe(false);
+    expect(widgetChatRequestSchema.safeParse({ installationId, message: "x".repeat(1001) }).success).toBe(false);
+    expect(
+      widgetChatRequestSchema.safeParse({ installationId, message: "Hi", conversation: { id: "x", token: "y" } }).success,
+    ).toBe(false);
+  });
+
+  it("refuses visitor messages without a configured installation", async () => {
+    const { POST } = await import("../app/api/widget/chat/route");
+    const response = await POST(
+      new Request("http://localhost/api/widget/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost" },
+        body: JSON.stringify({ installationId: "w-abcdefghij0123456789", message: "Hi" }),
+      }),
+    );
+    expect(response.status).toBe(404);
+  });
+});

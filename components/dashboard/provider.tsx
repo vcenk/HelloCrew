@@ -83,6 +83,7 @@ type DashboardState = {
   threads: ThreadSummary[];
   needsYou: NeedsYou | null;
   refreshThreads: () => Promise<void>;
+  reloadActive: () => Promise<void>;
   openThread: (id: string) => Promise<void>;
   changeThread: (action: "take_over" | "hand_back" | "close" | "reopen") => Promise<void>;
   deleteThread: (id: string) => Promise<void>;
@@ -280,6 +281,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     threads,
     needsYou,
     refreshThreads,
+    reloadActive,
     openThread,
     changeThread,
     deleteThread,
@@ -327,6 +329,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       threads,
       needsYou,
       refreshThreads,
+      reloadActive,
       openThread,
       changeThread,
       deleteThread,
@@ -368,6 +371,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       threads,
       needsYou,
       refreshThreads,
+      reloadActive,
       openThread,
       changeThread,
       deleteThread,

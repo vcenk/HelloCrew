@@ -19,7 +19,7 @@ import { buildAgentContext } from "./context";
 // Nothing the browser sends is used as business knowledge.
 export async function loadAgentContext(
   supabase: SupabaseClient,
-  workspace: WorkspaceContext,
+  workspace: Pick<WorkspaceContext, "tenantId">,
 ) {
   const documents = await loadDocuments(supabase, workspace);
   const identity = assistantIdentitySchema.safeParse(

@@ -1,14 +1,22 @@
 import Script from "next/script";
 import { ArrowLeft, Leaf, MapPin, Sparkles } from "lucide-react";
 
-import { DEMO_WIDGET_INSTALLATION_ID } from "@/lib/widget";
+import { DEMO_WIDGET_INSTALLATION_ID, PUBLIC_WIDGET_ID } from "@/lib/widget";
 import styles from "./widget-test.module.css";
 
-export default function WidgetTestPage() {
+export default async function WidgetTestPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ installation?: string | string[] }>;
+}) {
+  const requested = (await searchParams).installation;
+  // A workspace's own widget id, or the public demo.
+  const installation =
+    typeof requested === "string" && PUBLIC_WIDGET_ID.test(requested) ? requested : DEMO_WIDGET_INSTALLATION_ID;
   return (
     <main className={styles.page}>
       <nav className={styles.nav}>
-        <a href="/app?section=channels">
+        <a href="/app/crew/receptionist/channels">
           <ArrowLeft size={16} /> Back to Channels
         </a>
         <strong>
@@ -79,7 +87,7 @@ export default function WidgetTestPage() {
         id="hellocrew-practice-widget"
         src="/widget.js"
         strategy="afterInteractive"
-        data-installation={DEMO_WIDGET_INSTALLATION_ID}
+        data-installation={installation}
       />
     </main>
   );
