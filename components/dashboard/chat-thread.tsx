@@ -58,10 +58,13 @@ export function ChatThread({
     showActivity,
   } = useDashboard();
   const [draft, setDraft] = useState("");
+  const [writeAs, setWriteAs] = useState<"customer" | "owner">("owner");
+  const human = conversation.mode === "human";
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const turns = conversation.session?.turn ?? 0;
-  const limitReached = engine === "practice" && turns >= MAX_PRACTICE_TURNS;
+  const limitReached =
+    engine === "practice" && conversation.mode === "ai" && turns >= MAX_PRACTICE_TURNS;
 
   const prompts: { id: Scenario; label: string; question: string; icon: typeof BookOpen }[] = [
     { id: "hours", label: "Opening hours", question: "What are your opening hours?", icon: BookOpen },
@@ -83,7 +86,7 @@ export function ChatThread({
     const text = draft;
     if (!text.trim() || conversation.busy || limitReached) return;
     setDraft("");
-    const ok = await send(text);
+    const ok = await send(text, human && !compact ? writeAs : "customer");
     if (!ok) setDraft(text);
     input.current?.focus();
   }
@@ -103,7 +106,9 @@ export function ChatThread({
             {compact ? "Uses your latest changes" : `${purpose.label} for ${business.name} · test chat`}
           </small>
         </div>
-        {engine === "live" && liveStatus?.state === "ready" ? (
+        {human ? (
+          <Pill tone="attention">You’re in the chat</Pill>
+        ) : engine === "live" && liveStatus?.state === "ready" ? (
           <Pill tone="success">
             <Zap size={13} aria-hidden="true" /> Live AI
           </Pill>
@@ -126,6 +131,13 @@ export function ChatThread({
             return (
               <div className="row row-customer" key={message.id}>
                 <span className="bubble bubble-customer">{message.text}</span>
+              </div>
+            );
+          if (message.role === "owner")
+            return (
+              <div className="row row-assistant row-owner" key={message.id}>
+                <span className="row-author">You</span>
+                <span className="bubble bubble-owner">{message.text}</span>
               </div>
             );
           const question = [...conversation.messages.slice(0, index)]
@@ -234,8 +246,18 @@ export function ChatThread({
           void submit();
         }}
       >
+        {human && !compact && (
+          <div className="segmented write-as" role="radiogroup" aria-label="Write as">
+            <button type="button" role="radio" aria-checked={writeAs === "owner"} onClick={() => setWriteAs("owner")}>
+              You
+            </button>
+            <button type="button" role="radio" aria-checked={writeAs === "customer"} onClick={() => setWriteAs("customer")}>
+              Customer
+            </button>
+          </div>
+        )}
         <label htmlFor={compact ? "try-message" : "inbox-message"} className="sr-only">
-          Message as a customer
+          {human && writeAs === "owner" ? "Reply as the business" : "Message as a customer"}
         </label>
         <textarea
           id={compact ? "try-message" : "inbox-message"}
@@ -245,7 +267,11 @@ export function ChatThread({
           value={draft}
           disabled={limitReached}
           placeholder={
-            limitReached ? "Practice limit reached. Start a new conversation." : "Ask like a customer would"
+            limitReached
+              ? "Practice limit reached. Start a new conversation."
+              : human && writeAs === "owner"
+                ? "Reply to the customer yourself"
+                : "Ask like a customer would"
           }
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -274,15 +300,15 @@ function ApprovalCard({
   busy,
   onDecide,
 }: {
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "consumed";
   summary: string;
   busy: boolean;
   onDecide: (value: "approve" | "reject") => void;
 }) {
   if (status !== "pending")
     return (
-      <Pill tone={status === "approved" ? "success" : "neutral"}>
-        {status === "approved" ? "Booking approved" : "Booking declined"}
+      <Pill tone={status === "rejected" ? "neutral" : "success"}>
+        {status === "rejected" ? "Booking declined" : "Booking approved"}
       </Pill>
     );
   return (

@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import {
   CalendarCheck,
   ChevronRight,
   GraduationCap,
   Globe,
+  Hand,
   MessageCircle,
   Phone,
   ShieldCheck,
@@ -28,46 +30,81 @@ function greetingForNow() {
 }
 
 export function HomeView() {
-  const { identity, business, conversation, hydrated, decide, decideLive, crew } = useDashboard();
+  const {
+    identity,
+    business,
+    conversation,
+    hydrated,
+    decide,
+    decideLive,
+    decideStored,
+    crew,
+    account,
+    needsYou: server,
+    threads,
+    knowledge,
+  } = useDashboard();
   const { steps, done } = useLaunchChecklist();
+  const { refreshThreads } = useDashboard();
+  useEffect(() => {
+    void refreshThreads();
+  }, [refreshThreads]);
   const skills = crew.members[0].skills;
+  const signedIn = account.status === "signed_in" && server !== null;
+  const taught = new Set(knowledge.sources.map((s) => s.title.trim().toLowerCase()));
 
+  // Practice approvals live in this tab only; live approvals come from the server.
   const approvals = [
     ...(conversation.session?.approvals ?? [])
       .filter((a) => a.status === "pending")
       .map((a) => ({
         key: a.id,
+        title: "Approve a practice booking",
         detail: "Sample booking from a practice chat. Nothing is booked for real.",
         onDecide: (value: "approve" | "reject") => void decide(a.id, value),
       })),
-    ...conversation.messages.flatMap((m) =>
-      (m.liveApprovals ?? [])
-        .filter((a) => a.status === "pending")
-        .map((a) => ({
+    ...(signedIn
+      ? server.approvals.map((a) => ({
           key: a.id,
-          detail: `${a.summary}. From a live AI test chat.`,
-          onDecide: (value: "approve" | "reject") => decideLive(m.id, a.id, value),
-        })),
-    ),
+          title: "Approve a booking request",
+          detail: `${a.summary}. From “${a.conversationTitle}”.`,
+          onDecide: (value: "approve" | "reject") => void decideStored(a.id, value),
+        }))
+      : conversation.messages.flatMap((m) =>
+          (m.liveApprovals ?? [])
+            .filter((a) => a.status === "pending")
+            .map((a) => ({
+              key: a.id,
+              title: "Approve a booking request",
+              detail: `${a.summary}. From a live AI test chat.`,
+              onDecide: (value: "approve" | "reject") => decideLive(m.id, a.id, value),
+            })),
+        )),
   ];
 
-  // Questions the crew couldn't answer, deduplicated, newest first.
+  // Questions the crew couldn't answer and nobody has taught yet.
   const unanswered: string[] = [];
-  conversation.messages.forEach((m, i) => {
+  const addQuestion = (q: string | undefined) => {
+    const clean = q?.trim();
+    if (clean && !taught.has(clean.toLowerCase()) && !unanswered.some((u) => u.toLowerCase() === clean.toLowerCase()))
+      unanswered.push(clean);
+  };
+  if (signedIn) server.unanswered.forEach((u) => addQuestion(u.question));
+  [...conversation.messages].reverse().forEach((m, i, list) => {
     if (m.role !== "assistant" || m.source !== UNANSWERED) return;
-    const q = [...conversation.messages.slice(0, i)].reverse().find((c) => c.role === "customer")?.text;
-    if (q && !unanswered.includes(q)) unanswered.unshift(q);
+    addQuestion(m.question ?? list.slice(i + 1).find((c) => c.role === "customer")?.text);
   });
+  const handoffs = signedIn ? server.handoffs : [];
 
   const replies = conversation.messages.filter((m) => m.role === "assistant");
   const questions = conversation.messages.filter((m) => m.role === "customer").length;
-  const handoffs = replies.filter(
+  const handedOff = replies.filter(
     (m) => m.activity?.some((a) => /handoff|person/i.test(a.label)) || m.source === "Practice handoff policy",
   ).length;
   const answered = replies.filter(
     (m) => m.source && m.source !== UNANSWERED && m.source !== "Practice handoff policy",
   ).length;
-  const needsYou = approvals.length + unanswered.length;
+  const needsYou = approvals.length + unanswered.length + handoffs.length;
   const nextStep = steps.find((s) => !s.done);
   const skillsOn = receptionistSkills.filter((s) => !s.comingSoon && skills[s.id] !== "off");
 
@@ -132,7 +169,7 @@ export function HomeView() {
                     <CalendarCheck size={18} />
                   </span>
                   <div>
-                    <strong>Approve a booking request</strong>
+                    <strong>{approval.title}</strong>
                     <p>{approval.detail}</p>
                   </div>
                   <div className="decision-actions">
@@ -152,6 +189,22 @@ export function HomeView() {
                     >
                       Approve
                     </button>
+                  </div>
+                </li>
+              ))}
+              {handoffs.map((h) => (
+                <li key={h.conversationId}>
+                  <span className="decision-icon" data-tone="teach" aria-hidden="true">
+                    <Hand size={18} />
+                  </span>
+                  <div>
+                    <strong>A customer needs a person</strong>
+                    <p>“{h.title}”</p>
+                  </div>
+                  <div className="decision-actions">
+                    <ButtonLink href={`/app/conversations?c=${h.conversationId}`} size="sm" variant="secondary">
+                      Open chat
+                    </ButtonLink>
                   </div>
                 </li>
               ))}
@@ -175,26 +228,51 @@ export function HomeView() {
           )}
         </Panel>
 
-        <Panel title="Test chats so far">
-          <dl className="session-stats">
-            <div>
-              <dt>Questions</dt>
-              <dd>{questions}</dd>
-            </div>
-            <div>
-              <dt>Answered</dt>
-              <dd>{answered}</dd>
-            </div>
-            <div>
-              <dt>Didn’t know</dt>
-              <dd data-warn={unanswered.length > 0}>{unanswered.length}</dd>
-            </div>
-            <div>
-              <dt>To a person</dt>
-              <dd>{handoffs}</dd>
-            </div>
-          </dl>
-          <p className="today-note">Real customer numbers appear once your website chat goes live.</p>
+        <Panel title={signedIn ? "Conversations" : "Test chats so far"}>
+          {signedIn ? (
+            <dl className="session-stats">
+              <div>
+                <dt>Saved chats</dt>
+                <dd>{threads.length}</dd>
+              </div>
+              <div>
+                <dt>Waiting for you</dt>
+                <dd data-warn={approvals.length > 0}>{threads.filter((t) => t.status === "waiting").length}</dd>
+              </div>
+              <div>
+                <dt>Didn’t know</dt>
+                <dd data-warn={unanswered.length > 0}>{unanswered.length}</dd>
+              </div>
+              <div>
+                <dt>To a person</dt>
+                <dd>{threads.filter((t) => t.status === "handoff").length}</dd>
+              </div>
+            </dl>
+          ) : (
+            <dl className="session-stats">
+              <div>
+                <dt>Questions</dt>
+                <dd>{questions}</dd>
+              </div>
+              <div>
+                <dt>Answered</dt>
+                <dd>{answered}</dd>
+              </div>
+              <div>
+                <dt>Didn’t know</dt>
+                <dd data-warn={unanswered.length > 0}>{unanswered.length}</dd>
+              </div>
+              <div>
+                <dt>To a person</dt>
+                <dd>{handedOff}</dd>
+              </div>
+            </dl>
+          )}
+          <p className="today-note">
+            {signedIn
+              ? "Test chats are counted now; website chats join them once your chat goes live."
+              : "Sign in to keep test chats. Real customer numbers appear once your website chat goes live."}
+          </p>
         </Panel>
       </div>
 

@@ -41,7 +41,7 @@ type Draft = { id?: string; kind: KnowledgeKind; title: string; content: string;
 const emptyDraft = (kind: KnowledgeKind = "faq"): Draft => ({ kind, title: "", content: "", price: "", approved: true });
 
 export function KnowledgeView() {
-  const { knowledge, saveKnowledge, conversation, toast } = useDashboard();
+  const { knowledge, saveKnowledge, conversation, toast, needsYou } = useDashboard();
   const params = useSearchParams();
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -60,6 +60,9 @@ export function KnowledgeView() {
 
   const suggestions = useMemo(() => {
     const out: string[] = [];
+    for (const u of needsYou?.unanswered ?? [])
+      if (!out.includes(u.question) && !knowledge.sources.some((s) => s.title.toLowerCase() === u.question.toLowerCase()))
+        out.push(u.question);
     conversation.messages.forEach((m, i) => {
       if (m.role !== "assistant" || m.source !== UNANSWERED) return;
       const q = [...conversation.messages.slice(0, i)].reverse().find((c) => c.role === "customer")?.text;
@@ -67,7 +70,7 @@ export function KnowledgeView() {
         out.push(q);
     });
     return out;
-  }, [conversation.messages, knowledge.sources]);
+  }, [conversation.messages, knowledge.sources, needsYou]);
 
   const matches = query.trim() ? searchApprovedKnowledge(knowledge, query) : [];
   const approvedCount = knowledge.sources.filter((s) => s.status === "approved").length;

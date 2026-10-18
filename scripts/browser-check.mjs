@@ -81,7 +81,7 @@ await button("Book a visit").click();
 await button("Approve").waitFor();
 await text("Skill · Booking requests");
 await nav("Today");
-await text("Approve a booking request");
+await text("Approve a practice booking");
 await button("Approve").click();
 await text("All clear");
 
@@ -110,6 +110,20 @@ await shot("knowledge-desktop");
 await nav("Conversations");
 await ask("Do you have wifi?");
 await text("Saved FAQ answer (sample): Yes, free wifi for every visitor.");
+
+// Take over: the owner replies, customer messages get no AI reply, then hand back.
+await button("Take over").click();
+await text("You’re in the chat");
+await page.getByLabel("Reply as the business", { exact: true }).fill("Hi, it's the owner here.");
+await button("Send message").click();
+await page.locator(".bubble-owner").getByText("Hi, it's the owner here.").waitFor();
+await page.getByRole("radiogroup", { name: "Write as" }).getByRole("radio", { name: "Customer" }).click();
+const repliesBefore = await page.locator(".row-assistant:not(.row-owner)").count();
+await ask("Thanks!");
+await page.waitForTimeout(400);
+assert.equal(await page.locator(".row-assistant:not(.row-owner)").count(), repliesBefore);
+await button("Hand back to AI").click();
+await button("Take over").waitFor();
 
 // Draft knowledge is not used.
 await nav("Knowledge");

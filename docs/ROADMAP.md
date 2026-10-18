@@ -64,7 +64,10 @@ Progress (2026-10-17):
 - [x] Spend controls: `hc_tenant_limits` + `hc_usage_reservations` with service-role-only RPCs; atomic worst-case reservation per turn against the tenant monthly budget ($5 default) and a platform cap ($20 default); settle at measured cost; unknown outcomes stay charged. Migration `20261017152928_live_ai_usage_ledger.sql` applied.
 - [x] Owner opt-in: Settings → Live AI toggle (owner only) with a month-to-date budget meter; Conversations switch between Practice and Live AI; live approvals on Today and in Conversations.
 - [x] The agent reports `unanswered` when no approved knowledge matched, which drives the "Teach this answer" loop.
-- [ ] Durable checkpoints and server-stored approvals/conversations (needed before the public widget uses live AI).
+- [x] Server-stored conversations (2026-10-18, migration `20261018173144_conversations`): `hc_conversations`, `hc_messages`, `hc_contacts`; `hc_approvals` now belongs to a conversation and the message that proposed it. RLS: members read; owners/operators create test chats and may only add their own replies to customer chats; approvals are created by the server and decided through `hc_decide_approval` (security definer, checks the caller's role, records who decided, posts the customer reply, clears "waiting"). A trigger keeps each conversation's preview, count (max 500) and status in step.
+  - `/api/agent` now takes `{conversationId, message}`; history comes from the database, so a browser can't rewrite earlier turns. Replies, usage and approvals are stored with the service role.
+  - The agent rebuilds state from stored messages each turn, so resuming after an approval needs no separate graph checkpoint (`hc_checkpoints` stays unused for now).
+  - Dashboard: saved conversation list with status (AI handling, Waiting for you, Needs a person, Closed), open/close/reopen/delete, **Take over** (owner replies, AI stays quiet) and **Hand back**. Today's "Needs you" reads approvals, handoffs and unanswered questions across all saved chats. Signed out, everything still works in the tab.
 - [ ] pgvector retrieval once knowledge outgrows the inline prompt budget.
 - [ ] Eval suite (grounding, unknowns, injection, EN/FA/ZH).
 
@@ -77,9 +80,10 @@ Progress (2026-10-17):
 
 Exit: a signed-in owner can chat with their own assistant, grounded in their approved knowledge, with bookings paused for approval and spend capped.
 
-### Phase 3 — Inbox, takeover and first integrations
+### Phase 3 — Website channel and first integrations
 
-- Conversations/messages/contacts tables (Chatwoot-style), live inbox, human takeover and hand-back.
+- [x] Conversations/messages/contacts tables, human takeover and hand-back (done in Phase 2b above).
+- Website widget per workspace with live AI: allowed-origin list, anonymous visitor contact, chats land in Conversations, polling or realtime updates.
 - Booking via Cal.com API v2 or Google Calendar; booking-link fallback.
 - Lead capture → email notification to the owner.
 - Widget installations per workspace with allowed-origin list.

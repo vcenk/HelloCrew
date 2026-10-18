@@ -132,8 +132,14 @@ app/app/{workflows,settings}/page.tsx   Advanced workflow editor, settings
 app/app/{inbox,assistant,channels}      redirects to the new routes
 components/dashboard/                   provider, shell, ui, home, conversations, chat-thread, crew, knowledge, settings, editors
 lib/crew.ts                             crew document: jobs, skills, autonomy modes (off / ask / auto)
+lib/conversations.ts                    shared conversation types, status rules, message metadata schema
+lib/data/conversations.ts               server-only reads/writes for conversations, messages, approvals
+app/app/conversation-actions.ts         server actions: list, open, save, take over/hand back/close, decide, needs-you
+components/dashboard/use-conversations.ts   client state for the open conversation and the saved list
 app/app/dashboard.css                   dashboard tokens and components, scoped to .dash
 app/app/legacy-dark.css                 generated dark palette for legacy editors (scripts/theme-legacy-css.mjs)
 ```
+
+Conversations are stored per workspace. The live agent route accepts only the new customer message and reads earlier turns from `hc_messages`; its reply, cost and any approvals are written with the service role. Practice replies (computed in the browser session) and owner messages are saved through server actions under RLS. Owner decisions go through `hc_decide_approval`.
 
 Skill modes are data, not prompt text alone: `lib/agent/tools.ts` only registers the tools a skill allows, `lib/agent/prompt.ts` states the same rules, and the provider applies them in practice mode. A mode that needs an integration that does not exist yet (booking "On its own" needs a calendar) cannot be selected.

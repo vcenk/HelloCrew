@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import {
@@ -7,6 +8,12 @@ import {
 } from "@/lib/agent/graph";
 import { loadAgentContext } from "@/lib/agent/load";
 import { buildSystemPrompt } from "@/lib/agent/prompt";
+import { statusAfterTurn, titleFrom } from "@/lib/conversations";
+import {
+  appendMessages,
+  createThread,
+  historyForModel,
+} from "@/lib/data/conversations";
 import { getWorkspaceContext } from "@/lib/data/workspace";
 import { createOpenAIChatModel } from "@/lib/models/openai";
 import { readLiveConfig } from "@/lib/server/live-config";
@@ -27,24 +34,19 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 const MAX_BYTES = 32_768;
 
+// The browser sends only the new customer message. History comes from the
+// stored conversation, so a client can't rewrite what was said before.
 const bodySchema = z
   .object({
-    messages: z
-      .array(
-        z
-          .object({
-            role: z.enum(["user", "assistant"]),
-            content: z.string().trim().min(1).max(1500),
-          })
-          .strict(),
-      )
-      .min(1)
-      .max(MAX_HISTORY_MESSAGES),
+    conversationId: z.string().uuid(),
+    message: z
+      .object({
+        id: z.string().uuid(),
+        text: z.string().trim().min(1).max(1500),
+      })
+      .strict(),
   })
-  .strict()
-  .refine((b) => b.messages[b.messages.length - 1].role === "user", {
-    message: "The last message must come from the customer.",
-  });
+  .strict();
 
 function fail(status: number, code: string, error: string, extra?: object) {
   return Response.json(
@@ -100,10 +102,41 @@ export async function POST(request: Request) {
   if (!limits.liveAiEnabled)
     return fail(403, "live_off", "Turn on live AI in Settings first.");
 
+  // Load or start the conversation (RLS-scoped to this workspace).
+  const { data: thread, error: threadError } = await supabase
+    .from("hc_conversations")
+    .select("id, channel, mode")
+    .eq("tenant_id", workspace.tenantId)
+    .eq("id", body.conversationId)
+    .maybeSingle();
+  if (threadError) return fail(500, "error", "Could not load the conversation.");
+  if (thread && thread.channel !== "test")
+    return fail(403, "forbidden", "Customer chats are answered by the website channel.");
+  if (thread?.mode === "human")
+    return fail(409, "human_mode", "You’ve taken over this chat. Hand it back to let the AI reply.");
+  try {
+    if (!thread)
+      await createThread(supabase, workspace, {
+        id: body.conversationId,
+        firstMessage: body.message.text,
+      });
+    await appendMessages(supabase, workspace, body.conversationId, [
+      { id: body.message.id, role: "customer", text: body.message.text, engine: "live" },
+    ]);
+  } catch (error) {
+    return fail(500, "error", error instanceof Error ? error.message : "Could not save the message.");
+  }
+  const history = await historyForModel(
+    supabase,
+    workspace,
+    body.conversationId,
+    MAX_HISTORY_MESSAGES,
+  );
+
   const context = await loadAgentContext(supabase, workspace);
   const promptChars =
     buildSystemPrompt(context).length +
-    body.messages.reduce((n, m) => n + m.content.length, 0);
+    history.reduce((n, m) => n + m.content.length, 0);
   const worstCase = worstCaseMicroUsd({
     promptChars,
     rounds: MAX_MODEL_ROUNDS,
@@ -131,7 +164,7 @@ export async function POST(request: Request) {
     const result = await runAgentTurn(
       createOpenAIChatModel(config),
       context,
-      body.messages,
+      history,
     );
     const actual = costMicroUsd(
       result.usage.inputTokens,
@@ -140,15 +173,69 @@ export async function POST(request: Request) {
       config.outputUsdPerMTok,
     );
     await settleUsage(admin, workspace.tenantId, reservation, actual);
+    const usage = { ...result.usage, costMicroUsd: actual, model: config.model };
+
+    // Store the reply and any approvals with the service role: these are
+    // server facts, never written by the browser.
+    const replyId = crypto.randomUUID();
+    const handoff = result.handoffs.length > 0;
+    await appendMessages(admin, workspace, body.conversationId, [
+      {
+        id: replyId,
+        role: "assistant",
+        text: result.reply,
+        engine: "live",
+        meta: {
+          activity: result.activity.slice(0, 12),
+          unanswered: result.unanswered || undefined,
+          question: result.unanswered ? body.message.text.slice(0, 500) : undefined,
+          handoff: handoff || undefined,
+          usage: { model: usage.model, costMicroUsd: actual, modelRounds: usage.modelRounds },
+        },
+      },
+    ]);
+    if (result.approvals.length > 0) {
+      const { error: approvalError } = await admin.from("hc_approvals").insert(
+        result.approvals.map((a) => ({
+          tenant_id: workspace.tenantId,
+          id: a.id,
+          conversation_id: body.conversationId,
+          message_id: replyId,
+          kind: a.kind,
+          summary: a.summary.slice(0, 300),
+          details: a.details,
+          action_hash: createHash("sha256").update(JSON.stringify(a.details)).digest("hex"),
+          status: "pending",
+        })),
+      );
+      if (approvalError) throw new Error("Could not store the approval.");
+    }
+    const { count: pending } = await admin
+      .from("hc_approvals")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", workspace.tenantId)
+      .eq("conversation_id", body.conversationId)
+      .eq("status", "pending");
+    const status = statusAfterTurn({ pendingApprovals: pending ?? 0, handoff, mode: "ai" });
+    await admin
+      .from("hc_conversations")
+      .update({ status })
+      .eq("tenant_id", workspace.tenantId)
+      .eq("id", body.conversationId);
+
     const spent = await monthSpendMicroUsd(admin, workspace.tenantId);
     return Response.json(
       {
+        conversationId: body.conversationId,
+        title: titleFrom(history.find((m) => m.role === "user")?.content ?? body.message.text),
+        status,
+        messageId: replyId,
         reply: result.reply,
         unanswered: result.unanswered,
         activity: result.activity,
         approvals: result.approvals,
         handoffs: result.handoffs,
-        usage: { ...result.usage, costMicroUsd: actual, model: config.model },
+        usage,
         spentMicroUsd: spent,
         budgetMicroUsd: limits.monthlyBudgetMicroUsd,
       },
