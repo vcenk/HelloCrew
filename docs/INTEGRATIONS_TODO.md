@@ -39,7 +39,7 @@ Code is built (see `CHANNELS_SETUP.md`). Testable now on your own accounts with 
 - [ ] **Meta App Review + Business verification** for the permissions listed in `CHANNELS_SETUP.md`, so real salons can connect.
 - [ ] **WhatsApp Embedded Signup** (Tech Provider) so salons connect their own numbers in one click; replace the paste form.
 - [ ] WhatsApp message templates for replies after the 24-hour window.
-- [ ] **Google Business Profile API access** approval (needs a domain email and live website; ~14 days) + OAuth verification for `business.manage`.
+- [ ] **Google Business Profile API access** — applied 2026-10-18 as AgentLand (agentland.app), Cloud project 254950461858, support case 9-9447000041906, review 7–10 business days. Then: approval (needs a domain email and live website; ~14 days) + OAuth verification for `business.manage`.
 - [ ] Media messages (images, voice notes) — currently text only.
 - [ ] **Phone** (Twilio or similar number + realtime voice model, or Vapi/Retell). Highest cost per minute; budget cap required.
 
