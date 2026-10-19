@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runAgentTurn, MAX_HISTORY_MESSAGES, MAX_MODEL_ROUNDS } from "@/lib/agent/graph";
 import type { Lead } from "@/lib/agent/tools";
+import { notifyOwner, type OwnerEvent } from "@/lib/server/notify";
 import { loadAgentContext } from "@/lib/agent/load";
 import { buildSystemPrompt } from "@/lib/agent/prompt";
 import type { Activity } from "@/lib/demo";
@@ -115,7 +116,30 @@ export async function runLiveTurn(
       if (error) throw new Error("Could not store the approval.");
     }
     if (result.leads.length > 0) await storeLeads(admin, target.tenantId, target.conversationId, result.leads);
+    const { data: before } = await admin
+      .from("hc_conversations")
+      .select("channel, status, title")
+      .eq("tenant_id", target.tenantId)
+      .eq("id", target.conversationId)
+      .maybeSingle();
     const status = await updateStatus(admin, target.tenantId, target.conversationId, handoff);
+    // Alerts are for real customers; the owner's own test chats stay quiet.
+    if (before?.channel === "website") {
+      const events: OwnerEvent[] = [
+        ...result.approvals.map((a) => ({ kind: "approval" as const, conversationId: target.conversationId, summary: a.summary })),
+        ...(handoff && before.status !== "handoff"
+          ? [{ kind: "handoff" as const, conversationId: target.conversationId, title: before.title as string }]
+          : []),
+        ...result.leads.map((l) => ({
+          kind: "lead" as const,
+          conversationId: target.conversationId,
+          name: l.name,
+          contact: [l.phone, l.email].filter(Boolean).join(", "),
+          interest: l.interest,
+        })),
+      ];
+      await Promise.all(events.map((e) => notifyOwner(admin, target.tenantId, e)));
+    }
     return {
       ok: true,
       leads: result.leads.length,

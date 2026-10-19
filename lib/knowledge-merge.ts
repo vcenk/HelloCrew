@@ -1,7 +1,10 @@
 import {
   MAX_KNOWLEDGE_ITEMS,
+  priceSummary,
   type KnowledgeSource,
   type KnowledgeStore,
+  type PriceOption,
+  type TeamMember,
 } from "./knowledge";
 
 export type SuggestionInput = {
@@ -9,6 +12,7 @@ export type SuggestionInput = {
   title: string;
   content: string;
   price?: string;
+  options?: { who: string; price: string; duration?: string }[];
 };
 type SourceFile = { id: string; kind: "file" | "url"; fileName: string | null };
 
@@ -34,8 +38,14 @@ export function mergeSuggestions(
   for (const s of suggestions) {
     const title = s.title.slice(0, limits[s.kind] ?? 180);
     const content = s.content.slice(0, 12000);
+    const options =
+      s.kind === "service"
+        ? optionsFromSuggestion(s.options, store.team ?? [])
+        : undefined;
     const price =
-      s.kind === "service" && s.price ? s.price.slice(0, 80) : undefined;
+      s.kind === "service"
+        ? (options ? priceSummary(options) : s.price?.slice(0, 80)) || undefined
+        : undefined;
     const existing = fromFile.find(
       (e) => e.kind === s.kind && norm(e.title) === norm(title),
     );
@@ -58,6 +68,7 @@ export function mergeSuggestions(
       title,
       content,
       ...(price ? { price } : {}),
+      ...(options ? { options } : {}),
       ...(file.fileName ? { fileName: file.fileName.slice(0, 240) } : {}),
       fileId: file.id,
       ...(existing ? { replacesId: existing.id } : {}),
@@ -75,4 +86,27 @@ export function mergeSuggestions(
     updates,
     skipped: Math.max(0, added.length - room),
   };
+}
+
+// "Ayşe" or "Ayşe Yılmaz" in a document matches the team member Ayşe;
+// anything else (a level or an option like "Long hair") stays a named option.
+export function optionsFromSuggestion(
+  options: SuggestionInput["options"],
+  team: TeamMember[],
+): PriceOption[] | undefined {
+  if (!options?.length) return undefined;
+  return options.slice(0, 12).map((o) => {
+    const who = norm(o.who);
+    const member = team.find((m) => {
+      const name = norm(m.name);
+      return (
+        who === name || who.split(" ")[0] === name || name.split(" ")[0] === who
+      );
+    });
+    return {
+      ...(member ? { staffId: member.id } : { label: o.who.slice(0, 80) }),
+      price: o.price.slice(0, 40),
+      ...(o.duration ? { duration: o.duration.slice(0, 40) } : {}),
+    };
+  });
 }

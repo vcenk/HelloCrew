@@ -15,6 +15,7 @@ import {
 
 import { signOutOfDashboard } from "@/app/app/actions";
 
+import { AlertsPanel } from "./alerts-panel";
 import { LiveAiPanel } from "./live-ai-panel";
 import { useDashboard, type Theme } from "./provider";
 import { Button, ButtonLink, PageHeader, Panel, Pill } from "./ui";
@@ -91,6 +92,8 @@ export function SettingsView() {
           </div>
         )}
       </Panel>
+
+      <AlertsPanel />
 
       <div className="settings-grid-v2">
         <Panel title="Appearance">

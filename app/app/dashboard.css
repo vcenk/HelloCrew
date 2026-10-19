@@ -3141,6 +3141,25 @@ a.crew-tile:hover {
   text-decoration: underline;
 }
 
+.alerts-panel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.alert-toggles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 20px;
+}
+.alert-toggles .switch-row {
+  margin-top: 6px;
+}
+@media (max-width: 720px) {
+  .alert-toggles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1320px) {
   .convo-grid {

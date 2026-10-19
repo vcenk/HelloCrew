@@ -158,9 +158,9 @@ export default function Home() {
             to <span className="serif">say hello.</span>
           </h2>
           <p>
-            Our practice studio uses made-up examples. Watch a real LangGraph
-            workflow choose a tool, use its result, and ask for your approval.
-            No live AI costs or real bookings.
+            Try your receptionist with made-up examples first: see which
+            answer it used, and approve bookings before anything happens. When
+            you’re ready, switch on live AI and add it to your website.
           </p>
           <Link className="button dark" href="/app">
             Open your practice studio <ArrowUpRight size={18} />
@@ -202,17 +202,17 @@ export default function Home() {
         <Link href="/app" className="button dark">
           Meet HelloCrew <ArrowUpRight size={20} />
         </Link>
-        <p>Built with LangGraph. Designed around people.</p>
+        <p>An AI front desk for small businesses. Designed around people.</p>
       </section>
       <footer>
         <Link href="/">
           <Brand small />
         </Link>
         <p>
-          An early prototype built on open-source tools. Website practice demo
-          available.
+          Early access: website chat with live AI, approvals and your own
+          knowledge.
           <br />
-          WhatsApp, phone, and live AI are not connected.
+          WhatsApp, Google reviews and phone are coming next.
         </p>
         <a
           href="https://github.com/vcenk/HelloCrew"

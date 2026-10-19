@@ -2,6 +2,7 @@ import { titleFrom } from "@/lib/conversations";
 import { appendMessages } from "@/lib/data/conversations";
 import { runLiveTurn, runPracticeTurn } from "@/lib/server/agent-turn";
 import { readLiveConfig } from "@/lib/server/live-config";
+import { notifyOwner } from "@/lib/server/notify";
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/server/rate-limit";
 import { isSameOrigin } from "@/lib/server/request-safety";
 import {
@@ -114,6 +115,7 @@ export async function POST(request: Request) {
       .single();
     if (error || !data) return json({ error: "This chat isn’t available right now." }, 503);
     conversationId = data.id as string;
+    await notifyOwner(admin, tenantId, { kind: "new_chat", conversationId, firstMessage: body.message });
   }
 
   const customerId = crypto.randomUUID();

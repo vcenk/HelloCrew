@@ -103,6 +103,9 @@ Exit: a signed-in owner can chat with their own assistant, grounded in their app
   - The AI gets the team and per-person prices: it gives the range, or the exact price when the customer names someone. Search matches staff names.
   - Separate knowledge per **location** or per independent practitioner is a different need: a later "Locations" layer or separate workspaces.
 - [x] Lead capture (2026-10-19, migration `20261019041441_leads`): the "Capture leads" skill (Off / On its own, on by default) gives the live AI a `capture_lead` tool. When someone wants a quote or a call back, or the AI couldn't answer, it offers a follow-up and saves name + phone or email (validated, once per turn) to `hc_leads` and the conversation's contact. New leads appear on Today with tap-to-call/email, Open chat and Contacted. Practice mode doesn't capture leads.
+- [x] Owner email alerts (2026-10-19, migration `20261019041919_notification_settings`): Settings → Email alerts (send-to address, defaulting to the owner's sign-in email; booking needs OK, customer asks for a person, new lead, every new website chat). Sent with Resend when `RESEND_API_KEY` is set; only for real website chats, never for the owner's own test chats; best effort, never blocks a reply. "Send a test" checks the setup.
+- [x] File/link suggestions fill per-person price rows: names matching the Team become team prices, other levels/options become named options.
+- [x] Landing page and site description updated (live AI and website chat are no longer "not connected").
 - Realtime updates instead of polling; email/push notice to the owner for new chats and handoffs.
 - Booking via Cal.com API v2 or Google Calendar; booking-link fallback.
 - Lead capture → email notification to the owner.

@@ -9,7 +9,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "HelloCrew · A little help. A lot more room.",
   description:
-    "Meet a simpler way to explore business assistants. Try a safe, no-cost practice demo with HelloCrew.",
+    "An AI front desk for small businesses: answers customers from your own knowledge, takes booking requests for your approval, and hands tricky chats to you.",
 };
 export default function RootLayout({
   children,

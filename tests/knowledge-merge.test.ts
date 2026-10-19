@@ -39,4 +39,29 @@ describe("suggestions from files and links", () => {
     ]);
     expect(third.sources.filter((s) => s.replacesId === original.id)).toHaveLength(1);
   });
+
+  it("turns per-person prices from a document into team price rows", () => {
+    const store = {
+      ...base,
+      team: [{ id: "t-ayse", name: "Ayşe", role: "Senior stylist", about: "", active: true }],
+    };
+    const merged = mergeSuggestions(store, file, [
+      {
+        kind: "service",
+        title: "Balayage",
+        content: "Includes toner.",
+        price: "$150",
+        options: [
+          { who: "Ayşe Yılmaz", price: "$180", duration: "3 h" },
+          { who: "Junior stylist", price: "$150" },
+        ],
+      },
+    ]);
+    const item = merged.sources.at(-1)!;
+    expect(item.options).toEqual([
+      { staffId: "t-ayse", price: "$180", duration: "3 h" },
+      { label: "Junior stylist", price: "$150" },
+    ]);
+    expect(item.price).toBe("$150–$180");
+  });
 });
