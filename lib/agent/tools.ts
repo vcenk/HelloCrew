@@ -1,7 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 
-import { searchApprovedKnowledge } from "@/lib/knowledge";
+import { describeSource, searchApprovedKnowledge } from "@/lib/knowledge";
 import type { AgentContext } from "./context";
 
 export type ToolEffect = "read_only" | "needs_approval" | "internal_write";
@@ -32,10 +32,7 @@ export function buildTools(context: AgentContext, effects: TurnEffects) {
   const searchKnowledge = tool(
     async ({ query }) => {
       const matches = searchApprovedKnowledge(context.knowledge, query);
-      const lines = matches.map(
-        (m) =>
-          `${m.source.title}${m.source.price ? ` (${m.source.price})` : ""}: ${m.source.content}`,
-      );
+      const lines = matches.map((m) => describeSource(m.source, context.knowledge.team ?? []));
       // Uploaded files the owner allowed, when the items don't cover it.
       if (matches.length < 2 && context.searchFiles) {
         const passages = await context.searchFiles(query).catch(() => []);

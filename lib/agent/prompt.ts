@@ -1,3 +1,4 @@
+import { activeTeam, describeSource } from "@/lib/knowledge";
 import type { AgentContext } from "./context";
 
 // Approved knowledge is small for most businesses, so it goes straight into the
@@ -9,7 +10,7 @@ export function knowledgeDigest(context: AgentContext) {
   let used = 0;
   let omitted = 0;
   for (const source of context.approvedSources) {
-    const line = `- [${source.kind}${source.language !== "en" ? `/${source.language}` : ""}] ${source.title}${source.price ? ` (${source.price})` : ""}: ${source.content}`;
+    const line = `- [${source.kind}${source.language !== "en" ? `/${source.language}` : ""}] ${describeSource(source, context.knowledge.team ?? [])}`;
     if (used + line.length > INLINE_KNOWLEDGE_CHARS) {
       omitted++;
       continue;
@@ -23,6 +24,7 @@ export function knowledgeDigest(context: AgentContext) {
 export function buildSystemPrompt(context: AgentContext) {
   const { identity, business } = context;
   const digest = knowledgeDigest(context);
+  const team = activeTeam(context.knowledge);
   return [
     `You are ${identity.name}, the ${identity.role} for ${business.name}.`,
     `Business description: ${business.description}`,
@@ -43,7 +45,11 @@ export function buildSystemPrompt(context: AgentContext) {
     business.bookingUrl
       ? `7. The public booking link is ${business.bookingUrl}; you may share it.`
       : "7. There is no public booking link.",
+    "8. When a price depends on the team member or option, give the range or ask who they prefer; quote the exact price when they name someone. Only mention team members listed below.",
     "",
+    team.length
+      ? `Team:\n${team.map((m) => `- ${m.name}${m.role ? `, ${m.role}` : ""}${m.about ? `: ${m.about}` : ""}`).join("\n")}`
+      : "",
     "Approved business knowledge:",
     digest.text || "(none approved yet)",
     digest.omitted > 0

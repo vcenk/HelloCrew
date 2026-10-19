@@ -86,3 +86,7 @@ Status: planning baseline for HelloCrew. Update this record when a decision chan
 - [Gaia public website](https://gaiababy.app/): public visual reference; no signed-in dashboard was reviewed.
 
 References were reviewed for this planning package on 2026-10-10. Exact APIs, packages, provider rules, and limits must be rechecked when implemented. Project-specific controls and schemas in these files are design requirements, not claims that an upstream framework supplies them automatically.
+
+## 2026-10-19 — One knowledge base with team attributes, not per-employee knowledge bases
+
+Considered: a separate knowledge base per employee. Rejected because most facts (hours, policies, location) are shared and would drift when duplicated, customers usually ask without naming staff, owners struggle to maintain even one knowledge base, and departing staff would take knowledge with them. Instead: a Team list, price options per team member on services, an optional "Applies to" tag on any item, and a staff filter. Per-location or per-practitioner separation, when needed, belongs in a Locations layer or separate workspaces.

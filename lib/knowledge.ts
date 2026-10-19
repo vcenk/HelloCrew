@@ -34,16 +34,57 @@ export type KnowledgeSource = {
   fileId?: string;
   // A suggested change to this existing item (from refreshing a link).
   replacesId?: string;
+  // Prices that depend on who does it (or another option like length).
+  options?: PriceOption[];
+  // Team members this item applies to; empty means everyone.
+  staffIds?: string[];
   updatedAt: string;
 };
 
+export type TeamMember = {
+  id: string;
+  name: string;
+  role: string;
+  about: string;
+  active: boolean;
+};
+
+export type PriceOption = {
+  staffId?: string;
+  label?: string;
+  price: string;
+  duration?: string;
+};
+
 export const MAX_KNOWLEDGE_ITEMS = 300;
+export const MAX_TEAM = 50;
 
 export type KnowledgeStore = {
   formatVersion: 1;
   profile: Pick<BusinessProfile, "name" | "description" | "bookingUrl">;
   sources: KnowledgeSource[];
+  team?: TeamMember[];
 };
+
+const teamMemberSchema = z
+  .object({
+    id: z.string().min(1).max(60),
+    name: z.string().trim().min(1).max(60),
+    role: z.string().trim().max(80),
+    about: z.string().trim().max(400),
+    active: z.boolean(),
+  })
+  .strict();
+
+const priceOptionSchema = z
+  .object({
+    staffId: z.string().min(1).max(60).optional(),
+    label: z.string().trim().min(1).max(80).optional(),
+    price: z.string().trim().min(1).max(40),
+    duration: z.string().trim().max(40).optional(),
+  })
+  .strict()
+  .refine((o) => o.staffId || o.label, "Each option needs a team member or a name.");
 
 const sourceSchema = z
   .object({
@@ -60,6 +101,8 @@ const sourceSchema = z
     sizeBytes: z.number().int().min(0).max(10_485_760).optional(),
     fileId: z.string().uuid().optional(),
     replacesId: z.string().min(1).max(100).optional(),
+    options: z.array(priceOptionSchema).max(12).optional(),
+    staffIds: z.array(z.string().min(1).max(60)).max(20).optional(),
     updatedAt: z.string().datetime(),
   })
   .strict();
@@ -75,8 +118,61 @@ const storeSchema = z
       })
       .strict(),
     sources: z.array(sourceSchema).max(300),
+    team: z.array(teamMemberSchema).max(50).optional(),
   })
   .strict();
+
+export function activeTeam(store: KnowledgeStore) {
+  return (store.team ?? []).filter((m) => m.active);
+}
+
+export function optionLabel(option: PriceOption, team: TeamMember[]) {
+  const member = option.staffId ? team.find((m) => m.id === option.staffId) : undefined;
+  if (member) return member.role ? `${member.name} (${member.role})` : member.name;
+  return option.label ?? "Option";
+}
+
+// Options that still point at someone on the team (or a named option).
+export function visibleOptions(source: KnowledgeSource, team: TeamMember[]) {
+  return (source.options ?? []).filter((o) => !o.staffId || team.some((m) => m.id === o.staffId && m.active));
+}
+
+// "$40–$60" from option prices; falls back to listing them.
+export function priceSummary(options: PriceOption[]): string {
+  const prices = options.map((o) => o.price.trim()).filter(Boolean);
+  if (prices.length === 0) return "";
+  const parsed = prices.map((p) => p.match(/^([^\d]*)(\d[\d,]*(?:\.\d+)?)\s*([^\d]*)$/));
+  if (parsed.every(Boolean)) {
+    const prefix = parsed[0]![1].trim();
+    const suffix = parsed[0]![3].trim();
+    if (parsed.every((m) => m![1].trim() === prefix && m![3].trim() === suffix)) {
+      const values = parsed.map((m) => Number(m![2].replace(/,/g, "")));
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const fmt = (n: number) => `${prefix}${Number.isInteger(n) ? n : n.toFixed(2)}${suffix ? ` ${suffix}` : ""}`;
+      return min === max ? fmt(min) : `${fmt(min)}–${fmt(max)}`;
+    }
+  }
+  return [...new Set(prices)].join(" / ").slice(0, 80);
+}
+
+// One line of text per item for search and the AI: title, price, details,
+// price options and who it applies to.
+export function describeSource(source: KnowledgeSource, team: TeamMember[]) {
+  const options = visibleOptions(source, team);
+  const staff = (source.staffIds ?? [])
+    .map((id) => team.find((m) => m.id === id && m.active)?.name)
+    .filter(Boolean);
+  return [
+    `${source.title}${source.price ? ` (${source.price})` : ""}: ${source.content}`,
+    options.length
+      ? `Prices: ${options.map((o) => `${optionLabel(o, team)} ${o.price}${o.duration ? `, ${o.duration}` : ""}`).join("; ")}.`
+      : "",
+    staff.length ? `Applies to: ${staff.join(", ")}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 export function parseKnowledgeStore(input: unknown) {
   return storeSchema.safeParse(input);
@@ -193,9 +289,7 @@ export function searchApprovedKnowledge(
     )
     .flatMap((source) => {
       const title = normalize(source.title);
-      const text = normalize(
-        `${source.title} ${source.content} ${source.price ?? ""}`,
-      );
+      const text = normalize(describeSource(source, store.team ?? []));
       const textTokens = new Set(text.split(" "));
       const overlap = [...queryTokens].filter((token) =>
         textTokens.has(token),

@@ -136,6 +136,39 @@ await text("Sign in to add website links.");
 await page.getByRole("radio", { name: "Write it" }).click();
 await button("Cancel").click();
 
+// Team and prices per staff member.
+await page.locator(".team-group").getByRole("button", { name: "Add", exact: true }).click();
+await page.getByLabel("Name", { exact: true }).last().fill("Ayşe");
+await page.getByLabel("Role", { exact: true }).fill("Senior stylist");
+await page.locator("#team-dialog-title").locator("..").getByRole("button", { name: "Save", exact: true }).click();
+await text("Ayşe added to the team");
+await page.locator(".team-group").getByRole("button", { name: "Add", exact: true }).click();
+await page.getByLabel("Name", { exact: true }).last().fill("Mert");
+await page.getByLabel("Role", { exact: true }).fill("Junior stylist");
+await page.locator("#team-dialog-title").locator("..").getByRole("button", { name: "Save", exact: true }).click();
+await text("Mert added to the team");
+await page.locator(".kgroup").filter({ hasText: "Services & prices" }).getByRole("button", { name: "Add", exact: true }).click();
+await page.getByLabel("Service", { exact: true }).fill("Haircut");
+await page.getByText("Depends on who or which option").click();
+await page.getByLabel("Option 1: who or what").selectOption({ label: "Ayşe · Senior stylist" });
+await page.getByLabel("Option 1 price").fill("$60");
+await page.getByLabel("Option 1 time").fill("45 min");
+await button("Add a price").click();
+await page.getByLabel("Option 2: who or what").selectOption({ label: "Mert · Junior stylist" });
+await page.getByLabel("Option 2 price").fill("$40");
+await page.locator("#kdialog-title").locator("..").getByRole("button", { name: "Save", exact: true }).click();
+await text("Added to knowledge");
+await text("$40–$60");
+await text("Ayşe $60");
+await page.locator(".staff-filter").getByRole("button", { name: "Mert", exact: true }).click();
+assert.equal(await page.locator(".kgroup").filter({ hasText: "Opening hours" }).count(), 0);
+await text("Mert $40");
+await page.locator(".staff-filter").getByRole("button", { name: "Everyone", exact: true }).click();
+await shot("knowledge-team-desktop");
+await nav("Conversations");
+await ask("How much is a haircut?");
+await page.getByText("Haircut: $40–$60", { exact: false }).first().waitFor();
+
 // Draft knowledge is not used.
 await nav("Knowledge");
 await page.getByLabel("Do you have wifi? is live").uncheck({ force: true });

@@ -22,7 +22,9 @@ import {
 
 import {
   parseKnowledgeStore,
+  priceSummary,
   searchApprovedKnowledge,
+  type PriceOption,
   type KnowledgeKind,
   type KnowledgeSource,
   type KnowledgeStore,
@@ -34,6 +36,15 @@ import {
   FilesPanel,
   useKnowledgeFiles,
 } from "./knowledge-files";
+import {
+  AppliesToPicker,
+  optionsFrom,
+  PriceOptionsEditor,
+  rowsFrom,
+  StaffFilter,
+  TeamPanel,
+  type OptionRow,
+} from "./team";
 import { useDashboard } from "./provider";
 import { Button, EmptyState, PageHeader, Panel, Pill } from "./ui";
 
@@ -82,6 +93,9 @@ type Draft = {
   content: string;
   price: string;
   approved: boolean;
+  byOption: boolean;
+  rows: OptionRow[];
+  staffIds: string[];
 };
 
 const emptyDraft = (kind: KnowledgeKind = "faq"): Draft => ({
@@ -90,6 +104,9 @@ const emptyDraft = (kind: KnowledgeKind = "faq"): Draft => ({
   content: "",
   price: "",
   approved: true,
+  byOption: false,
+  rows: [],
+  staffIds: [],
 });
 
 export function KnowledgeView() {
@@ -101,6 +118,8 @@ export function KnowledgeView() {
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [staffFilter, setStaffFilter] = useState<string | null>(null);
+  const team = knowledge.team ?? [];
   const [mode, setMode] = useState<"write" | "upload" | "link">("write");
   const [link, setLink] = useState("");
   const [reading, setReading] = useState(false);
@@ -184,15 +203,33 @@ export function KnowledgeView() {
       content: source.content,
       price: source.price ?? "",
       approved: source.status === "approved",
+      byOption: Boolean(source.options?.length),
+      rows: rowsFrom(source.options),
+      staffIds: source.staffIds ?? [],
     });
   }
 
   function saveDraft() {
     const title = draft.title.trim();
+    let options: PriceOption[] | undefined;
+    let price = draft.price.trim();
+    if (draft.kind === "service" && draft.byOption) {
+      const parsed = optionsFrom(draft.rows);
+      if (typeof parsed === "string") {
+        setError(parsed);
+        return;
+      }
+      if (parsed.length === 0) {
+        setError("Add at least one price, or switch back to a single price.");
+        return;
+      }
+      options = parsed;
+      price = priceSummary(parsed);
+    }
     const content =
       draft.content.trim() ||
-      (draft.kind === "service" && draft.price
-        ? `${title} is available for ${draft.price}.`
+      (draft.kind === "service" && price
+        ? `${title} is available for ${price}.`
         : "");
     if (!title || !content) {
       setError(
@@ -202,7 +239,7 @@ export function KnowledgeView() {
       );
       return;
     }
-    if (draft.kind === "service" && !draft.price.trim()) {
+    if (draft.kind === "service" && !price) {
       setError("Add a price so your crew can quote it.");
       return;
     }
@@ -219,9 +256,15 @@ export function KnowledgeView() {
       content,
       status: draft.approved ? "approved" : "draft",
       updatedAt: now,
-      ...(draft.kind === "service" ? { price: draft.price.trim() } : {}),
+      ...(draft.kind === "service" ? { price } : {}),
+      ...(options ? { options } : {}),
+      ...(draft.staffIds.length && !options
+        ? { staffIds: draft.staffIds }
+        : {}),
     } as KnowledgeSource;
     if (draft.kind !== "service") delete source.price;
+    if (!options) delete source.options;
+    if (!draft.staffIds.length || options) delete source.staffIds;
     const sources = existing
       ? knowledge.sources.map((s) => (s.id === existing.id ? source : s))
       : [...knowledge.sources, source];
@@ -333,10 +376,17 @@ export function KnowledgeView() {
             state={files}
             onAdd={() => openEditor(emptyDraft(), "upload")}
           />
+          <TeamPanel />
+          <StaffFilter value={staffFilter} onChange={setStaffFilter} />
           {groups.map((group) => {
             const items = knowledge.sources.filter(
-              (s) => s.kind === group.kind,
+              (s) =>
+                s.kind === group.kind &&
+                (!staffFilter ||
+                  s.staffIds?.includes(staffFilter) ||
+                  s.options?.some((o) => o.staffId === staffFilter)),
             );
+            if (staffFilter && items.length === 0) return null;
             return (
               <section
                 className="kgroup"
@@ -380,6 +430,34 @@ export function KnowledgeView() {
                             )}
                           </strong>
                           <span>{source.content}</span>
+                          {(source.options?.length ||
+                            source.staffIds?.length) && (
+                            <span className="kitem-tags">
+                              {source.options
+                                ?.filter(
+                                  (o) =>
+                                    !o.staffId ||
+                                    team.some(
+                                      (m) => m.id === o.staffId && m.active,
+                                    ),
+                                )
+                                .map((o, i) => (
+                                  <span key={i}>
+                                    {o.staffId
+                                      ? team.find((m) => m.id === o.staffId)
+                                          ?.name
+                                      : o.label}{" "}
+                                    {o.price}
+                                  </span>
+                                ))}
+                              {source.staffIds?.map((id) => (
+                                <span key={id} data-kind="staff">
+                                  {team.find((m) => m.id === id)?.name ??
+                                    "Former team member"}
+                                </span>
+                              ))}
+                            </span>
+                          )}
                           {source.fileId && (
                             <small className="kitem-from">
                               From{" "}
@@ -642,16 +720,52 @@ export function KnowledgeView() {
               </div>
               {draft.kind === "service" && (
                 <div className="field">
-                  <label htmlFor="d-price">Price</label>
-                  <input
-                    id="d-price"
-                    maxLength={80}
-                    placeholder="$40"
-                    value={draft.price}
-                    onChange={(e) =>
-                      setDraft({ ...draft, price: e.target.value })
-                    }
-                  />
+                  <div className="price-mode">
+                    <span className="field-label">Price</span>
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={draft.byOption}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            byOption: e.target.checked,
+                            rows:
+                              e.target.checked && draft.rows.length === 0
+                                ? [
+                                    {
+                                      key: crypto.randomUUID(),
+                                      staffId: "",
+                                      label: "",
+                                      price: draft.price,
+                                      duration: "",
+                                    },
+                                  ]
+                                : draft.rows,
+                          })
+                        }
+                      />
+                      <span aria-hidden="true" />
+                      Depends on who or which option
+                    </label>
+                  </div>
+                  {draft.byOption ? (
+                    <PriceOptionsEditor
+                      rows={draft.rows}
+                      onChange={(rows) => setDraft({ ...draft, rows })}
+                    />
+                  ) : (
+                    <input
+                      id="d-price"
+                      aria-label="Price"
+                      maxLength={80}
+                      placeholder="$40"
+                      value={draft.price}
+                      onChange={(e) =>
+                        setDraft({ ...draft, price: e.target.value })
+                      }
+                    />
+                  )}
                 </div>
               )}
               <div className="field">
@@ -674,6 +788,12 @@ export function KnowledgeView() {
                   }
                 />
               </div>
+              {!(draft.kind === "service" && draft.byOption) && (
+                <AppliesToPicker
+                  value={draft.staffIds}
+                  onChange={(staffIds) => setDraft({ ...draft, staffIds })}
+                />
+              )}
               <label className="switch">
                 <input
                   type="checkbox"
