@@ -8,6 +8,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Brand, Buddy } from "@/components/brand";
+import { LegalFooter } from "@/components/legal-page";
 export default function Home() {
   return (
     <main className="marketing">
@@ -204,24 +205,7 @@ export default function Home() {
         </Link>
         <p>An AI front desk for small businesses. Designed around people.</p>
       </section>
-      <footer>
-        <Link href="/">
-          <Brand small />
-        </Link>
-        <p>
-          Early access: website chat with live AI, approvals and your own
-          knowledge.
-          <br />
-          WhatsApp, Google reviews and phone are coming next.
-        </p>
-        <a
-          href="https://github.com/vcenk/HelloCrew"
-          target="_blank"
-          rel="noreferrer"
-        >
-          View the project <ArrowUpRight size={16} />
-        </a>
-      </footer>
+      <LegalFooter />
     </main>
   );
 }
