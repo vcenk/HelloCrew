@@ -21,9 +21,9 @@ Add the same values to `.env.local` to try locally. Redeploy after changing them
 1. **Create app** → type **Business**. Connect it to your Meta Business portfolio.
 2. Add products: **Facebook Login for Business**, **Messenger**, **Instagram** (API with Facebook Login), **WhatsApp**, **Webhooks**.
 3. Facebook Login → Settings → **Valid OAuth Redirect URIs**:
-   `https://hellocrew.vercel.app/api/connect/meta/callback`
+   `https://agentland.app/api/connect/meta/callback`
    (add `http://localhost:3000/api/connect/meta/callback` for local tests).
-4. Webhooks — callback URL `https://hellocrew.vercel.app/api/webhooks/meta`, verify token = `META_WEBHOOK_VERIFY_TOKEN`. Subscribe:
+4. Webhooks — callback URL `https://agentland.app/api/webhooks/meta`, verify token = `META_WEBHOOK_VERIFY_TOKEN`. Subscribe:
    - **Page**: `messages`, `feed`, `ratings`
    - **Instagram**: `messages`, `comments`
    - **WhatsApp Business Account**: `messages`
@@ -58,7 +58,7 @@ verification**. WhatsApp for customers' own numbers needs **Embedded Signup**
    **My Business Business Information API** and **Google My Business API**.
 2. **OAuth consent screen** → External; add yourself as a test user; scope `business.manage`.
 3. Credentials → **OAuth client ID** (Web) → redirect URI:
-   `https://hellocrew.vercel.app/api/connect/google/callback`
+   `https://agentland.app/api/connect/google/callback`
 4. **Request API access**: Business Profile APIs are off (quota 0) until Google
    approves the project — apply via the "GBP API contact form" (choose *Application for Basic API Access*). Until then HelloCrew shows “Google hasn’t approved…”.
 5. After approval: Reputation manager → **Connect Google** → choose the location.
