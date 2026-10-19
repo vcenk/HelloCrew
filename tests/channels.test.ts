@@ -29,6 +29,10 @@ describe("Meta webhooks", () => {
     expect(url.searchParams.get("scope")).toContain("pages_messaging");
     expect(url.searchParams.get("scope")).toContain("instagram_manage_comments");
     expect(url.searchParams.get("state")).toBe("st");
+    const config = readMetaConfig({ META_APP_ID: "1", META_APP_SECRET: "s", META_WEBHOOK_VERIFY_TOKEN: "v", META_SKIP_SCOPES: " instagram_manage_comments ," })!;
+    const reduced = new URL(metaLoginUrl(config, "https://x.app/cb", "st")).searchParams.get("scope")!;
+    expect(reduced).not.toContain("instagram_manage_comments");
+    expect(reduced).toContain("instagram_manage_messages");
   });
 
   it("reads Messenger and Instagram messages, skipping echoes", () => {

@@ -10,6 +10,9 @@ export type MetaConfig = {
   appSecret: string;
   verifyToken: string;
   version: string;
+  // Permissions to leave out of the login request, e.g. one Meta hasn't
+  // let you add to the app yet (META_SKIP_SCOPES=instagram_manage_comments).
+  skipScopes?: string[];
 };
 
 export function readMetaConfig(env: Record<string, string | undefined> = process.env): MetaConfig | null {
@@ -17,7 +20,11 @@ export function readMetaConfig(env: Record<string, string | undefined> = process
   const appSecret = env.META_APP_SECRET?.trim();
   const verifyToken = env.META_WEBHOOK_VERIFY_TOKEN?.trim();
   if (!appId || !appSecret || !verifyToken) return null;
-  return { appId, appSecret, verifyToken, version: env.META_GRAPH_VERSION?.trim() || "v25.0" };
+  const skipScopes = (env.META_SKIP_SCOPES ?? "")
+    .split(",")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+  return { appId, appSecret, verifyToken, version: env.META_GRAPH_VERSION?.trim() || "v25.0", skipScopes };
 }
 
 export const META_SCOPES = [
@@ -58,7 +65,8 @@ export function metaLoginUrl(config: MetaConfig, redirectUri: string, state: str
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("state", state);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", META_SCOPES.join(","));
+  const skip = new Set(config.skipScopes ?? []);
+  url.searchParams.set("scope", META_SCOPES.filter((scope) => !skip.has(scope)).join(","));
   return url.toString();
 }
 
