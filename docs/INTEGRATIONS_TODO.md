@@ -33,7 +33,19 @@ collects booking requests for the owner to approve on Today.
 - [ ] **Google reviews** (Business Profile API: request access per Google Cloud project, reviewed within ~14 days; needs a domain email and live website; OAuth verification for the business-management scope). Draft replies → owner approves on Today.
 - [ ] **Phone** (Twilio or similar number + realtime voice model, or Vapi/Retell). Highest cost per minute; budget cap required.
 
+## Email alerts (Resend) — code done, setup waiting for a domain
+
+The alert feature is built (Settings → Email alerts; `lib/server/notify.ts`) and
+stays silently off until these steps are done:
+
+- [ ] Register a domain for HelloCrew.
+- [ ] Create a Resend account, add the domain, and add the DNS records Resend gives (SPF/DKIM) at the domain registrar; wait until Resend shows it verified.
+- [ ] Create a Resend API key.
+- [ ] In Vercel → Settings → Environment Variables (and `.env.local` for local testing): `RESEND_API_KEY=<key>` and `NOTIFY_FROM=HelloCrew <alerts@yourdomain.com>`; redeploy.
+- [ ] Settings → Email alerts → **Send a test** and check the inbox (and spam folder).
+- Note: before a domain is verified, Resend's test sender only delivers to the Resend account's own email, so real owners wouldn't receive alerts.
+
 ## Platform
 
-- [ ] Own domain for HelloCrew (helps Google and Meta reviews).
+- [ ] Own domain for HelloCrew (helps Google and Meta reviews, and needed for email alerts).
 - [ ] Turn on Supabase leaked-password protection.
