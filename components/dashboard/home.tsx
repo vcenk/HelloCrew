@@ -18,10 +18,11 @@ import {
 
 import { crewJobs, receptionistSkills } from "@/lib/crew";
 import { UNANSWERED } from "./chat-thread";
+import { PublicReplyCard, usePublicReplies } from "./connections";
 import { useDashboard, useLaunchChecklist } from "./provider";
 import { ButtonLink, EmptyState, Panel, Pill } from "./ui";
 
-const jobIcon = { receptionist: Globe, whatsapp: MessageCircle, reviews: Star, phone: Phone } as const;
+const jobIcon = { receptionist: Globe, reviews: Star, phone: Phone } as const;
 
 function greetingForNow() {
   const hour = new Date().getHours();
@@ -107,7 +108,9 @@ export function HomeView() {
     (m) => m.source && m.source !== UNANSWERED && m.source !== "Practice handoff policy",
   ).length;
   const leads = signedIn ? server.leads : [];
-  const needsYou = approvals.length + unanswered.length + handoffs.length + leads.length;
+  const publicReplies = usePublicReplies();
+  const needsYou =
+    approvals.length + unanswered.length + handoffs.length + leads.length + publicReplies.items.length;
   const nextStep = steps.find((s) => !s.done);
   const skillsOn = receptionistSkills.filter((s) => !s.comingSoon && skills[s.id] !== "off");
 
@@ -259,6 +262,17 @@ export function HomeView() {
               ))}
             </ul>
           )}
+          {publicReplies.items.length > 0 && (
+            <ul className="public-reply-list">
+              {publicReplies.items.slice(0, 5).map((item) => (
+                <PublicReplyCard
+                  key={item.id}
+                  item={item}
+                  onDone={(id) => publicReplies.setItems((list) => list.filter((i) => i.id !== id))}
+                />
+              ))}
+            </ul>
+          )}
         </Panel>
 
         <Panel title={signedIn ? "Conversations" : "Test chats so far"}>
@@ -323,7 +337,7 @@ export function HomeView() {
             </span>
             <span className="crew-tile-text">
               <strong>{identity.name}</strong>
-              <small>Website receptionist</small>
+              <small>Receptionist</small>
             </span>
             <span className="crew-tile-status">
               <span className="dash-status-dot" aria-hidden="true" /> On duty
@@ -332,6 +346,18 @@ export function HomeView() {
               {skillsOn.map((s) => (
                 <span key={s.id}>{s.title}</span>
               ))}
+            </span>
+          </Link>
+          <Link href="/app/crew/reputation" className="crew-tile" data-active="true">
+            <span className="crew-tile-avatar" aria-hidden="true">
+              <Star size={17} />
+            </span>
+            <span className="crew-tile-text">
+              <strong>Reputation manager</strong>
+              <small>Reviews and comments</small>
+            </span>
+            <span className="crew-tile-status">
+              <span className="dash-status-dot" aria-hidden="true" /> Asks you first
             </span>
           </Link>
           {crewJobs

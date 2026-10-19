@@ -55,10 +55,9 @@ export const receptionistSkills: readonly SkillDefinition[] = [
 ];
 
 export const crewJobs = [
-  { job: "receptionist", title: "Website receptionist", channels: "Website chat", available: true },
-  { job: "whatsapp", title: "WhatsApp receptionist", channels: "WhatsApp Business", available: false },
-  { job: "reviews", title: "Review manager", channels: "Google reviews", available: false },
-  { job: "phone", title: "Phone receptionist", channels: "Phone calls", available: false },
+  { job: "receptionist", title: "Receptionist", channels: "Website, Messenger, Instagram, WhatsApp", available: true, href: "/app/crew/receptionist" },
+  { job: "reviews", title: "Reputation manager", channels: "Google reviews, Facebook and Instagram comments", available: true, href: "/app/crew/reputation" },
+  { job: "phone", title: "Phone receptionist", channels: "Phone calls", available: false, href: null },
 ] as const;
 
 const skillsSchema = z

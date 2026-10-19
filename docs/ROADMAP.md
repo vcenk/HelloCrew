@@ -111,11 +111,12 @@ Exit: a signed-in owner can chat with their own assistant, grounded in their app
 - Lead capture → email notification to the owner.
 - Widget installations per workspace with allowed-origin list.
 
-### Phase 4 — Channels and reputation
+### Phase 4 — Channels and reputation (built 2026-10-19, waiting on platform approvals)
 
-- Google Business Profile reviews (draft → approve → post), after policy review.
-- WhatsApp Cloud API adapter.
-- Voice via LiveKit Agents reusing the same tools.
+- [x] Messenger, Instagram DMs and WhatsApp answered by the receptionist (Meta webhook).
+- [x] Facebook/Instagram comments and Google reviews drafted by the Reputation manager; owner approves every post.
+- [ ] Meta App Review, WhatsApp Embedded Signup, Google API access — see `INTEGRATIONS_TODO.md`.
+- [ ] Voice via LiveKit Agents reusing the same tools.
 
 ## Working rules
 

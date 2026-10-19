@@ -29,8 +29,18 @@ collects booking requests for the owner to approve on Today.
 
 ## Messaging and reputation channels
 
-- [ ] **WhatsApp** (Meta Cloud API via Embedded Signup v4; HelloCrew must be a Tech Provider with business verification and app review; v2 Embedded Signup is deprecated 2026-10-15). Each business connects its number; Meta bills the business per message for business-initiated messages.
-- [ ] **Google reviews** (Business Profile API: request access per Google Cloud project, reviewed within ~14 days; needs a domain email and live website; OAuth verification for the business-management scope). Draft replies → owner approves on Today.
+Code is built (see `CHANNELS_SETUP.md`). Testable now on your own accounts with the Meta app in Development mode.
+
+- [x] Connections framework: encrypted per-business tokens, Meta webhook with signature check and de-duplication, owner approval for every public reply.
+- [x] Messenger and Instagram DMs answered by the receptionist; owner can take over and reply within the 24-hour window.
+- [x] Facebook and Instagram comments + Facebook recommendations → drafts in Reputation manager.
+- [x] WhatsApp via a pasted test/own number ID and token.
+- [x] Google reviews connector (OAuth, location picker, 30-minute sync, reply posting).
+- [ ] **Meta App Review + Business verification** for the permissions listed in `CHANNELS_SETUP.md`, so real salons can connect.
+- [ ] **WhatsApp Embedded Signup** (Tech Provider) so salons connect their own numbers in one click; replace the paste form.
+- [ ] WhatsApp message templates for replies after the 24-hour window.
+- [ ] **Google Business Profile API access** approval (needs a domain email and live website; ~14 days) + OAuth verification for `business.manage`.
+- [ ] Media messages (images, voice notes) — currently text only.
 - [ ] **Phone** (Twilio or similar number + realtime voice model, or Vapi/Retell). Highest cost per minute; budget cap required.
 
 ## Email alerts (Resend) — code done, setup waiting for a domain

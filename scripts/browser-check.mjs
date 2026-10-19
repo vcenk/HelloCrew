@@ -64,7 +64,8 @@ await page.waitForURL("**/app");
 await page.getByRole("heading", { name: "Needs you" }).waitFor();
 await text("All clear");
 await page.getByRole("heading", { name: "Your crew" }).waitFor();
-assert.equal(await page.locator(".crew-tile").count(), 4);
+assert.equal(await page.locator(".crew-tile").count(), 3);
+await page.locator(".crew-tile", { hasText: "Reputation manager" }).first().waitFor();
 await shot("today-desktop");
 
 // Old section links still land on the new pages.
@@ -179,9 +180,16 @@ await page.getByLabel("Do you have wifi? is live").check({ force: true });
 await nav("Crew");
 await page.waitForURL("**/app/crew");
 await text("Add to your crew");
-assert.equal(await page.locator(".hire-card").count(), 3);
+assert.equal(await page.locator(".hire-card").count(), 1);
+assert.equal(await page.locator(".agent-card").count(), 2);
 await shot("crew-desktop");
-await page.locator(".agent-card").click();
+await page.locator(".agent-card", { hasText: "Reputation manager" }).click();
+await page.waitForURL("**/app/crew/reputation");
+await page.getByRole("heading", { name: "Reputation manager" }).first().waitFor();
+await shot("reputation-desktop");
+await page.goBack();
+await page.waitForURL("**/app/crew");
+await page.locator(".agent-card").first().click();
 await page.waitForURL("**/app/crew/receptionist");
 await page.getByRole("radiogroup", { name: "Booking requests mode" }).getByRole("radio", { name: "Off" }).click();
 await text("Booking requests: Off");
@@ -232,7 +240,7 @@ await nav("Today");
 await page.locator('.dash[data-theme="dark"]').waitFor();
 await shot("today-dark");
 await nav("Crew");
-await page.locator(".agent-card").click();
+await page.locator(".agent-card").first().click();
 await shot("agent-dark");
 await page.locator(".dash-theme").getByRole("radio", { name: "Light" }).click();
 

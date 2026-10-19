@@ -1,7 +1,6 @@
 import { titleFrom } from "@/lib/conversations";
 import { appendMessages } from "@/lib/data/conversations";
-import { runLiveTurn, runPracticeTurn } from "@/lib/server/agent-turn";
-import { readLiveConfig } from "@/lib/server/live-config";
+import { runCustomerTurn } from "@/lib/server/agent-turn";
 import { notifyOwner } from "@/lib/server/notify";
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/server/rate-limit";
 import { isSameOrigin } from "@/lib/server/request-safety";
@@ -11,7 +10,6 @@ import {
   newVisitorToken,
   widgetAdminClient,
 } from "@/lib/server/widget-installations";
-import { getTenantLimits } from "@/lib/usage/ledger";
 import { PUBLIC_WIDGET_ID, widgetChatRequestSchema, type WidgetChatMessage } from "@/lib/widget";
 
 export const runtime = "nodejs";
@@ -133,18 +131,7 @@ export async function POST(request: Request) {
   const customer = { id: customerId, at: new Date().toISOString() };
   if (mode === "human") return json({ conversation, customer, replies: [], waitingForPerson: true });
 
-  // Live AI when the owner switched it on and budget allows; otherwise the
-  // free rule-based answer from approved knowledge.
-  const live = readLiveConfig();
-  let turn = null;
-  if (live.ready) {
-    const limits = await getTenantLimits(admin, tenantId).catch(() => null);
-    if (limits?.liveAiEnabled) {
-      const result = await runLiveTurn(admin, live.config, target);
-      if (result.ok) turn = result;
-    }
-  }
-  turn ??= await runPracticeTurn(admin, target);
+  const turn = await runCustomerTurn(admin, target);
 
   return json({
     conversation,

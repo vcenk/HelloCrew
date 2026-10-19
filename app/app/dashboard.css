@@ -3160,6 +3160,98 @@ a.crew-tile:hover {
   }
 }
 
+/* ---------- Connected accounts and public replies ---------- */
+.connections-panel {
+  display: grid;
+  gap: 14px;
+}
+.connection-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.connection-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-md);
+  background: var(--d-surface);
+}
+.connection-row[data-error="true"] .file-card-text small {
+  color: var(--d-marigold-ink);
+  white-space: normal;
+}
+.connect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.connect-actions.stacked {
+  display: grid;
+  margin-top: 12px;
+}
+.dash .ui-btn.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.whatsapp-form {
+  padding: 14px;
+  border: 1px dashed var(--d-line-strong);
+  border-radius: var(--d-r-md);
+}
+.public-reply-list {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.public-reply {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--d-primary) 25%, var(--d-line));
+  border-radius: var(--d-r-md);
+  background: var(--d-surface);
+}
+.public-reply[data-status="failed"] {
+  border-color: color-mix(in srgb, var(--d-danger) 40%, var(--d-line));
+}
+.public-reply > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.public-reply > header p {
+  color: var(--d-ink-2);
+  font-size: 13.5px;
+  white-space: pre-wrap;
+}
+.public-reply .stars {
+  color: var(--d-marigold);
+  letter-spacing: 1px;
+}
+.dash .public-reply textarea {
+  width: 100%;
+  min-height: 70px;
+  padding: 9px 12px;
+  border: 1px solid var(--d-line-strong);
+  border-radius: var(--d-r-sm);
+  background: var(--d-surface-2);
+  color: var(--d-ink);
+  font: 400 14px/1.45 var(--d-body);
+  resize: vertical;
+}
+.public-reply .decision-actions {
+  justify-content: flex-end;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1320px) {
   .convo-grid {

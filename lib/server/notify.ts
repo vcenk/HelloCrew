@@ -15,6 +15,7 @@ export type OwnerEvent =
       interest: string;
     }
   | { kind: "new_chat"; conversationId: string; firstMessage: string }
+  | { kind: "public_reply"; network: string; author: string; text: string }
   | { kind: "test" };
 
 type Settings = {
@@ -81,6 +82,13 @@ export function describeEvent(event: OwnerEvent, site: string) {
         cta: "Open the chat",
         url: link(event.conversationId),
       };
+    case "public_reply":
+      return {
+        subject: `New ${event.network} comment to answer`,
+        line: `${event.author} wrote: “${event.text.slice(0, 200)}”. A reply is ready for your OK.`,
+        cta: "Review the reply",
+        url: `${site}/app`,
+      };
     case "test":
       return {
         subject: "HelloCrew alerts are working",
@@ -133,7 +141,7 @@ export async function notifyOwner(
     const settings = await loadSettings(admin, tenantId);
     const wanted =
       event.kind === "test" ||
-      (event.kind === "approval" && settings.on_approval) ||
+      ((event.kind === "approval" || event.kind === "public_reply") && settings.on_approval) ||
       (event.kind === "handoff" && settings.on_handoff) ||
       (event.kind === "lead" && settings.on_lead) ||
       (event.kind === "new_chat" && settings.on_new_chat);

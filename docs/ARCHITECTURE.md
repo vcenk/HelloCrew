@@ -154,3 +154,10 @@ app/app/legacy-dark.css                 generated dark palette for legacy editor
 Conversations are stored per workspace. The live agent route accepts only the new customer message and reads earlier turns from `hc_messages`; its reply, cost and any approvals are written with the service role. Practice replies (computed in the browser session) and owner messages are saved through server actions under RLS. Owner decisions go through `hc_decide_approval`.
 
 Skill modes are data, not prompt text alone: `lib/agent/tools.ts` only registers the tools a skill allows, `lib/agent/prompt.ts` states the same rules, and the provider applies them in practice mode. A mode that needs an integration that does not exist yet (booking "On its own" needs a calendar) cannot be selected.
+
+## Connected accounts (2026-10-19)
+
+- `hc_channel_connections`: one row per Facebook Page, Instagram account, WhatsApp number or Google location. Tokens are AES-256-GCM encrypted (`lib/server/secrets.ts`, key `HELLOCREW_ENCRYPTION_KEY`) and never readable by signed-in users; `unique(kind, external_id)` stops two businesses claiming one account.
+- Inbound Meta: `POST /api/webhooks/meta` checks `X-Hub-Signature-256`, answers 200 at once and processes in `after()`. `hc_webhook_events` de-duplicates retries. Messages → `hc_conversations` (channel messenger/instagram/whatsapp) → `runCustomerTurn` → reply via Graph API. Comments/recommendations → `hc_public_replies` with an AI draft.
+- Google reviews: Vercel Cron every 30 min → `/api/cron/google-reviews` (Bearer `CRON_SECRET`) → `syncGoogleLocation` → drafts.
+- Public replies are posted only from `decidePublicReply` after the owner approves. Owner DMs respect the 24-hour window.

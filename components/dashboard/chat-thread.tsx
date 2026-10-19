@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 
+import { channelLabel } from "@/lib/conversations";
 import type { Scenario } from "@/lib/demo";
 import { MAX_PRACTICE_TURNS, useDashboard, type ChatMessage } from "./provider";
 import { Pill } from "./ui";
@@ -84,7 +85,9 @@ export function ChatThread({
   } = useDashboard();
   const [draft, setDraft] = useState("");
   const [writeAs, setWriteAs] = useState<"customer" | "owner">("owner");
-  const website = conversation.channel === "website";
+  // A real customer chat (website or messaging app): the owner can only
+  // reply as the business.
+  const website = conversation.channel !== "test";
   const human = conversation.mode === "human" || website;
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -169,14 +172,14 @@ export function ChatThread({
             {compact
               ? "Uses your latest changes"
               : website
-                ? `Chatting with ${identity.name} on your website`
+                ? `Chatting with ${identity.name} on ${conversation.channel === "website" ? "your website" : channelLabel[conversation.channel]}`
                 : `${purpose.label} for ${business.name} · test chat`}
           </small>
         </div>
         {conversation.mode === "human" ? (
           <Pill tone="attention">You’re in the chat</Pill>
         ) : website ? (
-          <Pill tone="info">Website</Pill>
+          <Pill tone="info">{channelLabel[conversation.channel]}</Pill>
         ) : engine === "live" && liveStatus?.state === "ready" ? (
           <Pill tone="success">
             <Zap size={13} aria-hidden="true" /> Live AI

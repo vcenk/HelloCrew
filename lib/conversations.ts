@@ -5,7 +5,15 @@ import { z } from "zod";
 export const threadStatuses = ["open", "waiting", "handoff", "closed"] as const;
 export type ThreadStatus = (typeof threadStatuses)[number];
 export type ThreadMode = "ai" | "human";
-export type ThreadChannel = "test" | "website";
+export type ThreadChannel = "test" | "website" | "messenger" | "instagram" | "whatsapp";
+export const MESSAGING_CHANNELS = ["messenger", "instagram", "whatsapp"] as const;
+export const channelLabel: Record<ThreadChannel, string> = {
+  test: "Test chat",
+  website: "Website",
+  messenger: "Messenger",
+  instagram: "Instagram",
+  whatsapp: "WhatsApp",
+};
 
 export type ThreadSummary = {
   id: string;

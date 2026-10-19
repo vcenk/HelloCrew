@@ -13,6 +13,7 @@ import {
   updateLead,
 } from "@/app/app/conversation-actions";
 import type { LiveAiStatus } from "@/app/app/actions";
+import { replyOnChannel } from "@/app/app/channel-actions";
 import type { AssistantIdentity } from "@/lib/assistant";
 import type { BusinessProfile } from "@/lib/business";
 import {
@@ -22,6 +23,7 @@ import {
   type StoredMessage,
   type StoredMessageInput,
   type ThreadMode,
+  type ThreadChannel,
   type ThreadStatus,
   type ThreadSummary,
 } from "@/lib/conversations";
@@ -60,7 +62,7 @@ export type Conversation = {
   error: string;
   mode: ThreadMode;
   status: ThreadStatus;
-  channel: "test" | "website";
+  channel: ThreadChannel;
 };
 
 const CONVERSATION_KEY = "hellocrew:dashboard:conversation:v2";
@@ -170,7 +172,7 @@ export function useConversations(deps: {
           messages: parsed.messages!,
           mode: parsed.mode === "human" ? "human" : "ai",
           status: parsed.status ?? "open",
-          channel: parsed.channel === "website" ? "website" : "test",
+          channel: parsed.channel ?? "test",
         }));
     } catch {
       /* ignore malformed state */
@@ -405,15 +407,25 @@ export function useConversations(deps: {
       if (!text) return false;
       // In a real customer chat the owner can only reply as themselves, which
       // takes the chat over from the AI.
-      if (conversation.channel === "website") {
+      if (conversation.channel !== "test") {
         if (conversation.mode === "ai") await takeOverFirst.current?.();
-        return sendWhileHuman(text, "owner");
+        if (conversation.channel === "website") return sendWhileHuman(text, "owner");
+        // Messenger, Instagram, WhatsApp: deliver first, then show it.
+        const id = crypto.randomUUID();
+        const result = await replyOnChannel({ conversationId: conversation.id, messageId: id, text }).catch(() => null);
+        if (!result?.ok) {
+          toast(result?.error ?? "Couldn’t send. Try again.", "error");
+          return false;
+        }
+        appendLocal([{ id, role: "owner", text, at: Date.now(), engine: "human" }]);
+        void refreshThreads();
+        return true;
       }
       if (conversation.mode === "human" || as === "owner") return sendWhileHuman(text, as);
       if (engine === "live") return callLive(text);
       return call({ message: text, business }, text);
     },
-    [business, call, callLive, conversation.channel, conversation.mode, engine, sendWhileHuman],
+    [appendLocal, business, call, callLive, conversation.channel, conversation.id, conversation.mode, engine, refreshThreads, sendWhileHuman, toast],
   );
 
   const runScenario = useCallback(

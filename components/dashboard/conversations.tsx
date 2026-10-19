@@ -6,6 +6,9 @@ import {
   Archive,
   ArchiveRestore,
   Bot,
+  Camera,
+  MessageSquare,
+  Phone,
   Globe,
   Hand,
   MessageCircle,
@@ -15,7 +18,13 @@ import {
   Zap,
 } from "lucide-react";
 
-import { statusLabel, type ThreadStatus, type ThreadSummary } from "@/lib/conversations";
+import {
+  channelLabel,
+  statusLabel,
+  type ThreadChannel,
+  type ThreadStatus,
+  type ThreadSummary,
+} from "@/lib/conversations";
 import { ChatThread, UNANSWERED } from "./chat-thread";
 import { useDashboard } from "./provider";
 import { Button, EmptyState, PageHeader, Pill } from "./ui";
@@ -80,7 +89,7 @@ export function ConversationsView() {
   }, [hydrated, requested, openThread, router]);
 
   // Website chats arrive on their own: keep the list and the open chat fresh.
-  const savedWebsite = conversation.channel === "website";
+  const savedWebsite = conversation.channel !== "test";
   useEffect(() => {
     if (!signedIn) return;
     const timer = window.setInterval(() => {
@@ -165,7 +174,7 @@ export function ConversationsView() {
                     }}
                   >
                     <span className="dash-avatar" aria-hidden="true">
-                      {thread.channel === "website" ? <Globe size={15} /> : <MessageCircle size={15} />}
+                      <ChannelIcon channel={thread.channel} />
                     </span>
                     <span className="convo-item-text">
                       <strong>{thread.title}</strong>
@@ -184,7 +193,7 @@ export function ConversationsView() {
             <Globe size={16} aria-hidden="true" />
             <p>
               {signedIn
-                ? `Test chats are saved to your workspace. Website chats appear here once ${identity.name} goes live.`
+                ? `Test chats are saved here, next to real chats from your website, Messenger, Instagram and WhatsApp.`
                 : "Sign in to keep test chats. Right now this chat lives only in this tab."}
             </p>
           </div>
@@ -282,4 +291,9 @@ export function ConversationsView() {
       </div>
     </div>
   );
+}
+
+function ChannelIcon({ channel }: { channel: ThreadChannel }) {
+  const Icon = { test: MessageCircle, website: Globe, messenger: MessageSquare, instagram: Camera, whatsapp: Phone }[channel];
+  return <Icon size={15} aria-label={channelLabel[channel]} />;
 }

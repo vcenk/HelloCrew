@@ -8,7 +8,6 @@ import {
   Check,
   Globe,
   Lock,
-  MessageCircle,
   Phone,
   Star,
   Workflow,
@@ -29,15 +28,15 @@ import {
 } from "@/lib/crew";
 import { WebsiteChatGuide } from "@/components/website-chat-guide";
 import { ChatThread } from "./chat-thread";
+import { MessagingChannelsPanel } from "./connections";
 import { WebsiteChatSetup } from "./website-chat";
 import { useDashboard } from "./provider";
 import { Button, ButtonLink, PageHeader, Pill } from "./ui";
 
-const jobIcon = { receptionist: Globe, whatsapp: MessageCircle, reviews: Star, phone: Phone } as const;
+const jobIcon = { receptionist: Globe, reviews: Star, phone: Phone } as const;
 const jobBlurb = {
-  receptionist: "Answers website visitors, takes booking requests and passes tricky chats to you.",
-  whatsapp: "The same receptionist, answering on your WhatsApp Business number.",
-  reviews: "Drafts replies to new Google reviews for you to approve.",
+  receptionist: "Answers customers on your website, Messenger, Instagram and WhatsApp.",
+  reviews: "Drafts replies to Google reviews and Facebook and Instagram comments for you to approve.",
   phone: "Picks up calls, answers common questions and takes messages.",
 } as const;
 
@@ -64,7 +63,7 @@ export function CrewView() {
               <span className="dash-status-dot" aria-hidden="true" /> On duty
             </Pill>
           </div>
-          <small>Website receptionist · {identity.tone}</small>
+          <small>Receptionist · {identity.tone}</small>
           <p>“{identity.greeting}”</p>
           <ul className="agent-card-skills" aria-label="Skills">
             {receptionistSkills
@@ -79,7 +78,27 @@ export function CrewView() {
         <div className="agent-card-channels">
           <span>Works on</span>
           <strong>
-            <Globe size={14} aria-hidden="true" /> Website chat
+            <Globe size={14} aria-hidden="true" /> Website, Messenger, Instagram, WhatsApp
+          </strong>
+        </div>
+        <ArrowUpRight size={18} className="agent-card-go" aria-hidden="true" />
+      </Link>
+      <Link href="/app/crew/reputation" className="agent-card">
+        <span className="agent-card-avatar" aria-hidden="true">
+          <Star size={20} />
+        </span>
+        <div className="agent-card-main">
+          <div className="agent-card-title">
+            <strong>Reputation manager</strong>
+            <Pill tone="info">Asks you first</Pill>
+          </div>
+          <small>Public replies</small>
+          <p>{jobBlurb.reviews}</p>
+        </div>
+        <div className="agent-card-channels">
+          <span>Works on</span>
+          <strong>
+            <Star size={14} aria-hidden="true" /> Google, Facebook, Instagram
           </strong>
         </div>
         <ArrowUpRight size={18} className="agent-card-go" aria-hidden="true" />
@@ -326,6 +345,7 @@ export function ChannelsTab() {
   const signedIn = account.status === "signed_in";
   return (
     <div className="channels-tab">
+      <MessagingChannelsPanel />
       {signedIn ? (
         <WebsiteChatSetup />
       ) : (
@@ -340,16 +360,6 @@ export function ChannelsTab() {
           </li>
         </ul>
       )}
-      <ul className="channel-list">
-        <li data-soon="true">
-          <MessageCircle size={17} aria-hidden="true" />
-          <span>
-            <strong>WhatsApp</strong>
-            <small>Same knowledge and skills, on your business number.</small>
-          </span>
-          <Pill tone="neutral">Coming soon</Pill>
-        </li>
-      </ul>
       {!signedIn && (
         <div className="legacy-host">
           <WebsiteChatGuide

@@ -14,9 +14,9 @@ import { statusAfterTurn, UNANSWERED_SOURCE, type ThreadStatus } from "@/lib/con
 import { appendMessages, historyForModel } from "@/lib/data/conversations";
 import { businessFromKnowledge } from "@/lib/knowledge";
 import { createOpenAIChatModel } from "@/lib/models/openai";
-import type { LiveConfig } from "@/lib/server/live-config";
+import { readLiveConfig, type LiveConfig } from "@/lib/server/live-config";
 import { costMicroUsd, worstCaseMicroUsd } from "@/lib/usage/cost";
-import { monthSpendMicroUsd, reserveUsage, settleUsage } from "@/lib/usage/ledger";
+import { getTenantLimits, monthSpendMicroUsd, reserveUsage, settleUsage } from "@/lib/usage/ledger";
 
 export type StoredTurn = {
   replyId: string;
@@ -124,7 +124,7 @@ export async function runLiveTurn(
       .maybeSingle();
     const status = await updateStatus(admin, target.tenantId, target.conversationId, handoff);
     // Alerts are for real customers; the owner's own test chats stay quiet.
-    if (before?.channel === "website") {
+    if (before && before.channel !== "test") {
       const events: OwnerEvent[] = [
         ...result.approvals.map((a) => ({ kind: "approval" as const, conversationId: target.conversationId, summary: a.summary })),
         ...(handoff && before.status !== "handoff"
@@ -237,4 +237,22 @@ async function storeLeads(admin: SupabaseClient, tenantId: string, conversationI
   } catch (error) {
     console.error("[agent] could not store lead:", error instanceof Error ? error.message : "unknown");
   }
+}
+
+// Answers a real customer on any channel: live AI when the owner switched it
+// on and the budget allows, otherwise (or if the model fails) the free
+// rule-based answer from approved knowledge.
+export async function runCustomerTurn(
+  admin: SupabaseClient,
+  target: { tenantId: string; conversationId: string; question: string },
+): Promise<StoredTurn> {
+  const live = readLiveConfig();
+  if (live.ready) {
+    const limits = await getTenantLimits(admin, target.tenantId).catch(() => null);
+    if (limits?.liveAiEnabled) {
+      const result = await runLiveTurn(admin, live.config, target);
+      if (result.ok) return result;
+    }
+  }
+  return runPracticeTurn(admin, target);
 }
