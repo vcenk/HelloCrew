@@ -90,6 +90,11 @@ Exit: a signed-in owner can chat with their own assistant, grounded in their app
   - Replies: live AI when the owner has it on and budget allows, otherwise free rule-based answers from approved knowledge (also the fallback if the model fails). Booking requests become approvals on Today; when the owner has taken over, messages are stored and the visitor sees "A team member will reply here".
   - Dashboard: website chats appear in Conversations (list refreshes every 6 s, an open website chat too); replying as the owner takes the chat over automatically.
   - Limits: 12 messages/min per visitor IP, 120/min per site, 1,000 characters per message, 500 messages per conversation, plus the monthly AI budget.
+- [x] Knowledge from files (2026-10-19, migration `20261019033255_knowledge_files`):
+  - Add knowledge → **Upload a file** (PDF, Word .docx, Excel .xlsx, CSV, text; up to 10 MB). The browser uploads straight to a private `knowledge` storage bucket using a one-time signed slot; the server reads the text (unpdf for PDF, built-in unzip for Word/Excel), splits it into searchable chunks (`hc_knowledge_file_chunks`, Postgres full-text), and the AI suggests items (services with prices, Q&As, hours, policies), charged to the monthly AI budget.
+  - Suggestions join Knowledge as drafts linked to their file. The review dialog shows them with Approve / Edit / Discard / Approve all, lets the owner read and fix the extracted text, download the original, and allow the crew to search the full text. Delete removes the file and its items.
+  - The live agent's `search_knowledge` also searches allowed files (`hc_search_file_chunks`) when items don't cover a question.
+  - Not yet: scanned PDFs (need text recognition), website links (next), price options per staff member.
 - Realtime updates instead of polling; email/push notice to the owner for new chats and handoffs.
 - Booking via Cal.com API v2 or Google Calendar; booking-link fallback.
 - Lead capture → email notification to the owner.

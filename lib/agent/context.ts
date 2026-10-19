@@ -14,6 +14,8 @@ export type AgentContext = {
   approvedSources: KnowledgeSource[];
   skills: CrewMember["skills"];
   now: Date;
+  // Full-text search over uploaded files the owner allowed (server only).
+  searchFiles?: (question: string) => Promise<{ title: string; content: string }[]>;
 };
 
 export function buildAgentContext(

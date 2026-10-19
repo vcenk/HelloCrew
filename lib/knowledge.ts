@@ -30,8 +30,12 @@ export type KnowledgeSource = {
   fileName?: string;
   mimeType?: string;
   sizeBytes?: number;
+  // The uploaded file this item was suggested from, if any.
+  fileId?: string;
   updatedAt: string;
 };
+
+export const MAX_KNOWLEDGE_ITEMS = 300;
 
 export type KnowledgeStore = {
   formatVersion: 1;
@@ -51,7 +55,8 @@ const sourceSchema = z
     price: z.string().max(100).optional(),
     fileName: z.string().max(240).optional(),
     mimeType: z.string().max(120).optional(),
-    sizeBytes: z.number().int().min(0).max(2_000_000).optional(),
+    sizeBytes: z.number().int().min(0).max(10_485_760).optional(),
+    fileId: z.string().uuid().optional(),
     updatedAt: z.string().datetime(),
   })
   .strict();
@@ -66,7 +71,7 @@ const storeSchema = z
         bookingUrl: bookingLinkSchema,
       })
       .strict(),
-    sources: z.array(sourceSchema).max(100),
+    sources: z.array(sourceSchema).max(300),
   })
   .strict();
 

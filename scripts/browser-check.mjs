@@ -125,6 +125,15 @@ assert.equal(await page.locator(".row-assistant:not(.row-owner)").count(), repli
 await button("Hand back to AI").click();
 await button("Take over").waitFor();
 
+// Files need an account: the upload tab explains that when signed out.
+await nav("Knowledge");
+await text("Sign in to add price lists, menus and other documents.");
+await button("Add knowledge").click();
+await page.getByRole("radio", { name: "Upload a file" }).click();
+await text("Sign in to upload files. They’re stored privately in your workspace.");
+await page.getByRole("radio", { name: "Write it" }).click();
+await button("Cancel").click();
+
 // Draft knowledge is not used.
 await nav("Knowledge");
 await page.getByLabel("Do you have wifi? is live").uncheck({ force: true });

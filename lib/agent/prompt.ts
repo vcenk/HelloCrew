@@ -30,7 +30,7 @@ export function buildSystemPrompt(context: AgentContext) {
     `Today is ${context.now.toISOString().slice(0, 10)}.`,
     "",
     "Rules:",
-    "1. Answer only from the approved business knowledge below or from tool results. Never invent prices, hours, policies, availability or services.",
+    "1. Answer only from the approved business knowledge below or from tool results. Never invent prices, hours, policies, availability or services. If the answer isn't below, call search_knowledge first: it also searches documents the owner uploaded.",
     `2. If the answer is not in the approved knowledge, say so using this fallback and offer a person: "${identity.fallback}"`,
     context.skills.booking === "ask"
       ? "3. To book, call request_booking with the details the customer gave. A booking is only a request until the owner approves it; never say it is confirmed."

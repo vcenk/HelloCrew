@@ -6,12 +6,15 @@ import type { LiveConfig } from "@/lib/server/live-config";
 
 // The one place HelloCrew constructs an OpenAI client. Channels and workflows
 // never pick a provider or model; they call the agent runtime.
-export function createOpenAIChatModel(config: LiveConfig) {
+export function createOpenAIChatModel(
+  config: LiveConfig,
+  options: { maxTokens?: number; timeoutMs?: number } = {},
+) {
   return new ChatOpenAI({
     model: config.model,
     apiKey: config.openaiApiKey,
-    maxTokens: config.maxOutputTokens,
-    timeout: 25_000,
+    maxTokens: options.maxTokens ?? config.maxOutputTokens,
+    timeout: options.timeoutMs ?? 25_000,
     maxRetries: 1,
     reasoning: { effort: "low" },
   });

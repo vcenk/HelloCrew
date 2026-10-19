@@ -22,6 +22,8 @@ const frameDeniedRoutes = [
 
 const config: NextConfig = {
   poweredByHeader: false,
+  // Loaded at runtime on the server rather than bundled (PDF reading).
+  serverExternalPackages: ["unpdf"],
   // Allow opening the dev server as 127.0.0.1 as well as localhost.
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   async headers() {

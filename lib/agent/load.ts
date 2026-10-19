@@ -13,6 +13,7 @@ import {
   parseKnowledgeStore,
 } from "@/lib/knowledge";
 import { parseCrewStore } from "@/lib/crew";
+import { toSearchQuery } from "@/lib/server/file-text";
 import { buildAgentContext } from "./context";
 
 // Builds the agent's context from the signed-in workspace (RLS-scoped reads).
@@ -26,7 +27,7 @@ export async function loadAgentContext(
     documents.assistant_identity?.document,
   );
   const knowledge = parseKnowledgeStore(documents.knowledge?.document);
-  return buildAgentContext(
+  const context = buildAgentContext(
     identity.success ? identity.data : sampleAssistantIdentity,
     knowledge.success
       ? knowledge.data
@@ -34,4 +35,18 @@ export async function loadAgentContext(
     new Date(),
     parseCrewStore(documents.crew?.document).members[0].skills,
   );
+  context.searchFiles = async (question) => {
+    const query = toSearchQuery(question);
+    if (!query) return [];
+    const { data } = await supabase.rpc("hc_search_file_chunks", {
+      p_tenant_id: workspace.tenantId,
+      p_query: query,
+      p_limit: 3,
+    });
+    return ((data ?? []) as { title: string; content: string }[]).map((row) => ({
+      title: row.title,
+      content: row.content,
+    }));
+  };
+  return context;
 }

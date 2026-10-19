@@ -141,6 +141,10 @@ lib/server/agent-turn.ts                one stored AI turn (live with budget, or
 lib/server/widget-installations.ts      public widget lookup (service role, 30 s cache), visitor tokens
 lib/server/widget-csp.ts + proxy.ts     per-installation frame-ancestors for /widget/*
 app/api/widget/chat/route.ts            visitor messages (POST) and reply polling (GET)
+app/app/knowledge-file-actions.ts       file upload slot, read + index + suggest, review updates, delete
+lib/server/file-text.ts                 PDF/Word/Excel/CSV/text extraction, chunking, safe search query
+lib/server/knowledge-suggest.ts         AI suggestions from a document (budgeted, structured output)
+components/dashboard/knowledge-files.tsx    file cards, upload flow, review dialog
 app/app/dashboard.css                   dashboard tokens and components, scoped to .dash
 app/app/legacy-dark.css                 generated dark palette for legacy editors (scripts/theme-legacy-css.mjs)
 ```

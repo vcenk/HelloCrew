@@ -32,18 +32,22 @@ export function buildTools(context: AgentContext, effects: TurnEffects) {
   const searchKnowledge = tool(
     async ({ query }) => {
       const matches = searchApprovedKnowledge(context.knowledge, query);
-      if (matches.length === 0) return "No approved information matches.";
-      return matches
-        .map(
-          (m) =>
-            `${m.source.title}${m.source.price ? ` (${m.source.price})` : ""}: ${m.source.content}`,
-        )
-        .join("\n");
+      const lines = matches.map(
+        (m) =>
+          `${m.source.title}${m.source.price ? ` (${m.source.price})` : ""}: ${m.source.content}`,
+      );
+      // Uploaded files the owner allowed, when the items don't cover it.
+      if (matches.length < 2 && context.searchFiles) {
+        const passages = await context.searchFiles(query).catch(() => []);
+        for (const p of passages) lines.push(`From the document "${p.title}": ${p.content}`);
+      }
+      if (lines.length === 0) return "No approved information matches.";
+      return lines.join("\n");
     },
     {
       name: "search_knowledge",
       description:
-        "Search the business's approved knowledge (FAQs, services, policies, documents).",
+        "Search the business's approved knowledge (FAQs, services, policies) and the documents the owner uploaded.",
       schema: z.object({ query: z.string().trim().min(1).max(200) }),
     },
   );

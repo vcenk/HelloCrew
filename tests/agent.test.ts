@@ -151,6 +151,23 @@ describe("live agent graph", () => {
     expect(result.unanswered).toBe(false);
   });
 
+  it("searches uploaded documents when items don't answer", async () => {
+    const withFiles = {
+      ...context,
+      searchFiles: async () => [{ title: "Price list", content: "Balayage with a senior stylist: $180" }],
+    };
+    const { model } = scriptedModel([
+      new AIMessage({
+        content: "",
+        tool_calls: [{ id: "s1", name: "search_knowledge", args: { query: "balayage senior stylist" } }],
+      }),
+      new AIMessage({ content: "Balayage with a senior stylist is $180." }),
+    ]);
+    const result = await runAgentTurn(model, withFiles, [{ role: "user", content: "How much is balayage?" }]);
+    expect(result.reply).toContain("$180");
+    expect(result.unanswered).toBe(false);
+  });
+
   it("falls back to the identity's safe answer when the model is silent", async () => {
     const { model } = scriptedModel([new AIMessage({ content: "" })]);
     const result = await runAgentTurn(model, context, [
