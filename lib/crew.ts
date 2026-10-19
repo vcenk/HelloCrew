@@ -47,10 +47,10 @@ export const receptionistSkills: readonly SkillDefinition[] = [
   {
     id: "leads",
     title: "Capture leads",
-    summary: "Asks for a name and email when someone wants a quote or call back.",
-    allowed: ["off"],
-    defaultMode: "off",
-    comingSoon: true,
+    summary: "Takes a name and phone or email when someone wants a quote, a call back, or an answer it doesn’t have.",
+    allowed: ["off", "auto"],
+    defaultMode: "auto",
+    locked: "Uses live AI. Leads appear on Today.",
   },
 ];
 
@@ -91,7 +91,7 @@ export const defaultCrew: CrewStore = {
     {
       id: "receptionist",
       job: "receptionist",
-      skills: { answer: "auto", booking: "ask", handoff: "auto", leads: "off" },
+      skills: { answer: "auto", booking: "ask", handoff: "auto", leads: "auto" },
     },
   ],
 };

@@ -15,10 +15,19 @@ export type PendingApproval = {
 
 export type Handoff = { reason: string };
 
+export type Lead = {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  interest: string;
+};
+
 // Collected while the graph runs; returned to the caller with the reply.
 export type TurnEffects = {
   approvals: PendingApproval[];
   handoffs: Handoff[];
+  leads: Lead[];
 };
 
 export const toolEffects: Record<string, ToolEffect> = {
@@ -26,6 +35,7 @@ export const toolEffects: Record<string, ToolEffect> = {
   get_business_details: "read_only",
   request_booking: "needs_approval",
   handoff_to_human: "internal_write",
+  capture_lead: "internal_write",
 };
 
 export function buildTools(context: AgentContext, effects: TurnEffects) {
@@ -106,11 +116,38 @@ export function buildTools(context: AgentContext, effects: TurnEffects) {
     },
   );
 
+  const captureLead = tool(
+    async ({ name, email, phone, interest }) => {
+      const cleanEmail = email?.trim().toLowerCase() || undefined;
+      const cleanPhone = phone?.replace(/[^\d+()\-\s.]/g, "").trim() || undefined;
+      if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail))
+        return "That email address doesn't look complete. Ask the customer to check it.";
+      if (cleanPhone && cleanPhone.replace(/\D/g, "").length < 7)
+        return "That phone number looks too short. Ask the customer to check it.";
+      if (!cleanEmail && !cleanPhone) return "Ask for a phone number or an email first.";
+      if (effects.leads.length >= 1) return "Their details are already saved for this conversation.";
+      effects.leads.push({ id: crypto.randomUUID(), name, email: cleanEmail, phone: cleanPhone, interest });
+      return "Saved. Tell the customer the team will get back to them; don't promise a time.";
+    },
+    {
+      name: "capture_lead",
+      description:
+        "Save a customer's name and phone or email so the team can follow up (a quote, a call back, or a question you couldn't answer). Only use details the customer gave in this conversation.",
+      schema: z.object({
+        name: z.string().trim().min(1).max(80),
+        email: z.string().trim().max(254).optional(),
+        phone: z.string().trim().max(40).optional(),
+        interest: z.string().trim().min(1).max(300).describe("What they want, in a few words"),
+      }),
+    },
+  );
+
   // Skills the owner switched off are not offered to the model at all.
   return [
     searchKnowledge,
     businessDetails,
     ...(context.skills.booking === "ask" ? [requestBooking] : []),
     ...(context.skills.handoff === "auto" ? [handoff] : []),
+    ...(context.skills.leads === "auto" ? [captureLead] : []),
   ];
 }

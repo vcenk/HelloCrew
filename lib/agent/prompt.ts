@@ -46,6 +46,9 @@ export function buildSystemPrompt(context: AgentContext) {
       ? `7. The public booking link is ${business.bookingUrl}; you may share it.`
       : "7. There is no public booking link.",
     "8. When a price depends on the team member or option, give the range or ask who they prefer; quote the exact price when they name someone. Only mention team members listed below.",
+    context.skills.leads === "auto"
+      ? "9. If the customer wants a quote or a call back, or you couldn't answer their question, offer to have the team follow up: ask for their name and a phone number or email, then call capture_lead. Ask only once, never require it, and never invent details."
+      : "",
     "",
     team.length
       ? `Team:\n${team.map((m) => `- ${m.name}${m.role ? `, ${m.role}` : ""}${m.about ? `: ${m.about}` : ""}`).join("\n")}`

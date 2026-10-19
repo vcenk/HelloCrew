@@ -18,6 +18,7 @@ import {
   getThread,
   listThreads,
   loadNeedsYou,
+  setLeadStatus,
   setThreadState,
 } from "@/lib/data/conversations";
 import { getWorkspaceContext, type WorkspaceContext } from "@/lib/data/workspace";
@@ -176,4 +177,20 @@ export async function decideApproval(input: {
 
 export async function loadNeedsYouSummary(): Promise<Result<{ needsYou: NeedsYou }>> {
   return run(false, async (db, ws) => ({ ok: true, needsYou: await loadNeedsYou(db, ws) }));
+}
+
+const leadSchema = z
+  .object({ leadId: idSchema, status: z.enum(["new", "contacted", "won", "lost"]) })
+  .strict();
+
+export async function updateLead(input: {
+  leadId: string;
+  status: "new" | "contacted" | "won" | "lost";
+}): Promise<Result<object>> {
+  const parsed = leadSchema.safeParse(input);
+  if (!parsed.success) return failure("invalid", "Unknown lead.");
+  return run(true, async (db, ws) => {
+    await setLeadStatus(db, ws, parsed.data.leadId, parsed.data.status);
+    return { ok: true };
+  });
 }

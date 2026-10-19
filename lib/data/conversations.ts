@@ -9,6 +9,7 @@ import {
   type MessageMeta,
   type NeedsYou,
   type StoredApproval,
+  type StoredLead,
   type StoredMessage,
   type ThreadStatus,
   type ThreadSummary,
@@ -233,7 +234,7 @@ export async function loadNeedsYou(
   workspace: WorkspaceContext,
 ): Promise<NeedsYou> {
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-  const [approvals, unanswered, handoffs] = await Promise.all([
+  const [approvals, unanswered, handoffs, leads] = await Promise.all([
     db
       .from("hc_approvals")
       .select("id, conversation_id, message_id, summary, status, created_at")
@@ -258,8 +259,15 @@ export async function loadNeedsYou(
       .eq("status", "handoff")
       .order("last_message_at", { ascending: false })
       .limit(10),
+    db
+      .from("hc_leads")
+      .select("id, conversation_id, name, email, phone, interest, status, created_at")
+      .eq("tenant_id", workspace.tenantId)
+      .eq("status", "new")
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
-  if (approvals.error || unanswered.error || handoffs.error)
+  if (approvals.error || unanswered.error || handoffs.error || leads.error)
     throw new Error("Could not load what needs you.");
 
   const seen = new Set<string>();
@@ -284,6 +292,16 @@ export async function loadNeedsYou(
   }
 
   return {
+    leads: (leads.data ?? []).map((row) => ({
+      id: row.id as string,
+      conversationId: (row.conversation_id as string | null) ?? null,
+      name: row.name as string,
+      email: (row.email as string | null) ?? null,
+      phone: (row.phone as string | null) ?? null,
+      interest: row.interest as string,
+      status: row.status as StoredLead["status"],
+      createdAt: row.created_at as string,
+    })),
     approvals: pending.map((a) => ({ ...a, conversationTitle: titles.get(a.conversationId) ?? "Conversation" })),
     unanswered: questions.slice(0, 10),
     handoffs: (handoffs.data ?? []).map((row) => ({
@@ -295,3 +313,17 @@ export async function loadNeedsYou(
 }
 
 export { UNANSWERED_SOURCE };
+
+export async function setLeadStatus(
+  db: SupabaseClient,
+  workspace: WorkspaceContext,
+  id: string,
+  status: StoredLead["status"],
+) {
+  const { error } = await db
+    .from("hc_leads")
+    .update({ status })
+    .eq("tenant_id", workspace.tenantId)
+    .eq("id", id);
+  if (error) throw new Error("Could not update the lead.");
+}

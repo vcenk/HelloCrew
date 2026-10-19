@@ -22,6 +22,7 @@ import {
   buildTools,
   toolEffects,
   type Handoff,
+  type Lead,
   type PendingApproval,
   type TurnEffects,
 } from "./tools";
@@ -36,6 +37,7 @@ export type AgentTurnResult = {
   activity: Activity[];
   approvals: PendingApproval[];
   handoffs: Handoff[];
+  leads: Lead[];
   usage: { inputTokens: number; outputTokens: number; modelRounds: number };
   // True when the crew had no approved answer, so the owner can teach one.
   unanswered: boolean;
@@ -57,6 +59,7 @@ function toolLabel(name: string) {
       get_business_details: "Read business details",
       request_booking: "Prepared a booking request",
       handoff_to_human: "Passed to a person",
+      capture_lead: "Saved a lead",
     }[name] ?? name
   );
 }
@@ -168,7 +171,7 @@ export async function runAgentTurn(
   context: AgentContext,
   history: ChatTurn[],
 ): Promise<AgentTurnResult> {
-  const effects: TurnEffects = { approvals: [], handoffs: [] };
+  const effects: TurnEffects = { approvals: [], handoffs: [], leads: [] };
   const graph = buildAgentGraph(model, context, effects);
   const messages = history
     .slice(-MAX_HISTORY_MESSAGES)
@@ -218,6 +221,7 @@ export async function runAgentTurn(
     ],
     approvals: effects.approvals,
     handoffs: effects.handoffs,
+    leads: effects.leads,
     usage: { inputTokens, outputTokens, modelRounds: output.rounds },
   };
 }

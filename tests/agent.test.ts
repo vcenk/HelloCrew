@@ -168,6 +168,34 @@ describe("live agent graph", () => {
     expect(result.unanswered).toBe(false);
   });
 
+  it("captures a lead with a valid phone or email, once", async () => {
+    const { model } = scriptedModel([
+      new AIMessage({
+        content: "",
+        tool_calls: [
+          { id: "l1", name: "capture_lead", args: { name: "Sam", email: "not-an-email", interest: "Balayage quote" } },
+          { id: "l2", name: "capture_lead", args: { name: "Sam", phone: "604 555 0101", interest: "Balayage quote" } },
+          { id: "l3", name: "capture_lead", args: { name: "Sam", phone: "604 555 0102", interest: "Again" } },
+        ],
+      }),
+      new AIMessage({ content: "Thanks Sam, the team will get back to you." }),
+    ]);
+    const result = await runAgentTurn(model, context, [{ role: "user", content: "Can someone call me about balayage? I'm Sam, 604 555 0101" }]);
+    expect(result.leads).toHaveLength(1);
+    expect(result.leads[0]).toMatchObject({ name: "Sam", phone: "604 555 0101", interest: "Balayage quote" });
+    expect(result.activity.some((a) => a.label === "Saved a lead")).toBe(true);
+  });
+
+  it("only offers lead capture when the skill is on", () => {
+    const on = buildSystemPrompt(context);
+    expect(on).toContain("call capture_lead");
+    const off = buildAgentContext(sampleAssistantIdentity, createKnowledgeStoreFromBusiness(sampleBusiness), new Date(), {
+      ...context.skills,
+      leads: "off",
+    });
+    expect(buildSystemPrompt(off)).not.toContain("capture_lead");
+  });
+
   it("falls back to the identity's safe answer when the model is silent", async () => {
     const { model } = scriptedModel([new AIMessage({ content: "" })]);
     const result = await runAgentTurn(model, context, [
@@ -218,10 +246,10 @@ describe("crew skills control the live agent", () => {
       new Date(),
       { answer: "auto", booking: "off", handoff: "off", leads: "off" },
     );
-    const names = buildTools(off, { approvals: [], handoffs: [] }).map((t) => t.name);
+    const names = buildTools(off, { approvals: [], handoffs: [], leads: [] }).map((t) => t.name);
     expect(names).toEqual(["search_knowledge", "get_business_details"]);
     expect(buildSystemPrompt(off)).toContain("You cannot take bookings");
-    const on = buildTools(context, { approvals: [], handoffs: [] }).map((t) => t.name);
+    const on = buildTools(context, { approvals: [], handoffs: [], leads: [] }).map((t) => t.name);
     expect(on).toContain("request_booking");
     expect(on).toContain("handoff_to_human");
   });

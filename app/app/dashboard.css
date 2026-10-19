@@ -3119,6 +3119,28 @@ a.crew-tile:hover {
   color: var(--d-ink-3);
 }
 
+.decision-icon[data-tone="lead"] {
+  background: var(--d-primary);
+  color: var(--d-primary-ink);
+}
+.decision-list li.lead-item {
+  border-color: color-mix(in srgb, var(--d-primary) 30%, var(--d-line));
+  background: var(--d-primary-soft);
+}
+.lead-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.lead-contact a {
+  color: var(--d-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.lead-contact a:hover {
+  text-decoration: underline;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1320px) {
   .convo-grid {

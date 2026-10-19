@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Globe,
   Hand,
+  UserPlus,
   MessageCircle,
   Phone,
   ShieldCheck,
@@ -43,6 +44,7 @@ export function HomeView() {
     needsYou: server,
     threads,
     knowledge,
+    markLead,
   } = useDashboard();
   const { steps, done } = useLaunchChecklist();
   const { refreshThreads } = useDashboard();
@@ -104,7 +106,8 @@ export function HomeView() {
   const answered = replies.filter(
     (m) => m.source && m.source !== UNANSWERED && m.source !== "Practice handoff policy",
   ).length;
-  const needsYou = approvals.length + unanswered.length + handoffs.length;
+  const leads = signedIn ? server.leads : [];
+  const needsYou = approvals.length + unanswered.length + handoffs.length + leads.length;
   const nextStep = steps.find((s) => !s.done);
   const skillsOn = receptionistSkills.filter((s) => !s.comingSoon && skills[s.id] !== "off");
 
@@ -188,6 +191,36 @@ export function HomeView() {
                       onClick={() => approval.onDecide("approve")}
                     >
                       Approve
+                    </button>
+                  </div>
+                </li>
+              ))}
+              {leads.map((lead) => (
+                <li key={lead.id} className="lead-item">
+                  <span className="decision-icon" data-tone="lead" aria-hidden="true">
+                    <UserPlus size={18} />
+                  </span>
+                  <div>
+                    <strong>
+                      {lead.name}: {lead.interest}
+                    </strong>
+                    <p className="lead-contact">
+                      {lead.phone && <a href={`tel:${lead.phone.replace(/[^\d+]/g, "")}`}>{lead.phone}</a>}
+                      {lead.email && <a href={`mailto:${lead.email}`}>{lead.email}</a>}
+                    </p>
+                  </div>
+                  <div className="decision-actions">
+                    {lead.conversationId && (
+                      <ButtonLink href={`/app/conversations?c=${lead.conversationId}`} size="sm" variant="ghost">
+                        Open chat
+                      </ButtonLink>
+                    )}
+                    <button
+                      type="button"
+                      className="ui-btn ui-btn-primary ui-btn-sm"
+                      onClick={() => void markLead(lead.id, "contacted")}
+                    >
+                      Contacted
                     </button>
                   </div>
                 </li>

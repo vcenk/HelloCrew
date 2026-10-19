@@ -10,6 +10,7 @@ import {
   removeConversation,
   saveMessages,
   updateConversation,
+  updateLead,
 } from "@/app/app/conversation-actions";
 import type { LiveAiStatus } from "@/app/app/actions";
 import type { AssistantIdentity } from "@/lib/assistant";
@@ -583,7 +584,21 @@ export function useConversations(deps: {
     [conversation.id, toast],
   );
 
+  const markLead = useCallback(
+    async (leadId: string, status: "contacted" | "won" | "lost") => {
+      const result = await updateLead({ leadId, status }).catch(() => null);
+      if (!result?.ok) {
+        toast(result?.error ?? "Couldn’t update the lead.", "error");
+        return;
+      }
+      setNeedsYou((n) => (n ? { ...n, leads: n.leads.filter((l) => l.id !== leadId) } : n));
+      toast(status === "contacted" ? "Marked as contacted" : status === "won" ? "Marked as won" : "Marked as lost", "info");
+    },
+    [toast],
+  );
+
   return {
+    markLead,
     conversation,
     threads,
     needsYou,

@@ -55,6 +55,7 @@ export const messageMetaSchema = z
       .strict()
       .optional(),
     handoff: z.boolean().optional(),
+    lead: z.boolean().optional(),
     decision: z.enum(["approved", "rejected"]).optional(),
     approvalId: z.string().max(100).optional(),
   })
@@ -81,7 +82,19 @@ export type StoredMessage = {
   meta: MessageMeta;
 };
 
+export type StoredLead = {
+  id: string;
+  conversationId: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  interest: string;
+  status: "new" | "contacted" | "won" | "lost";
+  createdAt: string;
+};
+
 export type NeedsYou = {
+  leads: StoredLead[];
   approvals: (StoredApproval & { conversationTitle: string })[];
   unanswered: { question: string; conversationId: string; at: string }[];
   handoffs: { conversationId: string; title: string; at: string }[];

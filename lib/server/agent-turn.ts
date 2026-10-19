@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runAgentTurn, MAX_HISTORY_MESSAGES, MAX_MODEL_ROUNDS } from "@/lib/agent/graph";
+import type { Lead } from "@/lib/agent/tools";
 import { loadAgentContext } from "@/lib/agent/load";
 import { buildSystemPrompt } from "@/lib/agent/prompt";
 import type { Activity } from "@/lib/demo";
@@ -23,6 +24,7 @@ export type StoredTurn = {
   unanswered: boolean;
   activity: Activity[];
   approvals: { id: string; summary: string }[];
+  leads?: number;
   usage?: { model: string; costMicroUsd: number; modelRounds: number; inputTokens: number; outputTokens: number };
   spentMicroUsd?: number;
 };
@@ -91,6 +93,7 @@ export async function runLiveTurn(
           unanswered: result.unanswered || undefined,
           question: result.unanswered ? target.question.slice(0, 500) : undefined,
           handoff: handoff || undefined,
+          lead: result.leads.length > 0 || undefined,
           usage: { model: usage.model, costMicroUsd: actual, modelRounds: usage.modelRounds },
         },
       },
@@ -111,9 +114,11 @@ export async function runLiveTurn(
       );
       if (error) throw new Error("Could not store the approval.");
     }
+    if (result.leads.length > 0) await storeLeads(admin, target.tenantId, target.conversationId, result.leads);
     const status = await updateStatus(admin, target.tenantId, target.conversationId, handoff);
     return {
       ok: true,
+      leads: result.leads.length,
       replyId,
       reply: result.reply,
       status,
@@ -167,4 +172,45 @@ export async function runPracticeTurn(
   ]);
   const status = await updateStatus(admin, target.tenantId, target.conversationId, false);
   return { replyId, reply, status, unanswered, activity, approvals: [] };
+}
+
+// Saves the customer's details on the conversation's contact and as a lead.
+// A failure here never loses the reply; it's logged instead.
+async function storeLeads(admin: SupabaseClient, tenantId: string, conversationId: string, leads: Lead[]) {
+  try {
+    const lead = leads[0];
+    const { data: conversation } = await admin
+      .from("hc_conversations")
+      .select("contact_id")
+      .eq("tenant_id", tenantId)
+      .eq("id", conversationId)
+      .maybeSingle();
+    let contactId = (conversation?.contact_id as string | null) ?? null;
+    const details = {
+      display_name: lead.name.slice(0, 120),
+      ...(lead.email ? { email: lead.email.slice(0, 254) } : {}),
+      ...(lead.phone ? { phone: lead.phone.slice(0, 40) } : {}),
+    };
+    if (contactId) {
+      await admin.from("hc_contacts").update(details).eq("tenant_id", tenantId).eq("id", contactId);
+    } else {
+      const { data } = await admin.from("hc_contacts").insert({ tenant_id: tenantId, ...details }).select("id").single();
+      contactId = (data?.id as string | undefined) ?? null;
+      if (contactId)
+        await admin.from("hc_conversations").update({ contact_id: contactId }).eq("tenant_id", tenantId).eq("id", conversationId);
+    }
+    const { error } = await admin.from("hc_leads").insert({
+      tenant_id: tenantId,
+      id: lead.id,
+      conversation_id: conversationId,
+      contact_id: contactId,
+      name: lead.name.slice(0, 80),
+      email: lead.email ?? null,
+      phone: lead.phone ?? null,
+      interest: lead.interest.slice(0, 300),
+    });
+    if (error) throw error;
+  } catch (error) {
+    console.error("[agent] could not store lead:", error instanceof Error ? error.message : "unknown");
+  }
 }

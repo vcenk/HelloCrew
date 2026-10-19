@@ -49,6 +49,8 @@ function usedChips(message: ChatMessage) {
       href: "/app/crew/receptionist",
       tone: "skill",
     });
+  if (labels.some((l) => l.includes("saved a lead")))
+    chips.push({ label: "Skill · Capture leads", href: "/app/crew/receptionist", tone: "skill" });
   if (message.engine === "live" && labels.some((l) => l.includes("searched")))
     chips.push({
       label: "Knowledge · searched",
