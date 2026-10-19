@@ -32,6 +32,8 @@ export type KnowledgeSource = {
   sizeBytes?: number;
   // The uploaded file this item was suggested from, if any.
   fileId?: string;
+  // A suggested change to this existing item (from refreshing a link).
+  replacesId?: string;
   updatedAt: string;
 };
 
@@ -57,6 +59,7 @@ const sourceSchema = z
     mimeType: z.string().max(120).optional(),
     sizeBytes: z.number().int().min(0).max(10_485_760).optional(),
     fileId: z.string().uuid().optional(),
+    replacesId: z.string().min(1).max(100).optional(),
     updatedAt: z.string().datetime(),
   })
   .strict();

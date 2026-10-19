@@ -131,6 +131,8 @@ await text("Sign in to add price lists, menus and other documents.");
 await button("Add knowledge").click();
 await page.getByRole("radio", { name: "Upload a file" }).click();
 await text("Sign in to upload files. They’re stored privately in your workspace.");
+await page.getByRole("radio", { name: "Website link" }).click();
+await text("Sign in to add website links.");
 await page.getByRole("radio", { name: "Write it" }).click();
 await button("Cancel").click();
 

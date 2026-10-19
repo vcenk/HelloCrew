@@ -2996,6 +2996,13 @@ a.crew-tile:hover {
   font-size: 13px;
   white-space: pre-wrap;
 }
+.suggestion-list .suggestion-before {
+  margin-top: 4px;
+  color: var(--d-ink-3);
+  font-size: 12.5px;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--d-ink-3) 50%, transparent);
+}
 .suggestion-actions {
   display: flex;
   gap: 4px;

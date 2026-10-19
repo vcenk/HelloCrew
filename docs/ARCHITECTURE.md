@@ -143,6 +143,8 @@ lib/server/widget-csp.ts + proxy.ts     per-installation frame-ancestors for /wi
 app/api/widget/chat/route.ts            visitor messages (POST) and reply polling (GET)
 app/app/knowledge-file-actions.ts       file upload slot, read + index + suggest, review updates, delete
 lib/server/file-text.ts                 PDF/Word/Excel/CSV/text extraction, chunking, safe search query
+lib/server/fetch-page.ts                SSRF-safe page fetch (connect-time DNS check, redirects, caps) and HTML-to-text
+lib/knowledge-merge.ts                  merges suggestions into Knowledge as drafts or proposed updates
 lib/server/knowledge-suggest.ts         AI suggestions from a document (budgeted, structured output)
 components/dashboard/knowledge-files.tsx    file cards, upload flow, review dialog
 app/app/dashboard.css                   dashboard tokens and components, scoped to .dash

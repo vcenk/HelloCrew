@@ -7,8 +7,10 @@ import {
   Check,
   Clock,
   FileText,
+  Globe,
   GraduationCap,
   HelpCircle,
+  LoaderCircle,
   PencilLine,
   Plus,
   Scissors,
@@ -99,7 +101,9 @@ export function KnowledgeView() {
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<"write" | "upload">("write");
+  const [mode, setMode] = useState<"write" | "upload" | "link">("write");
+  const [link, setLink] = useState("");
+  const [reading, setReading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const files = useKnowledgeFiles();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -156,7 +160,10 @@ export function KnowledgeView() {
     return true;
   }
 
-  function openEditor(next: Draft, start: "write" | "upload" = "write") {
+  function openEditor(
+    next: Draft,
+    start: "write" | "upload" | "link" = "write",
+  ) {
     setDraft(next);
     setError("");
     setMode(start);
@@ -503,15 +510,53 @@ export function KnowledgeView() {
               <button
                 type="button"
                 role="radio"
-                aria-checked={false}
-                disabled
-                title="Coming next"
+                aria-checked={mode === "link"}
+                onClick={() => setMode("link")}
               >
-                Website link · soon
+                <Globe size={14} aria-hidden="true" /> Website link
               </button>
             </div>
           )}
-          {mode === "upload" && !draft.id ? (
+          {mode === "link" && !draft.id ? (
+            files.signedIn ? (
+              <div className="form-stack">
+                <div className="field">
+                  <label htmlFor="d-link">Page address</label>
+                  <input
+                    id="d-link"
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://yourbusiness.com/prices"
+                    value={link}
+                    disabled={reading}
+                    onChange={(e) => setLink(e.target.value)}
+                  />
+                  <small>
+                    A public page, like your prices, services or FAQ. We read it
+                    and suggest items; use Refresh later when the page changes.
+                  </small>
+                </div>
+                <Button
+                  variant="primary"
+                  icon={reading ? LoaderCircle : Globe}
+                  disabled={reading || link.trim().length < 4}
+                  onClick={async () => {
+                    setReading(true);
+                    const ok = await files.addLink(link.trim());
+                    setReading(false);
+                    if (ok) {
+                      setLink("");
+                      dialog.current?.close();
+                    }
+                  }}
+                >
+                  {reading ? "Reading the page…" : "Read page"}
+                </Button>
+              </div>
+            ) : (
+              <p className="today-note">Sign in to add website links.</p>
+            )
+          ) : mode === "upload" && !draft.id ? (
             files.signedIn ? (
               <label
                 className="file-drop"

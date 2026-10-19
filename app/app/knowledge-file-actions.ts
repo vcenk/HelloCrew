@@ -3,15 +3,18 @@
 import { z } from "zod";
 
 import { getWorkspaceContext, type WorkspaceContext } from "@/lib/data/workspace";
+import { fetchPublicPage, htmlToText, PageFetchError } from "@/lib/server/fetch-page";
 import {
   chunkText,
   extractFileText,
   MAX_FILE_BYTES,
+  MAX_TEXT_CHARS,
   mimeForFile,
   UnreadableFileError,
 } from "@/lib/server/file-text";
 import { suggestKnowledgeItems, type Suggestion } from "@/lib/server/knowledge-suggest";
 import { readLiveConfig } from "@/lib/server/live-config";
+import { rateLimit } from "@/lib/server/rate-limit";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -28,13 +31,15 @@ export type KnowledgeFile = {
   pageCount: number | null;
   useForAnswers: boolean;
   suggestedCount: number;
+  sourceUrl: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 
 type Failure = { ok: false; error: string };
 const BUCKET = "knowledge";
 const columns =
-  "id, kind, title, file_name, mime_type, size_bytes, status, error, page_count, use_for_answers, suggested_count, created_at";
+  "id, kind, title, file_name, mime_type, size_bytes, status, error, page_count, use_for_answers, suggested_count, source_url, created_at, updated_at";
 
 function toFile(row: Record<string, unknown>): KnowledgeFile {
   return {
@@ -49,7 +54,9 @@ function toFile(row: Record<string, unknown>): KnowledgeFile {
     pageCount: (row.page_count as number | null) ?? null,
     useForAnswers: Boolean(row.use_for_answers),
     suggestedCount: Number(row.suggested_count ?? 0),
+    sourceUrl: (row.source_url as string | null) ?? null,
     createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
   };
 }
 
@@ -190,19 +197,7 @@ export async function processKnowledgeFile(fileId: string): Promise<
     return fail("Couldn’t index the text. Try again.");
   }
 
-  let suggestions: Suggestion[] = [];
-  let note: string | null = null;
-  const live = readLiveConfig();
-  if (!live.ready) note = "AI suggestions need the OpenAI key on the server. You can still let your crew search this file, or add items yourself.";
-  else {
-    const result = await suggestKnowledgeItems(admin, live.config, s.workspace.tenantId, {
-      title: row.title as string,
-      text,
-    });
-    if (result === null) note = "This month’s AI budget is used up, so no items were suggested. Your crew can still search the file once you allow it.";
-    else suggestions = result;
-    if (result && result.length === 0) note = "No clear services, prices or answers were found. You can let your crew search the full text instead.";
-  }
+  const { suggestions, note } = await suggestFor(admin, s.workspace.tenantId, row.title as string, text);
 
   const { data, error } = await s.db
     .from("hc_knowledge_files")
@@ -288,4 +283,145 @@ export async function deleteKnowledgeFile(fileId: string): Promise<{ ok: true } 
   const { error } = await s.db.from("hc_knowledge_files").delete().eq("tenant_id", s.workspace.tenantId).eq("id", fileId);
   if (error) return { ok: false, error: "Couldn’t delete the file." };
   return { ok: true };
+}
+
+async function suggestFor(
+  admin: NonNullable<ReturnType<typeof widgetAdminClient>>,
+  tenantId: string,
+  title: string,
+  text: string,
+): Promise<{ suggestions: Suggestion[]; note: string | null }> {
+  const live = readLiveConfig();
+  if (!live.ready)
+    return {
+      suggestions: [],
+      note: "AI suggestions need the OpenAI key on the server. You can still let your crew search this text, or add items yourself.",
+    };
+  const result = await suggestKnowledgeItems(admin, live.config, tenantId, { title, text });
+  if (result === null)
+    return {
+      suggestions: [],
+      note: "This month’s AI budget is used up, so no items were suggested. Your crew can still search the text once you allow it.",
+    };
+  if (result.length === 0)
+    return {
+      suggestions: [],
+      note: "No clear services, prices or answers were found. You can let your crew search the full text instead.",
+    };
+  return { suggestions: result, note: null };
+}
+
+// Reads a public web page as knowledge. PDFs linked directly work too.
+async function readPage(url: string) {
+  const page = await fetchPublicPage(url);
+  if (page.contentType.includes("application/pdf")) {
+    const { text, pages } = await extractFileText(new Uint8Array(page.body), "application/pdf");
+    return { url: page.url, title: new URL(page.url).pathname.split("/").pop() || new URL(page.url).hostname, text, pages };
+  }
+  if (!/text\/html|application\/xhtml|text\/plain/.test(page.contentType))
+    throw new PageFetchError("That link isn’t a web page or PDF.");
+  const raw = page.body.toString("utf8");
+  const { title, text } = page.contentType.includes("text/plain") ? { title: "", text: raw } : htmlToText(raw);
+  if (text.replace(/\s+/g, "").length < 40)
+    throw new PageFetchError("Almost no text was found. The page may need JavaScript to show its content.");
+  return { url: page.url, title: title || new URL(page.url).hostname, text: text.slice(0, MAX_TEXT_CHARS), pages: null };
+}
+
+export async function addKnowledgeLink(input: { url: string }): Promise<
+  | { ok: true; file: KnowledgeFile; suggestions: Suggestion[]; note: string | null }
+  | Failure
+> {
+  const parsed = z.object({ url: z.string().trim().min(4).max(2000) }).strict().safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Enter a web address." };
+  const s = await session(true);
+  if ("error" in s) return { ok: false, error: s.error! };
+  const admin = widgetAdminClient();
+  if (!admin) return { ok: false, error: "This server isn’t fully configured." };
+  const limited = rateLimit(`knowledge-link:${s.workspace.tenantId}`, 10, 60_000);
+  if (!limited.ok) return { ok: false, error: "Too many links at once. Wait a minute." };
+
+  let page;
+  try {
+    page = await readPage(parsed.data.url);
+  } catch (error) {
+    return { ok: false, error: error instanceof PageFetchError || error instanceof UnreadableFileError ? error.message : "That page couldn’t be read." };
+  }
+  const fileId = crypto.randomUUID();
+  const { error } = await s.db.from("hc_knowledge_files").insert({
+    tenant_id: s.workspace.tenantId,
+    id: fileId,
+    kind: "url",
+    title: page.title.slice(0, 180),
+    source_url: page.url.slice(0, 2000),
+    status: "reading",
+    text_content: page.text,
+    page_count: page.pages,
+    created_by: s.workspace.userId,
+  });
+  if (error) return { ok: false, error: "Couldn’t save the page." };
+  try {
+    await replaceChunks(s.db, s.workspace, fileId, page.text);
+  } catch {
+    return { ok: false, error: "Couldn’t index the page." };
+  }
+  const { suggestions, note } = await suggestFor(admin, s.workspace.tenantId, page.title, page.text);
+  const { data } = await s.db
+    .from("hc_knowledge_files")
+    .update({ status: "review", suggested_count: suggestions.length })
+    .eq("tenant_id", s.workspace.tenantId)
+    .eq("id", fileId)
+    .select(columns)
+    .single();
+  if (!data) return { ok: false, error: "Couldn’t save the page." };
+  return { ok: true, file: toFile(data), suggestions, note };
+}
+
+// Re-reads a saved link. Returns fresh suggestions only when the page changed.
+export async function refreshKnowledgeLink(fileId: string): Promise<
+  | { ok: true; file: KnowledgeFile; changed: boolean; suggestions: Suggestion[]; note: string | null }
+  | Failure
+> {
+  if (!idSchema.safeParse(fileId).success) return { ok: false, error: "Unknown link." };
+  const s = await session(true);
+  if ("error" in s) return { ok: false, error: s.error! };
+  const admin = widgetAdminClient();
+  if (!admin) return { ok: false, error: "This server isn’t fully configured." };
+  const row = await loadRow(s.db, s.workspace, fileId);
+  if (!row || row.kind !== "url" || !row.source_url) return { ok: false, error: "That link no longer exists." };
+  const limited = rateLimit(`knowledge-link:${s.workspace.tenantId}`, 10, 60_000);
+  if (!limited.ok) return { ok: false, error: "Too many refreshes at once. Wait a minute." };
+
+  let page;
+  try {
+    page = await readPage(row.source_url as string);
+  } catch (error) {
+    return { ok: false, error: error instanceof PageFetchError || error instanceof UnreadableFileError ? error.message : "That page couldn’t be read." };
+  }
+  const changed = page.text.trim() !== String(row.text_content ?? "").trim();
+  if (!changed) {
+    // Touch the row so "last checked" moves on.
+    const { data } = await s.db
+      .from("hc_knowledge_files")
+      .update({ error: null })
+      .eq("tenant_id", s.workspace.tenantId)
+      .eq("id", fileId)
+      .select(columns)
+      .single();
+    return { ok: true, file: toFile(data ?? row), changed: false, suggestions: [], note: null };
+  }
+  try {
+    await replaceChunks(s.db, s.workspace, fileId, page.text);
+  } catch {
+    return { ok: false, error: "Couldn’t index the page." };
+  }
+  const { suggestions, note } = await suggestFor(admin, s.workspace.tenantId, row.title as string, page.text);
+  const { data } = await s.db
+    .from("hc_knowledge_files")
+    .update({ status: "review", text_content: page.text, page_count: page.pages, suggested_count: suggestions.length, error: null })
+    .eq("tenant_id", s.workspace.tenantId)
+    .eq("id", fileId)
+    .select(columns)
+    .single();
+  if (!data) return { ok: false, error: "Couldn’t save the page." };
+  return { ok: true, file: toFile(data), changed: true, suggestions, note };
 }
