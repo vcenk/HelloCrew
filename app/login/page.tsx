@@ -11,6 +11,8 @@ import { signInWithGoogle } from "./actions";
 const errorMessages: Record<string, string> = {
   missing_code: "Google did not return a sign-in code. Please try again.",
   callback_failed: "We could not finish that sign-in. Please try again.",
+  provider_failed:
+    "Google sign-in failed on our side. Please try again in a minute; if it keeps happening, the Google settings need checking.",
   oauth_start_failed: "Google sign-in could not start. Please try again.",
 };
 

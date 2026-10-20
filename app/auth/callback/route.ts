@@ -15,6 +15,20 @@ export async function GET(request: Request) {
   );
   cookieStore.delete(AUTH_NEXT_COOKIE);
 
+  // Supabase sends ?error=… when the provider step fails (for example a wrong
+  // client secret in the Google provider settings).
+  const providerError = requestUrl.searchParams.get("error");
+  if (!code && providerError) {
+    console.error(
+      "[auth] provider error:",
+      providerError,
+      requestUrl.searchParams.get("error_description")?.slice(0, 300) ?? "",
+    );
+    return NextResponse.redirect(
+      new URL("/login?error=provider_failed", requestUrl),
+    );
+  }
+
   if (!code) {
     return NextResponse.redirect(
       new URL("/login?error=missing_code", requestUrl),
