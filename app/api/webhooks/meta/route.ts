@@ -29,14 +29,17 @@ export async function POST(request: Request) {
   if (!config || !admin) return new Response("Not configured", { status: 503 });
   const raw = await request.text();
   if (raw.length > MAX_BYTES) return new Response("Too large", { status: 413 });
-  if (!verifyMetaSignature(raw, request.headers.get("x-hub-signature-256"), config.appSecret))
+  if (!verifyMetaSignature(raw, request.headers.get("x-hub-signature-256"), config.appSecret)) {
+    console.warn("[meta] webhook rejected: signature does not match META_APP_SECRET");
     return new Response("Bad signature", { status: 401 });
+  }
   let events;
   try {
     events = parseMetaWebhook(JSON.parse(raw));
   } catch {
     return new Response("Bad payload", { status: 400 });
   }
+  console.info(`[meta] webhook received: ${events.length} event(s)`);
   if (events.length)
     after(async () => {
       for (const event of events.slice(0, 50)) await handleMetaEvent(admin, config, event);

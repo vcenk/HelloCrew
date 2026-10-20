@@ -7,7 +7,15 @@ import { getWorkspaceContext } from "@/lib/data/workspace";
 import { ConnectionTakenError, getConnection, saveConnection } from "@/lib/server/connections";
 import { tokenFor, type MetaCredentials } from "@/lib/server/inbound";
 import { googleConfigured, postGoogleReply, type GoogleCredentials } from "@/lib/server/google";
-import { checkWhatsAppNumber, MetaApiError, postPublicReply, readMetaConfig, sendDirectMessage } from "@/lib/server/meta";
+import {
+  checkWhatsAppNumber,
+  MetaApiError,
+  postPublicReply,
+  readMetaConfig,
+  sendDirectMessage,
+  subscribeWhatsAppAccount,
+  whatsAppAccountsFor,
+} from "@/lib/server/meta";
 import { secretsConfigured } from "@/lib/server/secrets";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -106,8 +114,14 @@ export async function connectWhatsAppTest(input: z.input<typeof whatsappSchema>)
   const s = await session(true);
   if (!s) return { ok: false, error: "Only owners and operators can connect accounts." };
   let number;
+  let accounts: string[] = [];
   try {
     number = await checkWhatsAppNumber(config, parsed.data.phoneNumberId, parsed.data.accessToken);
+    // Without this subscription Meta never sends incoming messages to HelloCrew.
+    accounts = await whatsAppAccountsFor(config, parsed.data.accessToken);
+    if (!accounts.length)
+      return { ok: false, error: "This token has no WhatsApp account. Give it whatsapp_business_management for your WhatsApp account." };
+    for (const account of accounts) await subscribeWhatsAppAccount(config, account, parsed.data.accessToken);
   } catch (error) {
     return { ok: false, error: error instanceof MetaApiError ? `Meta said: ${error.message}` : "Couldn’t reach Meta." };
   }
@@ -119,6 +133,7 @@ export async function connectWhatsAppTest(input: z.input<typeof whatsappSchema>)
       externalId: parsed.data.phoneNumberId,
       displayName: `WhatsApp ${number.display_phone_number ?? parsed.data.phoneNumberId}${number.verified_name ? ` · ${number.verified_name}` : ""}`,
       credentials: { token: parsed.data.accessToken },
+      settings: { whatsappAccounts: accounts },
       createdBy: s.workspace.userId,
     });
   } catch (error) {
