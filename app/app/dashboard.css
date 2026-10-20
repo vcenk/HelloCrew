@@ -2324,6 +2324,11 @@ a.crew-tile:hover {
   gap: 20px;
   align-items: start;
 }
+.agent-main {
+  /* Grid items default to min-width:auto, which let wide cards slide under
+     the try panel. */
+  min-width: 0;
+}
 .agent-try {
   position: sticky;
   top: 84px;
