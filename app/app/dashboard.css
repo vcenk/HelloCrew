@@ -1771,6 +1771,12 @@ button.bubble-assistant:hover {
 .dash .field {
   display: grid;
   gap: 6px;
+  min-width: 0;
+}
+/* A long unbroken line (the install snippet) must scroll inside its box,
+   not stretch the grid track and push the card under the try panel. */
+.dash .field > * {
+  min-width: 0;
 }
 .dash .field label {
   color: var(--d-ink);
@@ -2751,6 +2757,7 @@ a.crew-tile:hover {
   height: 26px;
 }
 .snippet {
+  min-width: 0;
   display: flex;
   gap: 8px;
   align-items: center;
