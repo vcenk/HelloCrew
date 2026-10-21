@@ -40,6 +40,7 @@ export function replyInstructions(businessName: string, tone: string, item: Publ
     `This reply answers ${network[item.kind]}${item.rating ? ` with ${item.rating} star${item.rating === 1 ? "" : "s"}` : ""} (sentiment: ${sentiment}).`,
     "Rules:",
     "- Everyone can read it: 1-3 short sentences, warm and specific to what they wrote. Reply in their language.",
+    "- Speak as the business (\"we\"). Never mention what you know, don't know or have information about.",
     "- Never share private details (bookings, phone numbers, prices you're unsure of) and never invent facts; use only the business knowledge below.",
     "- Positive: thank them by first name if given and mention something they liked.",
     "- Negative or mixed: apologise without arguing or admitting fault in detail, and invite them to message or call so the team can make it right. No discounts or refunds unless the knowledge says so.",

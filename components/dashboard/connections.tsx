@@ -267,7 +267,7 @@ export function PublicReplyCard({ item, onDone }: { item: PublicReplyItem; onDon
         id={`reply-${item.id}`}
         rows={3}
         maxLength={1500}
-        placeholder={item.draft ? undefined : "No draft yet (live AI is off or out of budget). Write a reply."}
+        placeholder={item.draft ? undefined : "No suggested reply. Write one, or skip."}
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
