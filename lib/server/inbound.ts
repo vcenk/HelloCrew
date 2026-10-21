@@ -120,11 +120,10 @@ async function handlePublic(admin: SupabaseClient, event: Extract<MetaInbound, {
     body: event.text,
     positive: event.positive,
   });
-  await admin
-    .from("hc_public_replies")
-    .update(skip ? { status: "skipped" } : draft ? { status: "drafted", draft } : {})
-    .eq("tenant_id", tenantId)
-    .eq("id", id);
+  // A SKIP from the model is only a suggestion: the item stays visible (without
+  // a draft) so the owner decides. Nothing disappears silently.
+  if (draft)
+    await admin.from("hc_public_replies").update({ status: "drafted", draft }).eq("tenant_id", tenantId).eq("id", id);
   if (!skip)
     await notifyOwner(admin, tenantId, {
       kind: "public_reply",

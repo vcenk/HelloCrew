@@ -49,11 +49,12 @@ export async function syncGoogleLocation(admin: SupabaseClient, connection: Conn
       body: review.comment,
       rating: review.rating,
     });
-    await admin
-      .from("hc_public_replies")
-      .update(skip ? { status: "skipped" } : draft ? { status: "drafted", draft } : {})
-      .eq("tenant_id", connection.tenantId)
-      .eq("id", id);
+    if (draft)
+      await admin
+        .from("hc_public_replies")
+        .update({ status: "drafted", draft })
+        .eq("tenant_id", connection.tenantId)
+        .eq("id", id);
     if (!skip)
       await notifyOwner(admin, connection.tenantId, {
         kind: "public_reply",
