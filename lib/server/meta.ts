@@ -13,6 +13,9 @@ export type MetaConfig = {
   // Permissions to leave out of the login request, e.g. one Meta hasn't
   // let you add to the app yet (META_SKIP_SCOPES=instagram_manage_comments).
   skipScopes?: string[];
+  // Facebook Login for Business configuration of type "WhatsApp Embedded
+  // Signup" (not secret). Without it the one-click WhatsApp button is hidden.
+  whatsappConfigId?: string;
 };
 
 export function readMetaConfig(env: Record<string, string | undefined> = process.env): MetaConfig | null {
@@ -24,7 +27,15 @@ export function readMetaConfig(env: Record<string, string | undefined> = process
     .split(",")
     .map((scope) => scope.trim())
     .filter(Boolean);
-  return { appId, appSecret, verifyToken, version: env.META_GRAPH_VERSION?.trim() || "v25.0", skipScopes };
+  const whatsappConfigId = env.META_WHATSAPP_CONFIG_ID?.trim();
+  return {
+    appId,
+    appSecret,
+    verifyToken,
+    version: env.META_GRAPH_VERSION?.trim() || "v25.0",
+    skipScopes,
+    ...(whatsappConfigId && /^\d{5,30}$/.test(whatsappConfigId) ? { whatsappConfigId } : {}),
+  };
 }
 
 export const META_SCOPES = [
@@ -160,6 +171,33 @@ export async function whatsAppTokenInfo(config: MetaConfig, token: string) {
     scopes: data.data?.scopes ?? [],
     accounts: [...accounts].filter((id) => /^\d{5,30}$/.test(id)),
   };
+}
+
+// Embedded Signup returns a short-lived code (about 30 seconds); exchange it
+// server-side for the business's own token.
+export async function exchangeEmbeddedSignupCode(config: MetaConfig, code: string) {
+  const data = await graph<{ access_token?: string }>(config, "oauth/access_token", {
+    query: { client_id: config.appId, client_secret: config.appSecret, code },
+  });
+  if (!data.access_token) throw new MetaApiError("Meta didn’t return an access token.");
+  return data.access_token;
+}
+
+// New numbers must be registered for the Cloud API with a 6-digit two-step
+// verification PIN. Already-registered numbers report an error we can ignore.
+export async function registerWhatsAppNumber(config: MetaConfig, phoneNumberId: string, token: string, pin: string) {
+  try {
+    await graph(config, `${phoneNumberId}/register`, {
+      method: "POST",
+      token,
+      body: { messaging_product: "whatsapp", pin },
+    });
+    return { registered: true as const };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Registration failed.";
+    if (/already registered|already been registered/i.test(message)) return { registered: true as const };
+    return { registered: false as const, error: message };
+  }
 }
 
 export async function subscribeWhatsAppAccount(config: MetaConfig, accountId: string, token: string) {

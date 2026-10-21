@@ -176,3 +176,12 @@ describe("auto-posting public replies", () => {
     expect(parseDraft("Thanks!").tone).toBe("negative");
   });
 });
+
+describe("WhatsApp one-click signup", () => {
+  it("only offers it when a numeric configuration id is set", () => {
+    const base = { META_APP_ID: "1", META_APP_SECRET: "s", META_WEBHOOK_VERIFY_TOKEN: "v" };
+    expect(readMetaConfig(base)?.whatsappConfigId).toBeUndefined();
+    expect(readMetaConfig({ ...base, META_WHATSAPP_CONFIG_ID: "abc" })?.whatsappConfigId).toBeUndefined();
+    expect(readMetaConfig({ ...base, META_WHATSAPP_CONFIG_ID: " 1234567890 " })?.whatsappConfigId).toBe("1234567890");
+  });
+});

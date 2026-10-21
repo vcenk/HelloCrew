@@ -31,7 +31,21 @@ Add the same values to `.env.local` to try locally. Redeploy after changing them
    (Admin/Developer/Tester) can connect and message it. That is enough to test
    with your own Page and Instagram account.
 
-### WhatsApp test number
+### One-click WhatsApp (Embedded Signup v4)
+1. Meta app → **Facebook Login for Business → Configurations → Create configuration**:
+   login variation **WhatsApp Embedded Signup**, product **WhatsApp Cloud API**, assets **WhatsApp accounts**,
+   permissions **whatsapp_business_management** and **whatsapp_business_messaging**.
+2. Copy the **Configuration ID** → Vercel `META_WHATSAPP_CONFIG_ID` → redeploy.
+3. Facebook Login for Business → Settings: **Login with the JavaScript SDK = Yes**,
+   **Allowed domains for the JavaScript SDK** = `https://agentland.app`.
+4. Webhooks → WhatsApp Business Account: also subscribe **account_update**.
+5. HelloCrew → **Connections → WhatsApp → Connect** opens Meta's popup. The business picks or creates its
+   WhatsApp account, adds and verifies its number; HelloCrew exchanges the code, subscribes to messages and
+   registers the number. The business must add a payment method in WhatsApp Manager.
+   Until Meta approves HelloCrew as a Tech Provider (App Review + business verification), only people with a
+   role on the Meta app can complete it.
+
+### WhatsApp test number (developer option)
 WhatsApp → API Setup gives a free test number. Copy the **Phone number ID**
 and a **System user access token** (Business settings → System users →
 generate token with `whatsapp_business_messaging`, `whatsapp_business_management`).

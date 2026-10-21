@@ -1,5 +1,7 @@
 "use server";
 
+import { randomInt } from "node:crypto";
+
 import { z } from "zod";
 
 import { appendMessages } from "@/lib/data/conversations";
@@ -9,7 +11,9 @@ import { googleConfigured } from "@/lib/server/google";
 import {
   checkWhatsAppNumber,
   MetaApiError,
+  exchangeEmbeddedSignupCode,
   readMetaConfig,
+  registerWhatsAppNumber,
   subscribeWhatsAppAccount,
   whatsAppTokenInfo,
 } from "@/lib/server/meta";
@@ -55,10 +59,14 @@ async function session(write: boolean) {
 }
 
 export async function channelSetupStatus() {
+  const meta = readMetaConfig();
   return {
-    meta: Boolean(readMetaConfig()),
+    meta: Boolean(meta),
     google: googleConfigured(),
     secrets: secretsConfigured(),
+    // Public values the browser needs to open Meta's WhatsApp signup popup.
+    whatsappSignup:
+      meta?.whatsappConfigId ? { appId: meta.appId, configId: meta.whatsappConfigId, version: meta.version } : null,
   };
 }
 
@@ -152,6 +160,55 @@ export async function connectWhatsAppTest(input: z.input<typeof whatsappSchema>)
     return { ok: false, error: error instanceof ConnectionTakenError ? error.message : "Couldn’t save the connection." };
   }
   return { ok: true };
+}
+
+// One-click WhatsApp (Meta Embedded Signup): the browser gets a code plus the
+// chosen number and WhatsApp account; the server does the rest.
+const embeddedSchema = z
+  .object({
+    code: z.string().trim().min(10).max(2000),
+    phoneNumberId: z.string().trim().regex(/^\d{5,30}$/),
+    wabaId: z.string().trim().regex(/^\d{5,30}$/),
+  })
+  .strict();
+
+export async function connectWhatsAppEmbedded(input: z.input<typeof embeddedSchema>): Promise<{ ok: true; warning?: string } | Failure> {
+  const parsed = embeddedSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "WhatsApp signup didn’t return a number. Try again." };
+  const config = readMetaConfig();
+  const admin = widgetAdminClient();
+  if (!config || !admin || !secretsConfigured()) return { ok: false, error: "Meta isn’t set up on the server yet." };
+  const s = await session(true);
+  if (!s) return { ok: false, error: "Only owners and operators can connect accounts." };
+  const { code, phoneNumberId, wabaId } = parsed.data;
+  let token: string;
+  let number;
+  let warning: string | undefined;
+  const pin = String(randomInt(100000, 1000000));
+  try {
+    token = await exchangeEmbeddedSignupCode(config, code);
+    await subscribeWhatsAppAccount(config, wabaId, token);
+    const registration = await registerWhatsAppNumber(config, phoneNumberId, token, pin);
+    if (!registration.registered) warning = `Connected, but Meta didn’t register the number yet: ${registration.error}`;
+    number = await checkWhatsAppNumber(config, phoneNumberId, token);
+  } catch (error) {
+    return { ok: false, error: error instanceof MetaApiError ? `Meta said: ${error.message}` : "Couldn’t reach Meta." };
+  }
+  try {
+    await saveConnection(admin, {
+      tenantId: s.workspace.tenantId,
+      provider: "meta",
+      kind: "whatsapp",
+      externalId: phoneNumberId,
+      displayName: `WhatsApp ${number.display_phone_number ?? phoneNumberId}${number.verified_name ? ` · ${number.verified_name}` : ""}`,
+      credentials: { token, pin },
+      settings: { whatsappAccounts: [wabaId], onboarding: "embedded_signup" },
+      createdBy: s.workspace.userId,
+    });
+  } catch (error) {
+    return { ok: false, error: error instanceof ConnectionTakenError ? error.message : "Couldn’t save the connection." };
+  }
+  return warning ? { ok: true, warning } : { ok: true };
 }
 
 export async function listPublicReplies(): Promise<{ ok: true; items: PublicReplyItem[] } | Failure> {

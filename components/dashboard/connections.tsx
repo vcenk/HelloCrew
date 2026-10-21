@@ -32,6 +32,7 @@ import { postingModeHelp, postingModeLabel, postingModeOf, postingModes, setPost
 import { useDashboard } from "./provider";
 import { Button, ButtonLink, EmptyState, PageHeader, Panel, Pill } from "./ui";
 import { WebsiteChatSetup } from "./website-chat";
+import { WhatsAppSignupButton } from "./whatsapp-signup";
 
 const kindLabel: Record<ChannelConnection["kind"], string> = {
   facebook_page: "Facebook Page",
@@ -65,7 +66,7 @@ export function useConnections() {
   const params = useSearchParams();
   const router = useRouter();
   const [connections, setConnections] = useState<ChannelConnection[] | null>(null);
-  const [setup, setSetup] = useState<{ meta: boolean; google: boolean; secrets: boolean } | null>(null);
+  const [setup, setSetup] = useState<Awaited<ReturnType<typeof channelSetupStatus>> | null>(null);
   const signedIn = account.status === "signed_in";
 
   const refresh = useCallback(async () => {
@@ -257,14 +258,23 @@ export function ConnectionsView() {
                   <small className="connector-used">Used by: {connector.usedBy}</small>
                 </span>
                 {connector.id === "whatsapp" ? (
-                  <Button
-                    size="sm"
-                    variant={accounts.length ? "secondary" : "primary"}
-                    disabled={!available}
-                    onClick={() => setOpen(open === "whatsapp" ? null : "whatsapp")}
-                  >
-                    {accounts.length ? "Add number" : "Connect"}
-                  </Button>
+                  state.setup?.whatsappSignup && available ? (
+                    <WhatsAppSignupButton
+                      config={state.setup.whatsappSignup}
+                      label={accounts.length ? "Add number" : "Connect"}
+                      variant={accounts.length ? "secondary" : "primary"}
+                      onConnected={() => void state.refresh()}
+                    />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant={accounts.length ? "secondary" : "primary"}
+                      disabled={!available}
+                      onClick={() => setOpen(open === "whatsapp" ? null : "whatsapp")}
+                    >
+                      {accounts.length ? "Add number" : "Connect"}
+                    </Button>
+                  )
                 ) : (
                   <a
                     className={`ui-btn ui-btn-${accounts.length ? "secondary" : "primary"} ui-btn-sm${available ? "" : " is-disabled"}`}
@@ -281,6 +291,11 @@ export function ConnectionsView() {
                     <ConnectionRow key={c.id} connection={c} onDisconnect={() => void state.disconnect(c)} />
                   ))}
                 </ul>
+              )}
+              {connector.id === "whatsapp" && state.setup?.whatsappSignup && available && open !== "whatsapp" && (
+                <button type="button" className="connector-alt" onClick={() => setOpen("whatsapp")}>
+                  Developer option: connect with a phone number ID and token
+                </button>
               )}
               {connector.id === "whatsapp" && open === "whatsapp" && (
                 <WhatsAppForm

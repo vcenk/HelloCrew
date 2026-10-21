@@ -37,7 +37,8 @@ Code is built (see `CHANNELS_SETUP.md`). Testable now on your own accounts with 
 - [x] WhatsApp via a pasted test/own number ID and token.
 - [x] Google reviews connector (OAuth, location picker, 30-minute sync, reply posting).
 - [ ] **Meta App Review + Business verification** for the permissions listed in `CHANNELS_SETUP.md`, so real salons can connect.
-- [ ] **WhatsApp Embedded Signup** (Tech Provider) so salons connect their own numbers in one click; replace the paste form.
+- [x] **WhatsApp Embedded Signup v4** button built (needs `META_WHATSAPP_CONFIG_ID`).
+- [ ] **Tech Provider onboarding + App Review** for whatsapp_business_management / whatsapp_business_messaging, so any salon can use it.
 - [ ] WhatsApp message templates for replies after the 24-hour window.
 - [ ] **Google Business Profile API access** — applied 2026-10-18 as AgentLand (agentland.app), Cloud project 254950461858, support case 9-9447000041906, review 7–10 business days. Then: approval (needs a domain email and live website; ~14 days) + OAuth verification for `business.manage`.
 - [ ] Media messages (images, voice notes) — currently text only.

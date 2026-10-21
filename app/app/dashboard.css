@@ -3285,8 +3285,23 @@ a.crew-tile:hover {
 }
 .connector > .connection-list,
 .connector > .whatsapp-form,
-.connector > .today-note {
+.connector > .today-note,
+.connector > .connector-alt {
   margin-left: 52px;
+}
+.connector-alt {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--d-ink-3);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.connector-alt:hover {
+  color: var(--d-ink);
 }
 @media (max-width: 640px) {
   .connector-head {
@@ -3298,7 +3313,8 @@ a.crew-tile:hover {
   }
   .connector > .connection-list,
   .connector > .whatsapp-form,
-  .connector > .today-note {
+  .connector > .today-note,
+  .connector > .connector-alt {
     margin-left: 0;
   }
 }
