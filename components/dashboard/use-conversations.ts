@@ -480,10 +480,13 @@ export function useConversations(deps: {
         const follow = result.message ? [fromStored(result.message, [])] : [];
         return { ...c, messages: [...messages, ...follow] };
       });
-      toast(
-        result.message ? (value === "approve" ? "Booking approved" : "Booking declined") : "Already decided",
-        value === "approve" ? "success" : "info",
-      );
+      if (result.deliveryError)
+        toast(`Saved, but the customer didn’t get it: ${result.deliveryError}`, "error");
+      else
+        toast(
+          result.message ? (value === "approve" ? "Booking approved" : "Booking declined") : "Already decided",
+          value === "approve" ? "success" : "info",
+        );
       void refreshThreads();
     },
     [refreshThreads, toast],

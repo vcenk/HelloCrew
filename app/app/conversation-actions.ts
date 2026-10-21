@@ -22,6 +22,8 @@ import {
   setThreadState,
 } from "@/lib/data/conversations";
 import { getWorkspaceContext, type WorkspaceContext } from "@/lib/data/workspace";
+import { deliverToCustomer } from "@/lib/server/deliver";
+import { widgetAdminClient } from "@/lib/server/widget-installations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -148,10 +150,10 @@ const decisionSchema = z
 export async function decideApproval(input: {
   approvalId: string;
   decision: "approved" | "rejected";
-}): Promise<Result<{ message: StoredMessage | null }>> {
+}): Promise<Result<{ message: StoredMessage | null; deliveryError?: string }>> {
   const parsed = decisionSchema.safeParse(input);
   if (!parsed.success) return failure("invalid", "Unknown approval.");
-  return run(true, async (db) => {
+  return run(true, async (db, ws) => {
     const { approvalId, decision } = parsed.data;
     const { data, error } = await db.rpc("hc_decide_approval", {
       p_approval_id: approvalId,
@@ -161,8 +163,22 @@ export async function decideApproval(input: {
     if (error) return failure(error.code === "P0002" ? "not_found" : "error", "That approval couldn’t be updated.");
     if (!data) return { ok: true, message: null }; // already decided or expired
     const row = data as { id: string; body: string; createdAt: string };
+    // The customer may be on Messenger, Instagram or WhatsApp: send them the outcome.
+    let deliveryError: string | undefined;
+    const { data: approval } = await db
+      .from("hc_approvals")
+      .select("conversation_id")
+      .eq("tenant_id", ws.tenantId)
+      .eq("id", approvalId)
+      .maybeSingle();
+    const admin = widgetAdminClient();
+    if (approval && admin) {
+      const result = await deliverToCustomer(admin, ws.tenantId, approval.conversation_id as string, row.body);
+      if (result.delivered === false) deliveryError = result.reason;
+    }
     return {
       ok: true,
+      ...(deliveryError ? { deliveryError } : {}),
       message: {
         id: row.id,
         role: "assistant",

@@ -165,7 +165,9 @@ export function ChatThread({
             {compact
               ? `Try ${identity.name}`
               : website
-                ? "Website visitor"
+                ? conversation.channel === "website"
+                  ? "Website visitor"
+                  : `${channelLabel[conversation.channel]} customer`
                 : identity.name}
           </strong>
           <small>

@@ -12,11 +12,11 @@ import {
   MetaApiError,
   postPublicReply,
   readMetaConfig,
-  sendDirectMessage,
   subscribeWhatsAppAccount,
   whatsAppTokenInfo,
 } from "@/lib/server/meta";
 import { secretsConfigured } from "@/lib/server/secrets";
+import { deliverToCustomer } from "@/lib/server/deliver";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -239,8 +239,6 @@ export async function decidePublicReply(input: z.input<typeof decideSchema>): Pr
   return { ok: true };
 }
 
-const DAY_MS = 24 * 3600 * 1000;
-
 // The owner's reply in a Messenger, Instagram or WhatsApp conversation is
 // delivered to the customer, then saved. Platforms only allow free-form
 // replies within 24 hours of the customer's last message.
@@ -255,42 +253,17 @@ export async function replyOnChannel(input: { conversationId: string; messageId:
   const s = await session(true);
   if (!s) return { ok: false, error: "Only owners and operators can reply." };
   const admin = widgetAdminClient();
-  const config = readMetaConfig();
-  if (!admin || !config) return { ok: false, error: "Meta isn’t set up on the server." };
+  if (!admin) return { ok: false, error: "This server isn’t fully configured." };
   const { data: conversation } = await s.db
     .from("hc_conversations")
-    .select("id, channel, connection_id, external_thread_id")
+    .select("id")
     .eq("tenant_id", s.workspace.tenantId)
     .eq("id", parsed.data.conversationId)
     .maybeSingle();
-  if (!conversation || !["messenger", "instagram", "whatsapp"].includes(conversation.channel as string))
-    return { ok: false, error: "This isn’t a messaging conversation." };
-  const { data: last } = await s.db
-    .from("hc_messages")
-    .select("created_at")
-    .eq("tenant_id", s.workspace.tenantId)
-    .eq("conversation_id", conversation.id as string)
-    .eq("role", "customer")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!last || Date.now() - Date.parse(last.created_at as string) > DAY_MS)
-    return { ok: false, error: "More than 24 hours since the customer’s last message. They need to write first." };
-  const connection = conversation.connection_id
-    ? await getConnection<MetaCredentials>(admin, s.workspace.tenantId, conversation.connection_id as string)
-    : null;
-  const token = tokenFor(connection?.credentials ?? null);
-  if (!connection || !token) return { ok: false, error: "This account is disconnected. Reconnect it first." };
-  try {
-    await sendDirectMessage(
-      config,
-      conversation.channel as "messenger",
-      { externalId: connection.externalId, token, recipient: conversation.external_thread_id as string },
-      parsed.data.text,
-    );
-  } catch (error) {
-    return { ok: false, error: `Couldn’t send: ${error instanceof Error ? error.message : "unknown error"}` };
-  }
+  if (!conversation) return { ok: false, error: "Unknown conversation." };
+  const result = await deliverToCustomer(admin, s.workspace.tenantId, conversation.id as string, parsed.data.text);
+  if (result.delivered === null) return { ok: false, error: "This isn’t a messaging conversation." };
+  if (!result.delivered) return { ok: false, error: `Couldn’t send: ${result.reason}` };
   await appendMessages(s.db, s.workspace, conversation.id as string, [
     { id: parsed.data.messageId, role: "owner", text: parsed.data.text, engine: "human" },
   ]);
