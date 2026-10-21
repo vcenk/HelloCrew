@@ -60,6 +60,20 @@ export const crewJobs = [
   { job: "phone", title: "Phone receptionist", channels: "Phone calls", available: false, href: null },
 ] as const;
 
+// When the Reputation manager may post a public reply without the owner.
+export const postingModes = ["ask", "positive", "auto"] as const;
+export type PostingMode = (typeof postingModes)[number];
+export const postingModeLabel: Record<PostingMode, string> = {
+  ask: "Ask me first",
+  positive: "Positive on its own",
+  auto: "Always on its own",
+};
+export const postingModeHelp: Record<PostingMode, string> = {
+  ask: "Every reply waits for your OK.",
+  positive: "Thank-yous and simple questions post on their own. Complaints and reviews under 4 stars wait for you.",
+  auto: "Every reply posts on its own. You can still see and delete them on the platform.",
+};
+
 const skillsSchema = z
   .object({
     answer: z.enum(skillModes),
@@ -78,7 +92,11 @@ const memberSchema = z
   .strict();
 
 export const crewStoreSchema = z
-  .object({ formatVersion: z.literal(1), members: z.array(memberSchema).min(1).max(1) })
+  .object({
+    formatVersion: z.literal(1),
+    members: z.array(memberSchema).min(1).max(1),
+    reputation: z.object({ posting: z.enum(postingModes) }).strict().optional(),
+  })
   .strict();
 
 export type CrewStore = z.infer<typeof crewStoreSchema>;
@@ -103,7 +121,34 @@ export function parseCrewStore(input: unknown): CrewStore {
   const skills = { ...member.skills };
   for (const skill of receptionistSkills)
     if (!skill.allowed.includes(skills[skill.id])) skills[skill.id] = skill.defaultMode;
-  return { formatVersion: 1, members: [{ ...member, skills }] };
+  return {
+    formatVersion: 1,
+    members: [{ ...member, skills }],
+    reputation: { posting: parsed.data.reputation?.posting ?? "ask" },
+  };
+}
+
+export function postingModeOf(store: CrewStore): PostingMode {
+  return store.reputation?.posting ?? "ask";
+}
+
+export function setPostingMode(store: CrewStore, posting: PostingMode): CrewStore {
+  return { ...store, reputation: { posting } };
+}
+
+// Decides whether a drafted public reply may go out without the owner.
+// "positive" needs a clearly positive or neutral item: 4+ stars for reviews,
+// and the drafting model's tone check for comments.
+export function mayAutoPost(
+  mode: PostingMode,
+  item: { rating?: number | null; positive?: boolean; tone: "positive" | "neutral" | "negative" },
+) {
+  if (mode === "auto") return true;
+  if (mode === "ask") return false;
+  if (item.tone === "negative") return false;
+  if (item.rating != null) return item.rating >= 4;
+  if (item.positive === false) return false;
+  return true;
 }
 
 export function setSkillMode(store: CrewStore, skill: SkillId, mode: SkillMode): CrewStore {

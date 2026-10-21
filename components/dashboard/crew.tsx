@@ -25,6 +25,8 @@ import {
   receptionistSkills,
   setSkillMode,
   type SkillMode,
+  postingModeLabel,
+  postingModeOf,
 } from "@/lib/crew";
 import { WebsiteChatGuide } from "@/components/website-chat-guide";
 import { ChatThread } from "./chat-thread";
@@ -90,7 +92,7 @@ export function CrewView() {
         <div className="agent-card-main">
           <div className="agent-card-title">
             <strong>Reputation manager</strong>
-            <Pill tone="info">Asks you first</Pill>
+            <Pill tone={postingModeOf(crew) === "ask" ? "info" : "success"}>{postingModeLabel[postingModeOf(crew)]}</Pill>
           </div>
           <small>Public replies</small>
           <p>{jobBlurb.reviews}</p>

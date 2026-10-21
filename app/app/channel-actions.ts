@@ -4,19 +4,18 @@ import { z } from "zod";
 
 import { appendMessages } from "@/lib/data/conversations";
 import { getWorkspaceContext } from "@/lib/data/workspace";
-import { ConnectionTakenError, getConnection, saveConnection } from "@/lib/server/connections";
-import { tokenFor, type MetaCredentials } from "@/lib/server/inbound";
-import { googleConfigured, postGoogleReply, type GoogleCredentials } from "@/lib/server/google";
+import { ConnectionTakenError, saveConnection } from "@/lib/server/connections";
+import { googleConfigured } from "@/lib/server/google";
 import {
   checkWhatsAppNumber,
   MetaApiError,
-  postPublicReply,
   readMetaConfig,
   subscribeWhatsAppAccount,
   whatsAppTokenInfo,
 } from "@/lib/server/meta";
 import { secretsConfigured } from "@/lib/server/secrets";
 import { deliverToCustomer } from "@/lib/server/deliver";
+import { postReply } from "@/lib/server/public-replies";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -207,36 +206,29 @@ export async function decidePublicReply(input: z.input<typeof decideSchema>): Pr
     .maybeSingle();
   if (!item || item.status === "posted" || item.status === "skipped") return { ok: false, error: "This item was already handled." };
 
-  const finish = (patch: Record<string, unknown>) =>
-    admin
+  if (parsed.data.action === "skip") {
+    await admin
       .from("hc_public_replies")
-      .update({ ...patch, decided_by: s.workspace.userId })
+      .update({ status: "skipped", decided_by: s.workspace.userId })
       .eq("tenant_id", s.workspace.tenantId)
       .eq("id", item.id as string);
-
-  if (parsed.data.action === "skip") {
-    await finish({ status: "skipped" });
     return { ok: true };
   }
   const text = parsed.data.text?.trim();
   if (!text) return { ok: false, error: "Write a reply first." };
-  const connection = await getConnection<MetaCredentials & GoogleCredentials>(admin, s.workspace.tenantId, item.connection_id as string);
-  if (!connection?.credentials) return { ok: false, error: "This account is disconnected. Reconnect it first." };
-  try {
-    if (item.kind === "google_review") await postGoogleReply(connection, item.external_id as string, text);
-    else {
-      const config = readMetaConfig();
-      const token = tokenFor(connection.credentials);
-      if (!config || !token) return { ok: false, error: "Meta isn’t set up on the server." };
-      await postPublicReply(config, item.kind as "facebook_comment", item.external_id as string, token, text);
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Posting failed.";
-    await finish({ status: "failed", error: message.slice(0, 300), draft: text });
-    return { ok: false, error: `Couldn’t post: ${message}` };
-  }
-  await finish({ status: "posted", draft: text, error: null, posted_at: new Date().toISOString() });
-  return { ok: true };
+  const result = await postReply(
+    admin,
+    s.workspace.tenantId,
+    {
+      id: item.id as string,
+      connection_id: item.connection_id as string,
+      kind: item.kind as string,
+      external_id: item.external_id as string,
+    },
+    text,
+    s.workspace.userId,
+  );
+  return result.ok ? { ok: true } : { ok: false, error: `Couldn’t post: ${result.error}` };
 }
 
 // The owner's reply in a Messenger, Instagram or WhatsApp conversation is

@@ -8,6 +8,7 @@ import { runCustomerTurn } from "./agent-turn";
 import { findConnection, firstDelivery, markConnectionError, type ConnectionKind } from "./connections";
 import { sendDirectMessage, type MetaConfig, type MetaInbound } from "./meta";
 import { notifyOwner } from "./notify";
+import { saveDraftOrPost } from "./public-replies";
 import { draftPublicReply } from "./reputation";
 
 export type MetaCredentials = { pageToken?: string; token?: string };
@@ -114,7 +115,8 @@ async function handlePublic(admin: SupabaseClient, event: Extract<MetaInbound, {
     .select("id");
   const id = data?.[0]?.id as string | undefined;
   if (!id) return; // already handled
-  const { draft, skip } = await draftPublicReply(admin, tenantId, {
+  const row = { id, connection_id: connection.id, kind: event.kind, external_id: event.externalId };
+  const { draft, skip, tone } = await draftPublicReply(admin, tenantId, {
     kind: event.kind,
     authorName: event.authorName,
     body: event.text,
@@ -122,9 +124,8 @@ async function handlePublic(admin: SupabaseClient, event: Extract<MetaInbound, {
   });
   // A SKIP from the model is only a suggestion: the item stays visible (without
   // a draft) so the owner decides. Nothing disappears silently.
-  if (draft)
-    await admin.from("hc_public_replies").update({ status: "drafted", draft }).eq("tenant_id", tenantId).eq("id", id);
-  if (!skip)
+  const posted = draft ? await saveDraftOrPost(admin, tenantId, row, { text: draft, tone, positive: event.positive }) : false;
+  if (!skip && !posted)
     await notifyOwner(admin, tenantId, {
       kind: "public_reply",
       network: event.kind === "instagram_comment" ? "Instagram" : "Facebook",

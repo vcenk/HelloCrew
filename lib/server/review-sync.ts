@@ -6,6 +6,7 @@ import type { Connection } from "./connections";
 import { markConnectionError } from "./connections";
 import { fetchRecentReviews, type GoogleCredentials } from "./google";
 import { notifyOwner } from "./notify";
+import { saveDraftOrPost } from "./public-replies";
 import { draftPublicReply } from "./reputation";
 
 // Only reviews from the last 30 days are picked up on the first sync, so
@@ -43,19 +44,17 @@ export async function syncGoogleLocation(admin: SupabaseClient, connection: Conn
     const id = data?.[0]?.id as string | undefined;
     if (!id) continue;
     added++;
-    const { draft, skip } = await draftPublicReply(admin, connection.tenantId, {
+    const { draft, skip, tone } = await draftPublicReply(admin, connection.tenantId, {
       kind: "google_review",
       authorName: review.authorName,
       body: review.comment,
       rating: review.rating,
     });
-    if (draft)
-      await admin
-        .from("hc_public_replies")
-        .update({ status: "drafted", draft })
-        .eq("tenant_id", connection.tenantId)
-        .eq("id", id);
-    if (!skip)
+    const row = { id, connection_id: connection.id, kind: "google_review", external_id: review.name };
+    const posted = draft
+      ? await saveDraftOrPost(admin, connection.tenantId, row, { text: draft, tone, rating: review.rating })
+      : false;
+    if (!skip && !posted)
       await notifyOwner(admin, connection.tenantId, {
         kind: "public_reply",
         network: "Google",

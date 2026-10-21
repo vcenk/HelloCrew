@@ -25,6 +25,8 @@ import {
   type ChannelConnection,
   type PublicReplyItem,
 } from "@/app/app/channel-actions";
+import { postingModeHelp, postingModeLabel, postingModeOf, postingModes, setPostingMode } from "@/lib/crew";
+
 import { useDashboard } from "./provider";
 import { Button, EmptyState, PageHeader, Panel, Pill } from "./ui";
 
@@ -284,6 +286,33 @@ export function PublicReplyCard({ item, onDone }: { item: PublicReplyItem; onDon
 }
 
 // Crew → Reputation manager.
+function PostingModePanel() {
+  const { crew, saveCrew, toast } = useDashboard();
+  const mode = postingModeOf(crew);
+  return (
+    <Panel title="When replies are posted">
+      <div className="segmented posting-mode" role="radiogroup" aria-label="When replies are posted">
+        {postingModes.map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={mode === value}
+            onClick={() => {
+              if (mode === value) return;
+              saveCrew(setPostingMode(crew, value));
+              toast(`Replies: ${postingModeLabel[value]}`);
+            }}
+          >
+            {postingModeLabel[value]}
+          </button>
+        ))}
+      </div>
+      <p className="today-note">{postingModeHelp[mode]}</p>
+    </Panel>
+  );
+}
+
 export function ReputationView() {
   const state = useConnections();
   const replies = usePublicReplies();
@@ -294,10 +323,11 @@ export function ReputationView() {
     <div className="reputation">
       <PageHeader
         title="Reputation manager"
-        description="Drafts replies to your Google reviews and Facebook and Instagram comments. Nothing is posted until you approve it."
+        description="Drafts replies to your Google reviews and Facebook and Instagram comments. You choose which ones post on their own."
       />
       <div className="knowledge-grid">
         <div className="knowledge-main">
+          <PostingModePanel />
           <Panel title="Waiting for your OK" actions={replies.items.length ? <Pill tone="attention">{replies.items.length}</Pill> : undefined}>
             {replies.items.length === 0 ? (
               <EmptyState icon={Star} title="Nothing to reply to">

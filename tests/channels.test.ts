@@ -155,3 +155,24 @@ describe("public reply drafting", () => {
     expect(bad).toContain("No discounts or refunds unless the knowledge says so");
   });
 });
+
+describe("auto-posting public replies", () => {
+  it("follows the owner's choice and holds anything negative", async () => {
+    const { mayAutoPost, parseCrewStore, postingModeOf } = await import("../lib/crew");
+    expect(mayAutoPost("ask", { tone: "positive", rating: 5 })).toBe(false);
+    expect(mayAutoPost("auto", { tone: "negative", rating: 1 })).toBe(true);
+    expect(mayAutoPost("positive", { tone: "positive", rating: 5 })).toBe(true);
+    expect(mayAutoPost("positive", { tone: "positive", rating: 3 })).toBe(false);
+    expect(mayAutoPost("positive", { tone: "neutral" })).toBe(true);
+    expect(mayAutoPost("positive", { tone: "negative" })).toBe(false);
+    expect(mayAutoPost("positive", { tone: "neutral", positive: false })).toBe(false);
+    expect(postingModeOf(parseCrewStore(null))).toBe("ask");
+  });
+
+  it("reads the tone line and treats a missing one as negative", async () => {
+    const { parseDraft } = await import("../lib/server/reputation");
+    expect(parseDraft("TONE: positive\nThanks so much, Ayla!")).toEqual({ text: "Thanks so much, Ayla!", tone: "positive" });
+    expect(parseDraft("TONE: neutral\nSKIP")).toEqual({ text: "SKIP", tone: "neutral" });
+    expect(parseDraft("Thanks!").tone).toBe("negative");
+  });
+});

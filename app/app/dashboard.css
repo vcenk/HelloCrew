@@ -3248,6 +3248,9 @@ a.crew-tile:hover {
   border: 1px dashed var(--d-line-strong);
   border-radius: var(--d-r-md);
 }
+.posting-mode {
+  flex-wrap: wrap;
+}
 .public-reply-list {
   display: grid;
   gap: 10px;
