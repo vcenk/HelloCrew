@@ -30,8 +30,7 @@ import {
 } from "@/lib/crew";
 import { WebsiteChatGuide } from "@/components/website-chat-guide";
 import { ChatThread } from "./chat-thread";
-import { MessagingChannelsPanel } from "./connections";
-import { WebsiteChatSetup } from "./website-chat";
+import { WorksOnPanel } from "./connections";
 import { useDashboard } from "./provider";
 import { Button, ButtonLink, PageHeader, Pill } from "./ui";
 
@@ -347,9 +346,8 @@ export function ChannelsTab() {
   const signedIn = account.status === "signed_in";
   return (
     <div className="channels-tab">
-      <MessagingChannelsPanel />
       {signedIn ? (
-        <WebsiteChatSetup />
+        <WorksOnPanel agent="receptionist" />
       ) : (
         <ul className="channel-list">
           <li>

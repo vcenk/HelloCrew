@@ -36,10 +36,10 @@ WhatsApp → API Setup gives a free test number. Copy the **Phone number ID**
 and a **System user access token** (Business settings → System users →
 generate token with `whatsapp_business_messaging`, `whatsapp_business_management`).
 Add your own phone as a test recipient there. In HelloCrew:
-**Crew → Receptionist → Channels → WhatsApp → paste both**.
+**Connections → WhatsApp → Connect → paste both**.
 
 ### Test it
-1. HelloCrew → Crew → Receptionist → Channels → **Connect Facebook & Instagram** → choose your Page.
+1. HelloCrew → **Connections** → Facebook & Instagram → **Connect** → choose your Page.
    (The Instagram account must be a Professional account linked to that Page.)
 2. Message the Page from another account (a tester) → the crew answers; the chat appears in Conversations.
 3. Comment on a Page post or Instagram post → a draft appears in **Reputation manager** for you to approve.
@@ -61,7 +61,7 @@ verification**. WhatsApp for customers' own numbers needs **Embedded Signup**
    `https://agentland.app/api/connect/google/callback`
 4. **Request API access**: Business Profile APIs are off (quota 0) until Google
    approves the project — apply via the "GBP API contact form" (choose *Application for Basic API Access*). Until then HelloCrew shows “Google hasn’t approved…”.
-5. After approval: Reputation manager → **Connect Google** → choose the location.
+5. After approval: **Connections** → Google Business Profile → **Connect** → choose the location.
    New reviews are checked every 30 minutes and drafted for your approval.
 
 Public replies (comments and reviews) are **never posted without your approval**.

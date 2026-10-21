@@ -226,6 +226,15 @@ await embedded.getByText("Saved sample hours:", { exact: false }).waitFor();
 await widgetPage.close();
 await shot("agent-channels-desktop");
 
+// Connections: one place for every account the crew uses.
+await page.goto(`${baseUrl}/app/connections`);
+await page.getByRole("heading", { name: "Connections" }).first().waitFor();
+for (const name of ["Facebook & Instagram", "WhatsApp", "Google Business Profile", "Website chat"])
+  await page.locator(".connector strong", { hasText: name }).first().waitFor();
+await shot("connections-desktop");
+await page.goto(`${baseUrl}/app/crew/receptionist/channels`);
+await page.waitForURL("**/channels");
+
 // The advanced workflow editor stays reachable from Skills.
 await page.getByRole("tab", { name: "Skills" }).click();
 await page.getByRole("link", { name: /Advanced workflow editor/ }).click();

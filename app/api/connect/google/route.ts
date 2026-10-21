@@ -8,7 +8,7 @@ import { getSiteUrl } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
-const back = (reason: string) => `/app/crew/reputation?error=${reason}`;
+const back = (reason: string) => `/app/connections?error=${reason}`;
 
 // Starts "Connect Google": the owner signs in with the Google account that
 // manages their Business Profile and allows HelloCrew to reply to reviews.
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const config = readGoogleConfig();
   if (!config || !secretsConfigured()) return NextResponse.redirect(new URL(back("google_not_configured"), request.url));
   const workspace = await getWorkspaceContext(await createClient());
-  if (!workspace) return NextResponse.redirect(new URL("/login?next=/app/crew/reputation", request.url));
+  if (!workspace) return NextResponse.redirect(new URL("/login?next=/app/connections", request.url));
   if (workspace.role === "viewer") return NextResponse.redirect(new URL(back("forbidden"), request.url));
   const state = randomBytes(24).toString("base64url");
   const response = NextResponse.redirect(googleLoginUrl(config.clientId, `${getSiteUrl()}/api/connect/google/callback`, state));

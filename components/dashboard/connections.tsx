@@ -4,7 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
+  CalendarDays,
   Camera,
+  Globe,
   Check,
   MapPin,
   MessageSquare,
@@ -28,7 +30,8 @@ import {
 import { postingModeHelp, postingModeLabel, postingModeOf, postingModes, setPostingMode } from "@/lib/crew";
 
 import { useDashboard } from "./provider";
-import { Button, EmptyState, PageHeader, Panel, Pill } from "./ui";
+import { Button, ButtonLink, EmptyState, PageHeader, Panel, Pill } from "./ui";
+import { WebsiteChatSetup } from "./website-chat";
 
 const kindLabel: Record<ChannelConnection["kind"], string> = {
   facebook_page: "Facebook Page",
@@ -99,7 +102,15 @@ export function useConnections() {
   return { signedIn, connections, setup, refresh, disconnect };
 }
 
-function ConnectionRow({ connection, onDisconnect }: { connection: ChannelConnection; onDisconnect: () => void }) {
+function ConnectionRow({
+  connection,
+  onDisconnect,
+  readOnly = false,
+}: {
+  connection: ChannelConnection;
+  onDisconnect?: () => void;
+  readOnly?: boolean;
+}) {
   const [confirm, setConfirm] = useState(false);
   const Icon = kindIcon[connection.kind];
   return (
@@ -112,7 +123,7 @@ function ConnectionRow({ connection, onDisconnect }: { connection: ChannelConnec
         <small>{connection.lastError ? connection.lastError : kindLabel[connection.kind]}</small>
       </span>
       {connection.lastError ? <Pill tone="attention">Check</Pill> : <Pill tone="success">Connected</Pill>}
-      {confirm ? (
+      {readOnly ? null : confirm ? (
         <Button size="sm" variant="danger" icon={Unplug} onClick={onDisconnect}>
           Disconnect
         </Button>
@@ -125,89 +136,254 @@ function ConnectionRow({ connection, onDisconnect }: { connection: ChannelConnec
   );
 }
 
-// Receptionist → Channels: Messenger, Instagram and WhatsApp.
-export function MessagingChannelsPanel() {
-  const state = useConnections();
+type ConnectorId = "meta" | "whatsapp" | "google" | "website";
+
+const connectors: {
+  id: ConnectorId;
+  name: string;
+  icon: typeof MessageSquare;
+  kinds: ChannelConnection["kind"][];
+  summary: string;
+  usedBy: string;
+}[] = [
+  {
+    id: "meta",
+    name: "Facebook & Instagram",
+    icon: MessageSquare,
+    kinds: ["facebook_page", "instagram"],
+    summary: "Messenger and Instagram messages, plus comments on your posts. One login connects a Page and its Instagram.",
+    usedBy: "Receptionist (messages) · Reputation manager (comments)",
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    icon: Phone,
+    kinds: ["whatsapp"],
+    summary: "WhatsApp messages to your business number.",
+    usedBy: "Receptionist",
+  },
+  {
+    id: "google",
+    name: "Google Business Profile",
+    icon: MapPin,
+    kinds: ["google_location"],
+    summary: "Your Google reviews, checked every 30 minutes.",
+    usedBy: "Reputation manager",
+  },
+];
+
+const comingSoon = [
+  { name: "Phone calls", icon: Phone, summary: "A phone number your crew answers." },
+  { name: "Booking systems", icon: CalendarDays, summary: "Phorest, Fresha, Square and others, to book on its own." },
+];
+
+function WhatsAppForm({ onDone }: { onDone: () => void }) {
   const { toast } = useDashboard();
   const [phoneId, setPhoneId] = useState("");
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showWhatsApp, setShowWhatsApp] = useState(false);
-  if (!state.signedIn)
-    return (
-      <Panel title="Messenger, Instagram and WhatsApp">
-        <p className="settings-copy">Sign in to connect your business accounts.</p>
-      </Panel>
-    );
-  const messaging = (state.connections ?? []).filter((c) => c.kind !== "google_location");
-  const metaReady = Boolean(state.setup?.meta && state.setup.secrets);
   return (
-    <Panel title="Messenger, Instagram and WhatsApp" className="connections-panel">
+    <form
+      className="form-stack whatsapp-form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const result = await connectWhatsAppTest({ phoneNumberId: phoneId, accessToken: token }).catch(() => null);
+        setBusy(false);
+        if (!result?.ok) return toast(result?.error ?? "Couldn’t connect WhatsApp.", "error");
+        setToken("");
+        setPhoneId("");
+        toast("WhatsApp connected");
+        onDone();
+      }}
+    >
       <p className="settings-copy">
-        The same receptionist answers private messages on these apps, with your knowledge and skills. Chats land in
-        Conversations, and you can take over any time.
+        Until Meta approves one-click WhatsApp signup for HelloCrew, connect a number with its ID and a system-user
+        token from your Meta app (WhatsApp → API Setup).
       </p>
-      {!metaReady && state.setup && (
-        <p className="file-note">
-          <AlertTriangle size={15} aria-hidden="true" /> Meta isn’t set up on the server yet. See docs/CHANNELS_SETUP.md.
-        </p>
-      )}
-      {messaging.length > 0 && (
-        <ul className="connection-list">
-          {messaging.map((c) => (
-            <ConnectionRow key={c.id} connection={c} onDisconnect={() => void state.disconnect(c)} />
-          ))}
-        </ul>
-      )}
-      <div className="connect-actions">
-        <a
-          className={`ui-btn ui-btn-primary ui-btn-md${metaReady ? "" : " is-disabled"}`}
-          href={metaReady ? "/api/connect/meta" : undefined}
-          aria-disabled={!metaReady}
-        >
-          <MessageSquare size={16} aria-hidden="true" /> Connect Facebook & Instagram
-        </a>
-        <Button icon={Phone} disabled={!metaReady} onClick={() => setShowWhatsApp((v) => !v)}>
-          Connect WhatsApp
+      <div className="field-row">
+        <div className="field">
+          <label htmlFor="wa-phone">Phone number ID</label>
+          <input id="wa-phone" inputMode="numeric" value={phoneId} onChange={(e) => setPhoneId(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="wa-token">Access token</label>
+          <input id="wa-token" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
+        </div>
+      </div>
+      <small className="today-note">The token is encrypted and only used by the server.</small>
+      <div className="form-actions">
+        <Button type="submit" variant="primary" icon={Check} disabled={busy || !phoneId || token.length < 20}>
+          Connect
         </Button>
       </div>
-      {showWhatsApp && (
-        <form
-          className="form-stack whatsapp-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            const result = await connectWhatsAppTest({ phoneNumberId: phoneId, accessToken: token }).catch(() => null);
-            setBusy(false);
-            if (!result?.ok) return toast(result?.error ?? "Couldn’t connect WhatsApp.", "error");
-            setToken("");
-            setPhoneId("");
-            setShowWhatsApp(false);
-            toast("WhatsApp connected");
-            void state.refresh();
-          }}
-        >
-          <p className="settings-copy">
-            From your Meta app: WhatsApp → API Setup. Until HelloCrew is approved by Meta, this uses your app’s test
-            number or your own number.
-          </p>
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="wa-phone">Phone number ID</label>
-              <input id="wa-phone" inputMode="numeric" value={phoneId} onChange={(e) => setPhoneId(e.target.value)} />
-            </div>
-            <div className="field">
-              <label htmlFor="wa-token">Access token</label>
-              <input id="wa-token" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
-            </div>
-          </div>
-          <small className="today-note">The token is encrypted and only used by the server to send replies.</small>
-          <div className="form-actions">
-            <Button type="submit" variant="primary" icon={Check} disabled={busy || !phoneId || token.length < 20}>
-              Connect
+    </form>
+  );
+}
+
+// Settings-style page: every account the crew can work on, in one place.
+export function ConnectionsView() {
+  const state = useConnections();
+  const { account } = useDashboard();
+  const params = useSearchParams();
+  const [open, setOpen] = useState<ConnectorId | null>(params.get("open") === "website" ? "website" : null);
+  const signedIn = account.status === "signed_in";
+  const ready = {
+    meta: Boolean(state.setup?.meta && state.setup.secrets),
+    whatsapp: Boolean(state.setup?.meta && state.setup.secrets),
+    google: Boolean(state.setup?.google && state.setup.secrets),
+  };
+  const websiteOpen = open === "website";
+  return (
+    <div className="connections-page">
+      <PageHeader
+        title="Connections"
+        description="Connect your business accounts once. Your whole crew uses them, each for its own job."
+      />
+      <ul className="connector-list" aria-label="Connections">
+        {connectors.map((connector) => {
+          const accounts = (state.connections ?? []).filter((c) => connector.kinds.includes(c.kind));
+          const Icon = connector.icon;
+          const available = signedIn && ready[connector.id as "meta" | "whatsapp" | "google"];
+          return (
+            <li key={connector.id} className="connector">
+              <div className="connector-head">
+                <span className="connector-icon" data-connector={connector.id} aria-hidden="true">
+                  <Icon size={18} />
+                </span>
+                <span className="connector-text">
+                  <strong>{connector.name}</strong>
+                  <small>{connector.summary}</small>
+                  <small className="connector-used">Used by: {connector.usedBy}</small>
+                </span>
+                {connector.id === "whatsapp" ? (
+                  <Button
+                    size="sm"
+                    variant={accounts.length ? "secondary" : "primary"}
+                    disabled={!available}
+                    onClick={() => setOpen(open === "whatsapp" ? null : "whatsapp")}
+                  >
+                    {accounts.length ? "Add number" : "Connect"}
+                  </Button>
+                ) : (
+                  <a
+                    className={`ui-btn ui-btn-${accounts.length ? "secondary" : "primary"} ui-btn-sm${available ? "" : " is-disabled"}`}
+                    href={available ? (connector.id === "meta" ? "/api/connect/meta" : "/api/connect/google") : undefined}
+                    aria-disabled={!available}
+                  >
+                    {accounts.length ? "Add more" : "Connect"}
+                  </a>
+                )}
+              </div>
+              {accounts.length > 0 && (
+                <ul className="connection-list">
+                  {accounts.map((c) => (
+                    <ConnectionRow key={c.id} connection={c} onDisconnect={() => void state.disconnect(c)} />
+                  ))}
+                </ul>
+              )}
+              {connector.id === "whatsapp" && open === "whatsapp" && (
+                <WhatsAppForm
+                  onDone={() => {
+                    setOpen(null);
+                    void state.refresh();
+                  }}
+                />
+              )}
+              {signedIn && state.setup && !ready[connector.id as "meta" | "whatsapp" | "google"] && (
+                <p className="today-note">
+                  <AlertTriangle size={13} aria-hidden="true" />{" "}
+                  {connector.id === "google" ? "Waiting for server setup and Google’s API approval." : "Waiting for server setup."}
+                </p>
+              )}
+            </li>
+          );
+        })}
+        <li className="connector">
+          <div className="connector-head">
+            <span className="connector-icon" data-connector="website" aria-hidden="true">
+              <Globe size={18} />
+            </span>
+            <span className="connector-text">
+              <strong>Website chat</strong>
+              <small>A chat bubble on your own website, with one line of code.</small>
+              <small className="connector-used">Used by: Receptionist</small>
+            </span>
+            <Button size="sm" disabled={!signedIn} onClick={() => setOpen(websiteOpen ? null : "website")}>
+              {websiteOpen ? "Close" : "Set up"}
             </Button>
           </div>
-        </form>
+        </li>
+        {comingSoon.map((item) => (
+          <li key={item.name} className="connector" data-soon="true">
+            <div className="connector-head">
+              <span className="connector-icon" aria-hidden="true">
+                <item.icon size={18} />
+              </span>
+              <span className="connector-text">
+                <strong>{item.name}</strong>
+                <small>{item.summary}</small>
+              </span>
+              <Pill tone="neutral">Coming soon</Pill>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {!signedIn && <p className="today-note">Sign in to connect your accounts.</p>}
+      {websiteOpen && <WebsiteChatSetup />}
+    </div>
+  );
+}
+
+// On an agent's page: the accounts it works on (managed in Connections).
+export function WorksOnPanel({ agent }: { agent: "receptionist" | "reputation" }) {
+  const state = useConnections();
+  if (!state.signedIn) return null;
+  const kinds: ChannelConnection["kind"][] =
+    agent === "receptionist" ? ["facebook_page", "instagram", "whatsapp"] : ["facebook_page", "instagram", "google_location"];
+  const accounts = (state.connections ?? []).filter((c) => kinds.includes(c.kind));
+  return (
+    <Panel
+      title="Works on"
+      actions={
+        <ButtonLink href="/app/connections" size="sm" variant="ghost">
+          Manage connections
+        </ButtonLink>
+      }
+    >
+      {agent === "receptionist" && (
+        <p className="settings-copy">
+          Messages on these accounts and your website chat are answered with your knowledge and skills. Chats land in
+          Conversations, and you can take over any time.
+        </p>
+      )}
+      {accounts.length || agent === "receptionist" ? (
+        <ul className="connection-list">
+          {agent === "receptionist" && (
+            <li className="connection-row">
+              <span className="file-card-icon" aria-hidden="true">
+                <Globe size={16} />
+              </span>
+              <span className="file-card-text">
+                <strong>Website chat</strong>
+                <small>Your own website · set up in Connections</small>
+              </span>
+              <ButtonLink href="/app/connections?open=website" size="sm" variant="ghost">
+                Set up
+              </ButtonLink>
+            </li>
+          )}
+          {accounts.map((c) => (
+            <ConnectionRow key={c.id} connection={c} readOnly />
+          ))}
+        </ul>
+      ) : (
+        <p className="settings-copy">
+          No accounts yet. <a href="/app/connections">Connect Facebook, Instagram or Google →</a>
+        </p>
+      )}
+      {agent === "reputation" && (
+        <p className="today-note">Google reviews are checked every 30 minutes; Facebook and Instagram comments arrive instantly.</p>
       )}
     </Panel>
   );
@@ -314,11 +490,7 @@ function PostingModePanel() {
 }
 
 export function ReputationView() {
-  const state = useConnections();
   const replies = usePublicReplies();
-  const sources = (state.connections ?? []).filter((c) => c.kind !== "whatsapp");
-  const metaReady = Boolean(state.setup?.meta && state.setup.secrets);
-  const googleReady = Boolean(state.setup?.google && state.setup.secrets);
   return (
     <div className="reputation">
       <PageHeader
@@ -343,38 +515,7 @@ export function ReputationView() {
           </Panel>
         </div>
         <aside className="knowledge-side">
-          <Panel title="Connected">
-            {!state.signedIn ? (
-              <p className="settings-copy">Sign in to connect accounts.</p>
-            ) : (
-              <>
-                {sources.length > 0 ? (
-                  <ul className="connection-list">
-                    {sources.map((c) => (
-                      <ConnectionRow key={c.id} connection={c} onDisconnect={() => void state.disconnect(c)} />
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="settings-copy">No review or social accounts yet.</p>
-                )}
-                <div className="connect-actions stacked">
-                  <a className={`ui-btn ui-btn-secondary ui-btn-md${googleReady ? "" : " is-disabled"}`} href={googleReady ? "/api/connect/google" : undefined} aria-disabled={!googleReady}>
-                    <MapPin size={16} aria-hidden="true" /> Connect Google reviews
-                  </a>
-                  <a className={`ui-btn ui-btn-secondary ui-btn-md${metaReady ? "" : " is-disabled"}`} href={metaReady ? "/api/connect/meta" : undefined} aria-disabled={!metaReady}>
-                    <MessageSquare size={16} aria-hidden="true" /> Connect Facebook & Instagram
-                  </a>
-                </div>
-                {state.setup && (!googleReady || !metaReady) && (
-                  <p className="today-note">
-                    {!googleReady && "Google needs server setup and API approval. "}
-                    {!metaReady && "Meta needs server setup. "}See docs/CHANNELS_SETUP.md.
-                  </p>
-                )}
-                <p className="today-note">Google reviews are checked every 30 minutes; Facebook and Instagram comments arrive instantly.</p>
-              </>
-            )}
-          </Panel>
+          <WorksOnPanel agent="reputation" />
         </aside>
       </div>
     </div>

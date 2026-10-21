@@ -3209,6 +3209,99 @@ a.crew-tile:hover {
   display: grid;
   gap: 14px;
 }
+/* ---------- Connections page ---------- */
+.connections-page {
+  display: grid;
+  gap: 16px;
+  max-width: 920px;
+}
+.connector-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-md);
+  background: var(--d-surface);
+  box-shadow: var(--d-shadow-1);
+}
+.connector {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+}
+.connector + .connector {
+  border-top: 1px solid var(--d-line);
+}
+.connector[data-soon="true"] {
+  opacity: 0.7;
+}
+.connector-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+.connector-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--channel-bg, var(--d-surface-2));
+  color: var(--channel-ink, var(--d-ink-2));
+}
+.connector-icon[data-connector="meta"] {
+  --channel-bg: color-mix(in srgb, #0a7cff 16%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #0a5fd0 85%, var(--d-ink));
+}
+.connector-icon[data-connector="whatsapp"] {
+  --channel-bg: color-mix(in srgb, #25d366 18%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #128c4b 85%, var(--d-ink));
+}
+.connector-icon[data-connector="google"] {
+  --channel-bg: color-mix(in srgb, #fbbc04 22%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #9a6b00 85%, var(--d-ink));
+}
+.connector-icon[data-connector="website"] {
+  --channel-bg: color-mix(in srgb, var(--d-primary) 14%, var(--d-surface));
+  --channel-ink: var(--d-primary);
+}
+.connector-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.connector-text strong {
+  font-size: 15px;
+}
+.connector-text small {
+  color: var(--d-ink-2);
+  font-size: 13px;
+}
+.connector-text .connector-used {
+  color: var(--d-ink-3);
+  font-size: 12px;
+}
+.connector > .connection-list,
+.connector > .whatsapp-form,
+.connector > .today-note {
+  margin-left: 52px;
+}
+@media (max-width: 640px) {
+  .connector-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .connector-head > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .connector > .connection-list,
+  .connector > .whatsapp-form,
+  .connector > .today-note {
+    margin-left: 0;
+  }
+}
 .connection-list {
   display: grid;
   gap: 8px;

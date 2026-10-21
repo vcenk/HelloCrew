@@ -16,8 +16,8 @@ export default async function WidgetTestPage({
   return (
     <main className={styles.page}>
       <nav className={styles.nav}>
-        <a href="/app/crew/receptionist/channels">
-          <ArrowLeft size={16} /> Back to Channels
+        <a href="/app/connections?open=website">
+          <ArrowLeft size={16} /> Back to Connections
         </a>
         <strong>
           Northline <em>Studio</em>

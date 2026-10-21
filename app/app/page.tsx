@@ -9,7 +9,7 @@ const legacySections: Record<string, string> = {
   crew: "/app/crew",
   workflows: "/app/workflows",
   conversations: "/app/conversations",
-  channels: "/app/crew/receptionist/channels",
+  channels: "/app/connections",
   settings: "/app/settings",
 };
 

@@ -22,6 +22,7 @@ import {
   Sun,
   Users,
   X,
+  Plug,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +39,7 @@ export const dashboardNav: { group: string | null; items: NavItem[] }[] = [
       { href: "/app/conversations", label: "Conversations", icon: MessageCircle, hint: "Every chat, test and approval" },
       { href: "/app/crew", label: "Crew", icon: Users, hint: "Your agents, their skills and channels" },
       { href: "/app/knowledge", label: "Knowledge", icon: BookOpen, hint: "What your whole crew may say" },
+      { href: "/app/connections", label: "Connections", icon: Plug, hint: "Facebook, Instagram, WhatsApp, Google and your website" },
     ],
   },
 ];

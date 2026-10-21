@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 function done(request: NextRequest, query: string) {
-  const response = NextResponse.redirect(new URL(`/app/crew/receptionist/channels?${query}`, request.url));
+  const response = NextResponse.redirect(new URL(`/app/connections?${query}`, request.url));
   response.cookies.delete({ name: "hc_meta_state", path: "/api/connect/meta" });
   return response;
 }
