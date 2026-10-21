@@ -2060,6 +2060,38 @@ a.crew-tile:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Where a conversation came from, at a glance. */
+.channel-tag {
+  justify-self: start;
+  margin-bottom: 2px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--channel-bg, var(--d-surface-2));
+  color: var(--channel-ink, var(--d-ink-2));
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+[data-channel="whatsapp"] {
+  --channel-bg: color-mix(in srgb, #25d366 18%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #128c4b 85%, var(--d-ink));
+}
+[data-channel="messenger"] {
+  --channel-bg: color-mix(in srgb, #0a7cff 16%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #0a5fd0 85%, var(--d-ink));
+}
+[data-channel="instagram"] {
+  --channel-bg: color-mix(in srgb, #e1306c 15%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #b81f57 85%, var(--d-ink));
+}
+[data-channel="website"] {
+  --channel-bg: color-mix(in srgb, var(--d-primary) 14%, var(--d-surface));
+  --channel-ink: var(--d-primary);
+}
+.convo-item .dash-avatar[data-channel]:not([data-channel="test"]) {
+  background: var(--channel-bg);
+  color: var(--channel-ink);
+}
 .convo-note {
   display: flex;
   gap: 10px;

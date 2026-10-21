@@ -173,10 +173,13 @@ export function ConversationsView() {
                       void openThread(thread.id);
                     }}
                   >
-                    <span className="dash-avatar" aria-hidden="true">
+                    <span className="dash-avatar" data-channel={thread.channel} aria-hidden="true">
                       <ChannelIcon channel={thread.channel} />
                     </span>
                     <span className="convo-item-text">
+                      <span className="channel-tag" data-channel={thread.channel}>
+                        {channelLabel[thread.channel]}
+                      </span>
                       <strong>{thread.title}</strong>
                       <small>{thread.preview}</small>
                     </span>
