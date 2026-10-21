@@ -147,16 +147,19 @@ export async function checkWhatsAppNumber(config: MetaConfig, phoneNumberId: str
 // WhatsApp only delivers webhooks for a WhatsApp Business Account after the
 // app is subscribed to it. The account ids come from the token's granted
 // scopes (debug_token), so the owner doesn't have to look them up.
-export async function whatsAppAccountsFor(config: MetaConfig, token: string): Promise<string[]> {
-  const data = await graph<{ data?: { granular_scopes?: { scope: string; target_ids?: string[] }[] } }>(
-    config,
-    "debug_token",
-    { query: { input_token: token, access_token: `${config.appId}|${config.appSecret}` } },
-  );
-  const ids = new Set<string>();
+export async function whatsAppTokenInfo(config: MetaConfig, token: string) {
+  const data = await graph<{
+    data?: { scopes?: string[]; granular_scopes?: { scope: string; target_ids?: string[] }[] };
+  }>(config, "debug_token", { query: { input_token: token, access_token: `${config.appId}|${config.appSecret}` } });
+  const accounts = new Set<string>();
+  // System-user tokens often omit target_ids (they cover every assigned
+  // account), so an empty list is not an error by itself.
   for (const scope of data.data?.granular_scopes ?? [])
-    if (scope.scope.startsWith("whatsapp_business_")) for (const id of scope.target_ids ?? []) ids.add(id);
-  return [...ids].filter((id) => /^\d{5,30}$/.test(id));
+    if (scope.scope.startsWith("whatsapp_business_")) for (const id of scope.target_ids ?? []) accounts.add(id);
+  return {
+    scopes: data.data?.scopes ?? [],
+    accounts: [...accounts].filter((id) => /^\d{5,30}$/.test(id)),
+  };
 }
 
 export async function subscribeWhatsAppAccount(config: MetaConfig, accountId: string, token: string) {

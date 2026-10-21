@@ -14,7 +14,7 @@ import {
   readMetaConfig,
   sendDirectMessage,
   subscribeWhatsAppAccount,
-  whatsAppAccountsFor,
+  whatsAppTokenInfo,
 } from "@/lib/server/meta";
 import { secretsConfigured } from "@/lib/server/secrets";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
@@ -118,9 +118,22 @@ export async function connectWhatsAppTest(input: z.input<typeof whatsappSchema>)
   try {
     number = await checkWhatsAppNumber(config, parsed.data.phoneNumberId, parsed.data.accessToken);
     // Without this subscription Meta never sends incoming messages to HelloCrew.
-    accounts = await whatsAppAccountsFor(config, parsed.data.accessToken);
-    if (!accounts.length)
-      return { ok: false, error: "This token has no WhatsApp account. Give it whatsapp_business_management for your WhatsApp account." };
+    const info = await whatsAppTokenInfo(config, parsed.data.accessToken);
+    const missing = ["whatsapp_business_messaging", "whatsapp_business_management"].filter((scope) => !info.scopes.includes(scope));
+    if (missing.length)
+      return { ok: false, error: `This token can’t do everything HelloCrew needs. Generate it again with: ${missing.join(", ")}.` };
+    accounts = info.accounts;
+    if (!accounts.length) {
+      // Fall back to the account saved the last time this number was connected.
+      const { data: previous } = await admin
+        .from("hc_channel_connections")
+        .select("settings")
+        .eq("kind", "whatsapp")
+        .eq("external_id", parsed.data.phoneNumberId)
+        .maybeSingle();
+      const saved = (previous?.settings as { whatsappAccounts?: unknown } | null)?.whatsappAccounts;
+      accounts = Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : [];
+    }
     for (const account of accounts) await subscribeWhatsAppAccount(config, account, parsed.data.accessToken);
   } catch (error) {
     return { ok: false, error: error instanceof MetaApiError ? `Meta said: ${error.message}` : "Couldn’t reach Meta." };
