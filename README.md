@@ -90,14 +90,16 @@ npm start
 
 A clean `npm ci`, ESLint, TypeScript, unit/integration tests, production build, and desktop/mobile Chrome smoke flow were run in the implementation workspace. See [verification results](docs/VERIFICATION.md). The browser flow covers the conversation demo and the visual workflow canvas, including responsive overflow and page-error checks.
 
-The optional browser smoke test is ready to run on a suitable machine with the app at localhost:3000:
+The browser tests are Playwright specs under `tests/e2e`:
 
 ```sh
 npx playwright install chromium
-npm run test:browser
+npm run test:e2e
 ```
 
-Alternatively set `CHROMIUM_PATH` to an already installed Chromium executable. Set `SKIP_AUTH_CHECK=1` when the Supabase variables are not configured locally. The test covers desktop/mobile layout, all four scenarios, approve/decline, reset, refresh, and navigation. It saves review screenshots under `/tmp`. Use `BASE_URL` for a non-default local server URL.
+They run against a production build, because the `next dev` overlay covers the website-chat iframe. By default `playwright.config.ts` builds and starts the app itself on port 3000; point `BASE_URL` at a server you already have running to skip that, and `PORT` changes the port it starts. Set `SKIP_AUTH_CHECK=1` when the Supabase variables are not configured locally, and `SHOTS_DIR` to collect the full-page review screenshots the old smoke script produced. Use `npm run test:e2e:ui` to step through a failure.
+
+The specs cover the landing page and sign-in redirect, Today, approvals and the teach loop, knowledge (write, draft, signed-out file states), team pricing, crew skills and personality, the Reputation manager, Connections, channels plus the installed widget, theme persistence, the legacy `?section=` redirects, mobile layout at 390px and 360px, and keyboard/focus behaviour of the drawer and command menu. Every spec fails on an uncaught page error.
 
 ## Implemented boundaries
 

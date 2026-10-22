@@ -1,0 +1,67 @@
+/* Fallback shown by app/error.tsx. Kept in a module so the marketing and
+   auth pages can keep globals.css to themselves. */
+.shell {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 32px 20px;
+}
+.card {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  width: min(520px, 100%);
+  padding: 30px;
+  border: 1px solid var(--line, #e3e5dc);
+  border-radius: 20px;
+  background: var(--white, #fffefa);
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--yellow, #f1db72);
+  color: var(--ink, #232923);
+}
+.card h1 {
+  margin: 0;
+  font: 400 27px/1.2 var(--serif, Georgia, serif);
+}
+.card p {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--muted, #6b726a);
+  line-height: 1.55;
+}
+.digest {
+  margin: 0;
+  color: var(--muted, #6b726a);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+.actions a,
+.actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line, #e3e5dc);
+  border-radius: 999px;
+  background: var(--white, #fffefa);
+  color: var(--ink, #232923);
+  font-weight: 600;
+}
+.actions button {
+  border-color: var(--green, #315b48);
+  background: var(--green, #315b48);
+  color: var(--white, #fffefa);
+}

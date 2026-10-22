@@ -22,6 +22,10 @@ const frameDeniedRoutes = [
 
 const config: NextConfig = {
   poweredByHeader: false,
+  // Keep security advisory reminders in next dev/build on. This is already the
+  // default; pinning it means a future `next upgrade --agent` with no policy
+  // flag stays on security-only rather than following a changed default.
+  experimental: { agentUpgrade: "security" },
   // Loaded at runtime on the server rather than bundled (PDF reading).
   serverExternalPackages: ["unpdf"],
   // Allow opening the dev server as 127.0.0.1 as well as localhost.

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Cloud,
@@ -62,25 +62,54 @@ function isActive(pathname: string, href: string) {
   return pathname.startsWith(href);
 }
 
-function useResolvedTheme(theme: Theme) {
-  const [system, setSystem] = useState<"light" | "dark">("light");
+function useMediaQuery(query: string) {
+  // Starts false so the server and the first client render agree; the layout
+  // is the desktop one until the effect runs.
+  const [matches, setMatches] = useState(false);
   useEffect(() => {
-    const query = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => setSystem(query.matches ? "dark" : "light");
+    const list = window.matchMedia(query);
+    const update = () => setMatches(list.matches);
     update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return theme === "system" ? system : theme;
+    list.addEventListener("change", update);
+    return () => list.removeEventListener("change", update);
+  }, [query]);
+  return matches;
 }
+
+function useResolvedTheme(theme: Theme) {
+  const dark = useMediaQuery("(prefers-color-scheme: dark)");
+  return theme === "system" ? (dark ? "dark" : "light") : theme;
+}
+
+// Matches the breakpoint where dashboard.css turns the sidebar into a drawer.
+const COMPACT_QUERY = "(max-width: 860px)";
+
+const listId = "dash-command-options";
+const optionId = (i: number) => `${listId}-${i}`;
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme, identity, conversation, toasts, dismissToast, hydrated } =
     useDashboard();
   const resolved = useResolvedTheme(theme);
+  const compact = useMediaQuery(COMPACT_QUERY);
   const [navOpen, setNavOpen] = useState(false);
-  const [commandOpen, setCommandOpen] = useState(false);
+  const navTrigger = useRef<HTMLButtonElement>(null);
+  const navClose = useRef<HTMLButtonElement>(null);
+  const commandDialog = useRef<HTMLDialogElement>(null);
+  // showModal() throws on an already-open dialog.
+  const openCommandMenu = useCallback(() => {
+    const el = commandDialog.current;
+    if (el && !el.open) el.showModal();
+  }, []);
+  const restoreNavFocus = useRef(false);
+  // Dismissing the drawer hands focus back to the button that opened it;
+  // following a link does not, because the page itself is changing.
+  const closeNav = useCallback((restoreFocus = false) => {
+    restoreNavFocus.current = restoreFocus;
+    setNavOpen(false);
+  }, []);
+  const drawerOpen = compact && navOpen;
   const current =
     allItems.find((item) => isActive(pathname, item.href)) ?? allItems[0];
   const pending =
@@ -97,7 +126,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setCommandOpen((open) => !open);
+        // Toggle the dialog itself rather than a piece of React state. Escape
+        // and backdrop clicks close it natively, and React only learns about
+        // that a tick later — long enough for a shortcut pressed in between
+        // to become an update React skips as a no-op, losing the keypress.
+        const el = commandDialog.current;
+        if (el?.open) el.close();
+        else el?.showModal();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -108,6 +143,26 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     document.title = `${current.label} · HelloCrew`;
   }, [current.label]);
 
+  // Opening the drawer moves focus into it and Escape closes it again.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    navClose.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeNav(true);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawerOpen, closeNav]);
+
+  // Runs after the drawer is no longer inert, so the trigger can take focus.
+  useEffect(() => {
+    if (navOpen || !restoreNavFocus.current) return;
+    restoreNavFocus.current = false;
+    navTrigger.current?.focus();
+  }, [navOpen]);
+
   return (
     <div className="dash" data-theme={resolved}>
       <a className="dash-skip" href="#dash-main">
@@ -116,22 +171,26 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div
         className="dash-scrim"
         data-open={navOpen}
-        onClick={() => setNavOpen(false)}
+        onClick={() => closeNav(true)}
         aria-hidden="true"
       />
       <aside
         className="dash-sidebar"
         data-open={navOpen}
         aria-label="Dashboard"
+        // Off-canvas the drawer is still in the DOM, so without this its links
+        // stay tabbable and reachable by screen readers while invisible.
+        inert={compact && !navOpen}
       >
         <div className="dash-sidebar-top">
           <Link href="/" className="dash-brand" aria-label="HelloCrew website">
             <Brand />
           </Link>
           <button
+            ref={navClose}
             type="button"
             className="dash-icon-button dash-only-mobile"
-            onClick={() => setNavOpen(false)}
+            onClick={() => closeNav(true)}
             aria-label="Close menu"
           >
             <X size={18} />
@@ -140,7 +199,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           className="dash-search"
-          onClick={() => setCommandOpen(true)}
+          onClick={openCommandMenu}
         >
           <Search size={16} aria-hidden="true" />
           <span>Search or jump to</span>
@@ -160,7 +219,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   aria-current={
                     isActive(pathname, item.href) ? "page" : undefined
                   }
-                  onClick={() => setNavOpen(false)}
+                  onClick={() => closeNav()}
                 >
                   <item.icon size={18} aria-hidden="true" />
                   <span>{item.label}</span>
@@ -184,7 +243,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             aria-current={
               isActive(pathname, settingsItem.href) ? "page" : undefined
             }
-            onClick={() => setNavOpen(false)}
+            onClick={() => closeNav()}
           >
             <Settings size={18} aria-hidden="true" />
             <span>Settings</span>
@@ -192,7 +251,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <Link
             href="/app/crew"
             className="dash-mini-badge"
-            onClick={() => setNavOpen(false)}
+            onClick={() => closeNav()}
           >
             <span className="dash-avatar" aria-hidden="true">
               {identity.name.slice(0, 1).toUpperCase()}
@@ -208,13 +267,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="dash-main">
+      {/* While the drawer covers the page, the content behind it is out of
+          play — inert keeps Tab and screen readers inside the drawer. */}
+      <div className="dash-main" inert={drawerOpen}>
         <header className="dash-topbar">
           <button
+            ref={navTrigger}
             type="button"
             className="dash-icon-button dash-only-mobile"
             onClick={() => setNavOpen(true)}
             aria-label="Open menu"
+            aria-expanded={navOpen}
           >
             <Menu size={19} />
           </button>
@@ -234,7 +297,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               className="dash-icon-button dash-only-mobile"
-              onClick={() => setCommandOpen(true)}
+              onClick={openCommandMenu}
               aria-label="Search"
             >
               <Search size={18} />
@@ -263,7 +326,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <CommandMenu dialogRef={commandDialog} />
 
       <div className="dash-toasts" aria-live="polite" role="status">
         {toasts.map((t) => (
@@ -371,15 +434,18 @@ function ThemeSwitch() {
 }
 
 function CommandMenu({
-  open,
-  onClose,
+  dialogRef,
 }: {
-  open: boolean;
-  onClose: () => void;
+  // The <dialog> is the single source of truth for whether the menu is open:
+  // the shell opens and closes it through this ref, and Escape and backdrop
+  // clicks go straight to the platform. Mirroring that in React state is what
+  // used to drop a Ctrl+K pressed right after a close.
+  dialogRef: React.RefObject<HTMLDialogElement | null>;
 }) {
   const router = useRouter();
   const { setTheme, resetConversation, toast } = useDashboard();
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = dialogRef;
+  const list = useRef<HTMLUListElement>(null);
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
 
@@ -431,21 +497,22 @@ function CommandMenu({
     `${c.label} ${c.hint}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
+  // The highlight is derived, not stored, so a narrower query can never leave
+  // it pointing past the end of the list.
+  const active = filtered.length ? Math.min(index, filtered.length - 1) : 0;
+
+  // The list scrolls at nine or more commands, so follow the highlight.
   useEffect(() => {
-    const el = dialog.current;
-    if (!el) return;
-    if (open && !el.open) {
-      setQuery("");
-      setIndex(0);
-      el.showModal();
-    }
-    if (!open && el.open) el.close();
-  }, [open]);
+    if (!dialog.current?.open) return;
+    list.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [dialog, active]);
 
   function choose(i: number) {
     const command = filtered[i];
     if (!command) return;
-    onClose();
+    dialog.current?.close();
     command.run();
   }
 
@@ -453,9 +520,14 @@ function CommandMenu({
     <dialog
       ref={dialog}
       className="dash-command"
-      onClose={onClose}
+      // There is no "opened" event to hook, so the query is cleared on the way
+      // out instead; every open therefore starts blank.
+      onClose={() => {
+        setQuery("");
+        setIndex(0);
+      }}
       onClick={(event) => {
-        if (event.target === dialog.current) onClose();
+        if (event.target === dialog.current) dialog.current?.close();
       }}
       aria-label="Command menu"
     >
@@ -465,6 +537,15 @@ function CommandMenu({
           autoFocus
           value={query}
           placeholder="Type a page or action"
+          // Focus stays on the input while the arrows move the highlight, so
+          // the active option has to be named for screen readers.
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={filtered.length > 0}
+          aria-controls={filtered.length > 0 ? listId : undefined}
+          aria-activedescendant={
+            filtered.length > 0 ? optionId(active) : undefined
+          }
           onChange={(event) => {
             setQuery(event.target.value);
             setIndex(0);
@@ -472,39 +553,50 @@ function CommandMenu({
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
               event.preventDefault();
-              setIndex((i) => Math.min(i + 1, filtered.length - 1));
+              if (filtered.length) setIndex((active + 1) % filtered.length);
             } else if (event.key === "ArrowUp") {
               event.preventDefault();
-              setIndex((i) => Math.max(i - 1, 0));
+              if (filtered.length)
+                setIndex((active - 1 + filtered.length) % filtered.length);
             } else if (event.key === "Enter") {
               event.preventDefault();
-              choose(index);
+              choose(active);
             }
           }}
           aria-label="Search commands"
         />
         <kbd>Esc</kbd>
       </div>
-      <ul role="listbox" className="dash-command-list">
-        {filtered.length === 0 && (
-          <li className="dash-command-empty">
-            No match. Try “inbox” or “dark”.
-          </li>
-        )}
-        {filtered.map((command, i) => (
-          <li key={command.id} role="option" aria-selected={i === index}>
-            <button
-              type="button"
+      {filtered.length === 0 ? (
+        <p className="dash-command-empty" role="status">
+          No match. Try “inbox” or “dark”.
+        </p>
+      ) : (
+        /* The options are not focusable on purpose: aria-activedescendant
+           keeps keyboard control on the input. */
+        <ul
+          ref={list}
+          id={listId}
+          role="listbox"
+          aria-label="Commands"
+          className="dash-command-list"
+        >
+          {filtered.map((command, i) => (
+            <li
+              key={command.id}
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === active}
               onMouseEnter={() => setIndex(i)}
               onClick={() => choose(i)}
             >
               <command.icon size={16} aria-hidden="true" />
               <span>{command.label}</span>
               <small>{command.hint}</small>
-            </button>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      )}
     </dialog>
   );
 }
