@@ -1,5 +1,6 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, ShieldCheck, Sparkles } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { Brand, Buddy } from "@/components/brand";
@@ -7,6 +8,13 @@ import { safeNextPath } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
 import { signInWithGoogle } from "./actions";
+import { SignInButton } from "./sign-in-button";
+
+export const metadata: Metadata = {
+  title: "Sign in · HelloCrew",
+  description:
+    "Sign in to save your HelloCrew receptionist, knowledge and conversations to a private workspace.",
+};
 
 const errorMessages: Record<string, string> = {
   missing_code: "Google did not return a sign-in code. Please try again.",
@@ -28,7 +36,10 @@ export default async function LoginPage({
   if (data?.claims?.sub) redirect(next);
 
   return (
-    <main className="auth-shell">
+    <main className="auth-shell" id="main-content">
+      <a className="skip-link" href="#auth-card">
+        Skip to sign in
+      </a>
       <section className="auth-story" aria-label="HelloCrew introduction">
         <Link href="/" className="auth-brand">
           <Brand />
@@ -41,21 +52,42 @@ export default async function LoginPage({
             <span className="serif">helpful crew.</span>
           </h1>
           <p>
-            Sign in to save your assistant, knowledge and workflows to your own
-            workspace. The dashboard stays free to explore without an account.
+            Bring your receptionist, trusted answers and customer conversations
+            together in one private workspace.
           </p>
+          <ul
+            className="auth-benefits"
+            aria-label="What your workspace includes"
+          >
+            <li>
+              <Check size={16} aria-hidden="true" /> Pick up your setup on any
+              device
+            </li>
+            <li>
+              <Check size={16} aria-hidden="true" /> Keep business knowledge
+              private by default
+            </li>
+            <li>
+              <Check size={16} aria-hidden="true" /> Stay in control before
+              anything goes live
+            </li>
+          </ul>
         </div>
         <div className="auth-buddy" aria-hidden="true">
           <Buddy />
         </div>
       </section>
       <section className="auth-panel">
-        <div className="auth-card">
+        <div className="auth-card" id="auth-card" tabIndex={-1}>
           <span className="auth-icon">
-            <Sparkles size={22} />
+            <Sparkles size={22} aria-hidden="true" />
           </span>
-          <h2>Welcome back.</h2>
-          <p>Use your approved Google account to continue.</p>
+          <span className="auth-kicker">Your owner workspace</span>
+          <h2>Welcome in.</h2>
+          <p>
+            Continue with Google to save your setup securely. New here? We’ll
+            create your workspace as you sign in.
+          </p>
           {error && errorMessages[error] ? (
             <div className="auth-error" role="alert">
               {errorMessages[error]}
@@ -63,15 +95,16 @@ export default async function LoginPage({
           ) : null}
           <form action={signInWithGoogle}>
             <input type="hidden" name="next" value={next} />
-            <button className="button dark auth-submit" type="submit">
-              Continue with Google <ArrowRight size={18} />
-            </button>
+            <SignInButton />
           </form>
+          <p className="auth-helper">
+            One secure sign-in. No separate HelloCrew password to remember.
+          </p>
           <div className="auth-trust">
-            <ShieldCheck size={18} />
+            <ShieldCheck size={18} aria-hidden="true" />
             <span>
-              Session cookies are verified by Supabase. Tenant data is protected
-              with row-level security.
+              Your session is securely verified and each workspace is kept
+              separate from every other business.
             </span>
           </div>
           <Link className="auth-back" href="/app">

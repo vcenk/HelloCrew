@@ -17,8 +17,15 @@ export default function Home() {
           <Brand />
         </Link>
         <div className="nav-links">
-          <a href="#how-it-works">How it works</a>
-          <a href="#possibilities">What it can do</a>
+          <a className="nav-section-link" href="#how-it-works">
+            How it works
+          </a>
+          <a className="nav-section-link" href="#possibilities">
+            What it can do
+          </a>
+          <Link className="nav-sign-in" href="/login?next=/app">
+            Sign in
+          </Link>
           <Link className="button dark compact" href="/app">
             Meet your crew <ArrowUpRight size={17} />
           </Link>
@@ -159,9 +166,9 @@ export default function Home() {
             to <span className="serif">say hello.</span>
           </h2>
           <p>
-            Try your receptionist with made-up examples first: see which
-            answer it used, and approve bookings before anything happens. When
-            you’re ready, switch on live AI and add it to your website.
+            Try your receptionist with made-up examples first: see which answer
+            it used, and approve bookings before anything happens. When you’re
+            ready, switch on live AI and add it to your website.
           </p>
           <Link className="button dark" href="/app">
             Open your practice studio <ArrowUpRight size={18} />
