@@ -36,6 +36,31 @@ export async function ask(page: Page, question: string) {
   await page.getByRole("button", { name: "Send message", exact: true }).first().click();
 }
 
+/**
+ * Every control a finger could actually hit must be at least 44px tall.
+ * Skips controls that are visually hidden until focus (the skip link), which
+ * are measured separately while focused.
+ */
+export async function expectTouchTargets(page: Page, min = 44) {
+  const small = await page.evaluate((limit) => {
+    const out: string[] = [];
+    document.querySelectorAll("a, button").forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      // A clipped control (the skip link until it is focused) is not something
+      // a finger can hit, so it is measured separately in its focused state.
+      if (rect.width === 0 || rect.height === 0 || style.clipPath !== "none")
+        return;
+      if (rect.height < limit)
+        out.push(
+          `${Math.round(rect.width)}x${Math.round(rect.height)} "${(el.textContent ?? "").trim().slice(0, 30)}"`,
+        );
+    });
+    return out;
+  }, min);
+  expect(small, `controls shorter than ${min}px`).toEqual([]);
+}
+
 export async function expectNoOverflow(page: Page) {
   const overflow = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,

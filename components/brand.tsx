@@ -8,9 +8,22 @@ export function Brand({ small = false }: { small?: boolean }) {
     </span>
   );
 }
-export function Buddy({ variant = "green" }: { variant?: "green" | "yellow" }) {
+
+export type BuddyVariant = "green" | "yellow" | "coral";
+
+/**
+ * The HelloCrew character. Purely decorative: every place that renders one
+ * also names the thing it stands for in text, so it stays aria-hidden.
+ */
+export function Buddy({
+  variant = "green",
+  asleep = false,
+}: {
+  variant?: BuddyVariant;
+  asleep?: boolean;
+}) {
   return (
-    <div className={`buddy ${variant}`} aria-hidden="true">
+    <div className={`buddy ${variant}`} data-asleep={asleep} aria-hidden="true">
       <div className="buddy-eyes">
         <i />
         <i />

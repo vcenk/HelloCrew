@@ -268,16 +268,6 @@ p {
   border-radius: 48% 48% 43% 46%;
   margin-left: 10px;
 }
-.orbit-ring {
-  position: absolute;
-  width: 95%;
-  height: 78%;
-  border: 1px solid var(--ln-c8d1bc, #c8d1bc);
-  border-radius: 50%;
-  transform: rotate(-28deg);
-  left: 5%;
-  top: 8%;
-}
 .buddy {
   position: absolute;
   width: 195px;
@@ -344,67 +334,6 @@ p {
   right: -27px;
   transform: rotate(-35deg);
 }
-.floating-tag {
-  position: absolute;
-  left: 5%;
-  top: 10%;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  border-radius: 25px;
-  background: var(--bg-white, var(--white));
-  padding: 14px 17px;
-  font-size: 12px;
-  transform: rotate(-7deg);
-  box-shadow: 0 8px 20px #3b4c3610;
-}
-.art-star {
-  position: absolute;
-  color: var(--fg-green, var(--green));
-}
-.star-one {
-  right: 14%;
-  top: 12%;
-  font-size: 66px;
-  transform: rotate(15deg);
-}
-.star-two {
-  left: 3%;
-  top: 48%;
-  font-size: 32px;
-}
-.mini-message {
-  position: absolute;
-  left: 0;
-  bottom: 8%;
-  background: var(--bg-fffefb, #fffefb);
-  box-shadow: 0 12px 35px #2c3e2412;
-  padding: 17px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-radius: 17px;
-  transform: rotate(-3deg);
-  width: 94%;
-}
-.mini-message strong {
-  display: block;
-  font-size: 12px;
-}
-.mini-message span:not(.mini-icon):not(.check-round) {
-  display: block;
-  font-size: 10px;
-  color: var(--fg-muted, var(--muted));
-  margin-top: 5px;
-}
-.mini-icon {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  background: var(--bg-f4ebbd, #f4ebbd);
-  border-radius: 12px;
-}
 .check-round {
   display: inline-flex;
   align-items: center;
@@ -415,9 +344,6 @@ p {
   width: 25px;
   height: 25px;
   flex-shrink: 0;
-}
-.mini-message .check-round {
-  margin-left: auto;
 }
 .art-caption {
   position: absolute;
@@ -454,8 +380,7 @@ p {
   gap: 50px;
   align-items: end;
 }
-.intro h2,
-.preview-copy h2 {
+.intro h2 {
   font-size: 48px;
   font-weight: 500;
   letter-spacing: -1.9px;
@@ -465,107 +390,6 @@ p {
 .intro > p {
   max-width: 425px;
   padding-bottom: 7px;
-}
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-}
-.feature-card {
-  padding: 28px;
-  border-radius: 22px;
-  min-height: 350px;
-}
-.cream {
-  background: var(--bg-eee9d8, #eee9d8);
-}
-.green-tint {
-  background: var(--bg-e5ecdf, #e5ecdf);
-}
-.pink-tint {
-  background: var(--bg-f0e3dc, #f0e3dc);
-}
-.feature-number {
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--fg-687061, #687061);
-}
-.feature-visual {
-  height: 160px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-.feature-card h3 {
-  font-size: 19px;
-  letter-spacing: -0.5px;
-  margin-bottom: 10px;
-}
-.feature-card p {
-  font-size: 13px;
-}
-.speech-visual span {
-  background: var(--bg-fffdf5, #fffdf5);
-  padding: 12px 15px;
-  border-radius: 14px;
-  font-size: 11px;
-  align-self: flex-start;
-  transform: rotate(-4deg);
-  margin-bottom: 9px;
-}
-.speech-visual span + span {
-  background: var(--bg-green, var(--green));
-  color: var(--fg-ffffff, white);
-  align-self: flex-end;
-  transform: rotate(3deg);
-  display: flex;
-  gap: 8px;
-}
-.quote-visual {
-  align-items: flex-start;
-  width: 75%;
-  margin: auto;
-  gap: 5px;
-}
-.quote-visual > span {
-  font-size: 11px;
-}
-.quote-visual strong {
-  font-size: 40px;
-  font-weight: 500;
-  letter-spacing: -2px;
-}
-.quote-visual small {
-  font-size: 11px;
-  letter-spacing: 0;
-}
-.quote-visual em {
-  font-size: 10px;
-  font-style: normal;
-  color: var(--fg-muted, var(--muted));
-}
-.approval-visual {
-  gap: 10px;
-}
-.approval-visual strong {
-  font-size: 13px;
-}
-.approval-visual span {
-  font-size: 10px;
-  color: var(--fg-muted, var(--muted));
-}
-.preview-section {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 80px;
-  align-items: center;
-  padding: 110px 20px;
-}
-.preview-copy p {
-  margin: 24px 0;
-  max-width: 420px;
-  font-size: 14px;
 }
 .product-preview {
   background: var(--bg-fffefa, #fffefa);
@@ -579,11 +403,6 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-.preview-greeting {
-  font-size: 21px;
-  letter-spacing: -0.6px;
-  margin: 35px 0 23px;
 }
 .preview-bubble {
   padding: 13px 17px;
@@ -635,10 +454,6 @@ p {
   background: var(--bg-e8ecde, #e8ecde);
   border-radius: 25px;
   padding: 48px 25px;
-}
-.closing-star {
-  font-size: 48px;
-  color: var(--fg-green, var(--green));
 }
 .closing h2 {
   font-size: 52px;
@@ -1703,19 +1518,8 @@ p {
   .channel-card {
     flex-wrap: wrap;
   }
-  .preview-section {
-    gap: 45px;
-    padding: 90px 0;
-  }
-  .mini-message {
-    left: -10px;
-    width: 105%;
-  }
   .hero {
     min-height: 620px;
-  }
-  .feature-card {
-    padding: 23px;
   }
   .nav-links {
     gap: 25px;
@@ -1788,37 +1592,10 @@ p {
     grid-template-columns: 1fr;
     gap: 22px;
   }
-  .intro h2,
-  .preview-copy h2 {
+  .intro h2 {
     font-size: 41px;
   }
   .intro > p {
-    font-size: 13px;
-  }
-  .feature-grid {
-    grid-template-columns: 1fr;
-  }
-  .feature-card {
-    min-height: 310px;
-    padding: 26px;
-  }
-  .feature-visual {
-    height: 145px;
-    max-width: 300px;
-    margin: auto;
-  }
-  .feature-card h3 {
-    font-size: 21px;
-  }
-  .feature-card p {
-    font-size: 13px;
-  }
-  .preview-section {
-    grid-template-columns: 1fr;
-    gap: 40px;
-    padding: 70px 0;
-  }
-  .preview-copy p {
     font-size: 13px;
   }
   .product-preview {
@@ -4620,5 +4397,628 @@ p {
   .widget-stage,
   .widget-window {
     animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Public frontend: marketing page, crew preview and sign-in.
+   Appended last on purpose, so these override the earlier marketing rules
+   that the previous hero and feature-card layout left behind.
+   --------------------------------------------------------------------------- */
+
+/* Once revealed, the skip link is a real target like any other. */
+.skip-link:focus-visible {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.marketing-header {
+  position: relative;
+  z-index: 5;
+}
+/* Comfortable tap area for the wordmark on a phone. */
+.site-nav > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.nav-section-link {
+  color: var(--fg-muted, var(--muted));
+  font-weight: 600;
+}
+.nav-section-link:hover {
+  color: var(--fg-ink, var(--ink));
+}
+
+/* ---- Hero ---- */
+.hero-lede {
+  max-width: 50ch;
+  font-size: 16.5px;
+}
+.hero-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  max-width: 44ch;
+  margin-top: 26px;
+  color: var(--fg-muted, var(--muted));
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.hero-note svg {
+  margin-top: 4px;
+}
+.hero-art {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 16px;
+  height: auto;
+  margin-left: 0;
+  padding: 34px;
+  overflow: visible;
+  border-radius: 28px;
+  background:
+    radial-gradient(
+      120% 90% at 80% 0%,
+      color-mix(in srgb, var(--yellow) 26%, transparent),
+      transparent 60%
+    ),
+    var(--bg-e9eddf, #e9eddf);
+}
+.hero-art .product-preview {
+  width: 100%;
+  max-width: 390px;
+  transform: rotate(-1.1deg);
+}
+.art-caption {
+  position: static;
+  color: var(--fg-muted, var(--muted));
+  font-size: 12.5px;
+  text-align: center;
+}
+.preview-buttons > .is-primary {
+  background: var(--bg-green, var(--green));
+  border-color: var(--ln-green, var(--green));
+  color: var(--fg-ffffff, #fff);
+}
+
+/* ---- Promise strip (now a list) ---- */
+.promise-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px 28px;
+  margin: 0;
+  padding: 24px 0;
+  list-style: none;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.promise-strip > li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--fg-365541, #365541);
+}
+
+/* ---- Shared section rhythm ---- */
+.section-block {
+  padding: 84px 0 10px;
+}
+.section-intro {
+  max-width: 54ch;
+  margin-bottom: 38px;
+}
+.section-intro h2 {
+  font-size: clamp(32px, 3.4vw, 46px);
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -1.6px;
+  margin: 14px 0;
+}
+.section-intro h2 .serif {
+  color: var(--fg-green, var(--green));
+}
+.section-intro > .eyebrow {
+  color: var(--fg-muted, var(--muted));
+}
+.section-intro > p {
+  font-size: 15.5px;
+}
+
+/* ---- Crew preview ---- */
+.crew-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.crew-preview-card {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 26px 24px 24px;
+  border: 1px solid var(--ln-line, var(--line));
+  border-radius: 24px;
+  background: var(--bg-white, var(--white));
+}
+.crew-preview-card strong {
+  font-size: 17px;
+  letter-spacing: -0.3px;
+}
+.crew-preview-card p {
+  margin: 0;
+  font-size: 14px;
+}
+/* The character is positioned absolutely for the old hero blob, so give it a
+   static stage of its own here. */
+.crew-preview-art,
+.closing-art {
+  position: relative;
+  display: block;
+  width: 74px;
+  height: 84px;
+  margin-bottom: 10px;
+}
+.crew-preview-art .buddy,
+.closing-art .buddy {
+  position: absolute;
+  inset: 0;
+  left: auto;
+  top: auto;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-6deg);
+}
+.crew-preview-art .buddy-eyes {
+  gap: 7px;
+  top: 33%;
+  left: 33%;
+}
+.crew-preview-art .buddy-eyes i {
+  width: 4px;
+  height: 8px;
+}
+.crew-preview-art .buddy-smile {
+  width: 13px;
+  height: 9px;
+  border-bottom-width: 2px;
+  top: 48%;
+  left: 37%;
+}
+.crew-preview-art .buddy-arm {
+  width: 17px;
+  height: 8px;
+}
+.crew-preview-art .buddy-arm.left {
+  left: -11px;
+}
+.crew-preview-art .buddy-arm.right {
+  right: -11px;
+}
+.buddy.coral {
+  background: var(--bg-e8a08a, #e8a08a);
+}
+/* Planned crew rest with closed eyes rather than being greyed out, so the
+   state never depends on colour alone — the card also says "Planned". */
+.buddy[data-asleep="true"] .buddy-eyes i {
+  height: 3px;
+  border-radius: 2px;
+}
+.crew-preview-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--bg-edf2df, #edf2df);
+  color: var(--fg-365541, #365541);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.crew-preview-tag[data-status="soon"] {
+  background: var(--bg-f0f0ea, #f0f0ea);
+  color: var(--fg-71756a, #71756a);
+}
+
+/* ---- Five steps ---- */
+/* Five across on a wide screen, so the sequence reads as one run rather than
+   leaving the final step stranded on a row of its own. */
+.step-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 1240px) {
+  .step-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .step-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.step-card {
+  display: grid;
+  justify-items: start;
+  gap: 9px;
+  padding: 26px 24px;
+  border: 1px solid var(--ln-line, var(--line));
+  border-radius: 22px;
+  background: var(--bg-white, var(--white));
+}
+.step-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.3px;
+}
+.step-card p {
+  margin: 0;
+  font-size: 13.8px;
+}
+.step-index {
+  color: var(--fg-muted, var(--muted));
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1.4px;
+}
+.step-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 2px;
+  border-radius: 13px;
+  background: var(--bg-edf2df, #edf2df);
+  color: var(--fg-green, var(--green));
+}
+/* The last step is the pay-off, so the sequence reads as building towards it. */
+.step-card:last-child {
+  border-color: var(--ln-green, var(--green));
+  background: var(--bg-green, var(--green));
+}
+.step-card:last-child h3 {
+  color: var(--fg-ffffff, #fff);
+}
+.step-card:last-child p,
+.step-card:last-child .step-index {
+  color: #e7efe6;
+}
+.step-card:last-child .step-icon {
+  background: #ffffff1f;
+  color: var(--fg-yellow, var(--yellow));
+}
+
+/* ---- Channels ---- */
+.reach-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.reach-card {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  padding: 22px 20px;
+  border: 1px solid var(--ln-line, var(--line));
+  border-radius: 20px;
+  background: var(--bg-white, var(--white));
+}
+.reach-card strong {
+  font-size: 15px;
+  letter-spacing: -0.2px;
+}
+.reach-card > span:last-child {
+  color: var(--fg-muted, var(--muted));
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.reach-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 3px;
+  border-radius: 12px;
+  background: var(--bg-edf2df, #edf2df);
+  color: var(--fg-green, var(--green));
+}
+
+/* ---- Practice studio vs account ---- */
+.choose-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.choose-card {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 32px 30px;
+  border: 1px solid var(--ln-line, var(--line));
+  border-radius: 26px;
+  background: var(--bg-white, var(--white));
+}
+.choose-card.is-account {
+  border-color: var(--ln-cfd7cc, #cfd7cc);
+  background: var(--bg-e9eddf, #e9eddf);
+}
+.choose-card h3 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: -0.9px;
+}
+.choose-card > p {
+  max-width: 42ch;
+  margin: 0;
+  font-size: 14.5px;
+}
+.choose-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--bg-f0f0ea, #f0f0ea);
+  color: var(--fg-71756a, #71756a);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.choose-card.is-account .choose-tag {
+  background: var(--bg-edf2df, #edf2df);
+  color: var(--fg-365541, #365541);
+}
+.choose-points {
+  display: grid;
+  gap: 9px;
+  margin: 2px 0 6px;
+  padding: 0;
+  list-style: none;
+}
+.choose-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--fg-ink, var(--ink));
+  font-size: 14px;
+  font-weight: 500;
+}
+.choose-points svg {
+  margin-top: 3px;
+  color: var(--fg-green, var(--green));
+}
+
+/* ---- Closing ---- */
+.closing-cta {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin: 70px 0 90px;
+  padding: 64px 32px 68px;
+  border-radius: 34px;
+  background: var(--bg-e9eddf, #e9eddf);
+  text-align: center;
+}
+.closing-cta h2 {
+  margin: 4px 0 0;
+  font-size: clamp(34px, 4.2vw, 56px);
+  line-height: 1.07;
+  font-weight: 500;
+  letter-spacing: -2.2px;
+}
+.closing-cta h2 .serif {
+  color: var(--fg-green, var(--green));
+}
+.closing-cta > p {
+  max-width: 44ch;
+  margin: 0 0 8px;
+}
+
+/* ---- Footer ---- */
+/* The footer now sits outside <main class="marketing">, so it needs that
+   container's width and gutters itself. */
+footer {
+  max-width: 1600px;
+  margin: auto;
+  padding: 0 6% 34px;
+}
+footer .legal-links a,
+footer > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* The decorative character needs a box of its own: .buddy positions itself
+   against the nearest positioned ancestor, which was zero-height. */
+.auth-buddy {
+  height: 300px;
+  bottom: -96px;
+}
+
+/* ---- Sign-in ---- */
+.auth-reasons {
+  display: grid;
+  gap: 15px;
+  margin: 26px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.auth-reasons li {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+.auth-reasons strong {
+  display: block;
+  font-size: 14.5px;
+  letter-spacing: -0.2px;
+}
+.auth-reasons span {
+  color: var(--fg-muted, var(--muted));
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.auth-reason-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--bg-edf2df, #edf2df);
+  color: var(--fg-green, var(--green));
+}
+.auth-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.auth-error svg {
+  flex: none;
+  margin-top: 2px;
+}
+.auth-status {
+  min-height: 1.2em;
+  margin: 9px 0 0;
+  color: var(--fg-muted, var(--muted));
+  font-size: 13px;
+}
+.auth-status:empty {
+  min-height: 0;
+  margin: 0;
+}
+.auth-submit[aria-disabled="true"] {
+  opacity: 0.72;
+  cursor: progress;
+}
+.auth-practice {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ln-line, var(--line));
+}
+.auth-practice > p {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.auth-practice svg {
+  flex: none;
+  margin-top: 4px;
+}
+.auth-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  color: var(--fg-green, var(--green));
+  font-size: 13.5px;
+  font-weight: 650;
+}
+.auth-back:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* ---- Public responsive behaviour ---- */
+@media (max-width: 1000px) {
+  .crew-preview,
+  .choose-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Decorative only, and at this width it would sit on top of the reasons. */
+  .auth-buddy {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  /* Deliberate phone reading order: the promise, then the proof, then the
+     actions — the product preview drops below the copy. */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .hero-art {
+    order: 2;
+    width: 100%;
+    padding: 22px;
+  }
+  .hero-art .product-preview {
+    transform: none;
+  }
+  .hero-lede {
+    font-size: 15px;
+  }
+  .hero-actions {
+    flex-wrap: wrap;
+  }
+  .hero-actions .button {
+    width: 100%;
+  }
+  .promise-strip {
+    justify-content: flex-start;
+    gap: 12px 20px;
+  }
+  /* The hero's own button sits a few hundred pixels below, so the header keeps
+     only "Sign in" — the two destinations stay easy to tell apart. */
+  .marketing-header .nav-links > .button {
+    display: none;
+  }
+  .section-block {
+    padding: 58px 0 6px;
+  }
+  .section-intro {
+    margin-bottom: 26px;
+  }
+  .step-list,
+  .reach-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .choose-card {
+    padding: 26px 22px;
+  }
+  .choose-card .button {
+    width: 100%;
+  }
+  .closing-cta {
+    margin: 48px 0 64px;
+    padding: 46px 20px 50px;
+    border-radius: 26px;
   }
 }

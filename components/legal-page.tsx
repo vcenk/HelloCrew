@@ -8,27 +8,34 @@ export const LEGAL_CONTACT = "cenk@agentland.app";
 
 export function LegalPage({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <main className="marketing">
-      <nav className="site-nav" aria-label="Main navigation">
-        <Link href="/" aria-label="HelloCrew home">
-          <Brand />
-        </Link>
-        <div className="nav-links">
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/data-deletion">Data deletion</Link>
-        </div>
-      </nav>
-      <article className="legal">
-        <h1>{title}</h1>
-        <p className="legal-updated">Last updated: {LEGAL_UPDATED}</p>
-        {children}
-        <p className="legal-contact">
-          Questions? Email <a href={`mailto:${LEGAL_CONTACT}`}>{LEGAL_CONTACT}</a>.
-        </p>
-      </article>
+    <>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+      <header className="marketing marketing-header">
+        <nav className="site-nav" aria-label="Main">
+          <Link href="/" aria-label="HelloCrew home">
+            <Brand />
+          </Link>
+          <div className="nav-links">
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+            <Link href="/data-deletion">Data deletion</Link>
+          </div>
+        </nav>
+      </header>
+      <main className="marketing" id="main-content" tabIndex={-1}>
+        <article className="legal">
+          <h1>{title}</h1>
+          <p className="legal-updated">Last updated: {LEGAL_UPDATED}</p>
+          {children}
+          <p className="legal-contact">
+            Questions? Email <a href={`mailto:${LEGAL_CONTACT}`}>{LEGAL_CONTACT}</a>.
+          </p>
+        </article>
+      </main>
       <LegalFooter />
-    </main>
+    </>
   );
 }
 
