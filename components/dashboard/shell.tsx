@@ -27,7 +27,11 @@ import {
 } from "lucide-react";
 
 import { Brand } from "@/components/brand";
+import { CrewAvatar } from "./crew-avatar";
+import { ModeBadge } from "./mode-badge";
+import { operatingMode } from "./operating-mode";
 import { useDashboard, type Theme } from "./provider";
+import { useNavigationGuard } from "./unsaved-changes";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; hint: string };
 
@@ -89,9 +93,27 @@ const optionId = (i: number) => `${listId}-${i}`;
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { theme, identity, conversation, toasts, dismissToast, hydrated } =
-    useDashboard();
+  const {
+    theme,
+    identity,
+    conversation,
+    toasts,
+    dismissToast,
+    hydrated,
+    account,
+    engine,
+    liveStatus,
+  } = useDashboard();
+  // What the next reply would actually be, rather than a fixed label.
+  const mode = operatingMode({
+    account,
+    engine,
+    live: liveStatus,
+    conversationMode: conversation.mode,
+    channel: conversation.channel,
+  });
   const resolved = useResolvedTheme(theme);
+  const { onNavigate } = useNavigationGuard();
   const compact = useMediaQuery(COMPACT_QUERY);
   const [navOpen, setNavOpen] = useState(false);
   const navTrigger = useRef<HTMLButtonElement>(null);
@@ -215,6 +237,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onNavigate={onNavigate(item.href)}
                   className="dash-nav-link"
                   aria-current={
                     isActive(pathname, item.href) ? "page" : undefined
@@ -239,6 +262,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <div className="dash-sidebar-foot">
           <Link
             href={settingsItem.href}
+            onNavigate={onNavigate(settingsItem.href)}
             className="dash-nav-link"
             aria-current={
               isActive(pathname, settingsItem.href) ? "page" : undefined
@@ -254,7 +278,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             onClick={() => closeNav()}
           >
             <span className="dash-avatar" aria-hidden="true">
-              {identity.name.slice(0, 1).toUpperCase()}
+              <CrewAvatar role="receptionist" size={24} />
             </span>
             <span>
               <strong>{identity.name}</strong>
@@ -286,12 +310,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <span>{current.label}</span>
           </div>
           <div className="dash-topbar-actions">
-            <span
-              className="dash-mode"
-              title="Answers come from your saved facts. No paid AI calls or real bookings."
-            >
-              Practice mode
-            </span>
+            <ModeBadge mode={mode} />
             <SaveIndicator />
             <ThemeSwitch />
             <button

@@ -6,13 +6,10 @@ import {
   CalendarCheck,
   ChevronRight,
   GraduationCap,
-  Globe,
   Hand,
   UserPlus,
   MessageCircle,
-  Phone,
   ShieldCheck,
-  Star,
   Users,
 } from "lucide-react";
 
@@ -20,9 +17,17 @@ import { crewJobs, receptionistSkills } from "@/lib/crew";
 import { UNANSWERED } from "./chat-thread";
 import { PublicReplyCard, usePublicReplies } from "./connections";
 import { useDashboard, useLaunchChecklist } from "./provider";
+import { CrewAvatar, type CrewRole } from "./crew-avatar";
 import { ButtonLink, EmptyState, Panel, Pill } from "./ui";
 
-const jobIcon = { receptionist: Globe, reviews: Star, phone: Phone } as const;
+// Jobs that are not hired yet still get a recognisable silhouette.
+const jobRole: Record<string, CrewRole> = {
+  receptionist: "receptionist",
+  reviews: "reputation",
+  phone: "generic",
+  inbox: "inbox",
+  booking: "booking",
+};
 
 function greetingForNow() {
   const hour = new Date().getHours();
@@ -333,7 +338,7 @@ export function HomeView() {
         <div className="crew-strip-row">
           <Link href="/app/crew/receptionist" className="crew-tile" data-active="true">
             <span className="crew-tile-avatar" aria-hidden="true">
-              {identity.name.slice(0, 1).toUpperCase()}
+              <CrewAvatar role="receptionist" size={32} />
             </span>
             <span className="crew-tile-text">
               <strong>{identity.name}</strong>
@@ -350,7 +355,7 @@ export function HomeView() {
           </Link>
           <Link href="/app/crew/reputation" className="crew-tile" data-active="true">
             <span className="crew-tile-avatar" aria-hidden="true">
-              <Star size={17} />
+              <CrewAvatar role="reputation" size={32} />
             </span>
             <span className="crew-tile-text">
               <strong>Reputation manager</strong>
@@ -363,11 +368,10 @@ export function HomeView() {
           {crewJobs
             .filter((j) => !j.available)
             .map((job) => {
-              const Icon = jobIcon[job.job];
               return (
                 <div className="crew-tile" data-active="false" key={job.job}>
                   <span className="crew-tile-avatar" aria-hidden="true">
-                    <Icon size={17} />
+                    <CrewAvatar role={jobRole[job.job] ?? "generic"} state="offline" size={32} />
                   </span>
                   <span className="crew-tile-text">
                     <strong>{job.title}</strong>

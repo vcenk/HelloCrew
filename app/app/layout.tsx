@@ -5,6 +5,7 @@ import "./legacy-dark.css";
 
 import { DashboardProvider } from "@/components/dashboard/provider";
 import { DashboardShell } from "@/components/dashboard/shell";
+import { UnsavedChangesProvider } from "@/components/dashboard/unsaved-changes";
 
 export const metadata: Metadata = {
   title: "Dashboard · HelloCrew",
@@ -18,7 +19,10 @@ export default function DashboardLayout({
 }) {
   return (
     <DashboardProvider>
-      <DashboardShell>{children}</DashboardShell>
+      {/* Above the shell, so the sidebar's own links can be guarded too. */}
+      <UnsavedChangesProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </UnsavedChangesProvider>
     </DashboardProvider>
   );
 }

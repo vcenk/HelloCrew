@@ -17,6 +17,7 @@ import {
 import { channelLabel } from "@/lib/conversations";
 import type { Scenario } from "@/lib/demo";
 import { MAX_PRACTICE_TURNS, useDashboard, type ChatMessage } from "./provider";
+import { CrewAvatar } from "./crew-avatar";
 import { Pill } from "./ui";
 
 export const UNANSWERED = "No matching information";
@@ -158,7 +159,7 @@ export function ChatThread({
     >
       <header className="thread-head">
         <span className="dash-avatar" aria-hidden="true">
-          {identity.name.slice(0, 1).toUpperCase()}
+          <CrewAvatar role="receptionist" size={24} />
         </span>
         <div>
           <strong>

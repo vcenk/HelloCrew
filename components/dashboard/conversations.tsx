@@ -26,6 +26,9 @@ import {
   type ThreadSummary,
 } from "@/lib/conversations";
 import { ChatThread, UNANSWERED } from "./chat-thread";
+import { ConfirmDialog, useConfirm } from "./confirm-dialog";
+import { ModeBadge } from "./mode-badge";
+import { operatingMode } from "./operating-mode";
 import { useDashboard } from "./provider";
 import { Button, EmptyState, PageHeader, Pill } from "./ui";
 
@@ -80,13 +83,31 @@ export function ConversationsView() {
   const replies = conversation.messages.filter((m) => m.role === "assistant");
   const selected = replies.find((m) => m.id === selectedId) ?? replies[replies.length - 1];
   const human = conversation.mode === "human";
+  const confirmDelete = useConfirm();
+  const mode = operatingMode({
+    account,
+    engine,
+    live: liveStatus,
+    conversationMode: conversation.mode,
+    channel: conversation.channel,
+  });
 
-  // /app/conversations?c=<id> opens that conversation (links from Today).
+  // /app/conversations?c=<id> opens that conversation, and the id stays in the
+  // URL so Back, Forward and refresh all land on the same chat.
   const requested = params.get("c");
   useEffect(() => {
-    if (!hydrated || !requested) return;
-    void openThread(requested).then(() => router.replace("/app/conversations", { scroll: false }));
-  }, [hydrated, requested, openThread, router]);
+    if (!hydrated || !requested || requested === conversation.id) return;
+    void openThread(requested);
+  }, [hydrated, requested, conversation.id, openThread]);
+
+  // Opening a saved chat from the list writes it back into the URL.
+  const openAndTrack = (id: string) => {
+    setSelectedId(null);
+    void openThread(id);
+    router.replace(`/app/conversations?c=${encodeURIComponent(id)}`, {
+      scroll: false,
+    });
+  };
 
   // Website chats arrive on their own: keep the list and the open chat fresh.
   const savedWebsite = conversation.channel !== "test";
@@ -123,6 +144,7 @@ export function ConversationsView() {
         description="Every chat your crew handles lands here. Test one now, and see what each reply used."
         actions={
           <>
+            <ModeBadge mode={mode} />
             {liveReady && (
               <div className="segmented" role="radiogroup" aria-label="Reply engine">
                 <button type="button" role="radio" aria-checked={engine === "practice"} onClick={() => setEngine("practice")}>
@@ -168,10 +190,7 @@ export function ConversationsView() {
                     type="button"
                     className="convo-item"
                     aria-current={thread.id === conversation.id ? "true" : undefined}
-                    onClick={() => {
-                      setSelectedId(null);
-                      void openThread(thread.id);
-                    }}
+                    onClick={() => openAndTrack(thread.id)}
                   >
                     <span className="dash-avatar" data-channel={thread.channel} aria-hidden="true">
                       <ChannelIcon channel={thread.channel} />
@@ -231,7 +250,22 @@ export function ConversationsView() {
                   variant="ghost"
                   icon={Trash2}
                   aria-label="Delete conversation"
-                  onClick={() => void deleteThread(conversation.id)}
+                  onClick={() => {
+                    const thread = threads.find((t) => t.id === conversation.id);
+                    confirmDelete.confirm({
+                      title: "Delete this conversation?",
+                      body: (
+                        <>
+                          “{thread?.title ?? "This conversation"}” and its
+                          replies will be removed from your workspace. This
+                          can’t be undone.
+                        </>
+                      ),
+                      confirmLabel: "Delete conversation",
+                      tone: "danger",
+                      onConfirm: () => deleteThread(conversation.id),
+                    });
+                  }}
                 />
               )}
             </div>
@@ -284,14 +318,15 @@ export function ConversationsView() {
             </>
           )}
           <p className="trace-note">
-            {human
-              ? "You’ve taken over: customer messages are saved, and the AI won’t reply until you hand it back."
-              : engine === "live"
-                ? "Live replies use your approved knowledge and the skills you allowed. Bookings wait for you, and nothing is sent outside HelloCrew."
-                : "Practice replies come from your saved knowledge with fixed rules. No AI model is called, and nothing is booked or sent."}
+            {/* Same source of truth as the badge, so the two can't disagree. */}
+            {mode.detail}
           </p>
         </aside>
       </div>
+      <ConfirmDialog
+        request={confirmDelete.request}
+        onClose={confirmDelete.close}
+      />
     </div>
   );
 }

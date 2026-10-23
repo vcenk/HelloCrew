@@ -353,13 +353,43 @@
   gap: 10px;
   margin-left: auto;
 }
+/* Operating mode. The icon and the wording carry the meaning; tone only
+   reinforces it, so the badge still reads correctly without colour. */
 .dash-mode {
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
   border: 1px dashed var(--d-line-strong);
   border-radius: 999px;
   color: var(--d-ink-2);
   font-size: 12.5px;
   font-weight: 600;
+  white-space: nowrap;
+}
+.dash-mode[data-size="sm"] {
+  padding: 4px 9px;
+  font-size: 11.5px;
+}
+.dash-mode[data-tone="practice"],
+.dash-mode[data-tone="neutral"] {
+  border-style: dashed;
+}
+/* A solid border marks the modes where something real happens. */
+.dash-mode[data-tone="live"] {
+  border: 1px solid var(--d-primary);
+  background: var(--d-primary-soft);
+  color: var(--d-primary);
+}
+.dash-mode[data-tone="human"] {
+  border: 1px solid var(--d-line-strong);
+  background: var(--d-surface-3);
+  color: var(--d-ink);
+}
+.dash-mode[data-tone="warning"] {
+  border: 1px solid color-mix(in srgb, var(--d-marigold-ink) 45%, transparent);
+  background: var(--d-marigold-soft);
+  color: var(--d-marigold-ink);
 }
 .dash-save {
   display: inline-flex;
@@ -704,6 +734,195 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 22px;
+}
+/* ---------------------------------------------------------------------------
+   Crewlings. Role colour lives here rather than in the component, so the dark
+   theme can restate it; the silhouette already carries the identity on its
+   own, which is what keeps the roles apart in greyscale.
+   --------------------------------------------------------------------------- */
+.crew-avatar {
+  --crew-body: var(--d-surface-3);
+  --crew-face: var(--d-ink);
+  --crew-mark: var(--d-ink);
+  flex: none;
+  display: block;
+}
+.crew-avatar[data-role="receptionist"] {
+  --crew-body: #7fc9ad;
+  --crew-face: #103b2d;
+  --crew-mark: #103b2d;
+}
+.crew-avatar[data-role="reputation"] {
+  --crew-body: #f2cc5c;
+  --crew-face: #4a3708;
+  --crew-mark: #fdf6e0;
+}
+.crew-avatar[data-role="inbox"] {
+  --crew-body: #86aedd;
+  --crew-face: #11314f;
+  --crew-mark: #11314f;
+}
+.crew-avatar[data-role="booking"] {
+  --crew-body: #f0a088;
+  --crew-face: #532619;
+  --crew-mark: #532619;
+}
+.crew-avatar[data-role="account"] {
+  --crew-body: #b49ad8;
+  --crew-face: #35215a;
+  --crew-mark: #f3ecfb;
+}
+.crew-avatar[data-role="generic"] {
+  --crew-body: var(--d-line-strong);
+  --crew-face: var(--d-ink-2);
+  --crew-mark: var(--d-ink-2);
+}
+.crew-avatar-shape {
+  fill: var(--crew-body);
+}
+.crew-avatar-eyes circle {
+  fill: var(--crew-face);
+}
+.crew-avatar-smile {
+  stroke: var(--crew-face);
+}
+.crew-avatar-line {
+  stroke: var(--crew-mark);
+}
+.crew-avatar-mark {
+  fill: var(--crew-mark);
+}
+/* Status ring sits on the surface it is drawn over, so it reads at any size. */
+.crew-avatar-status-ring {
+  fill: var(--d-surface);
+  stroke: var(--d-line-strong);
+  stroke-width: 1.5;
+}
+.crew-avatar-status-glyph {
+  fill: var(--d-ink-2);
+  stroke: var(--d-ink-2);
+}
+.crew-avatar-status[data-state="working"] .crew-avatar-status-glyph {
+  fill: var(--d-primary);
+  stroke: var(--d-primary);
+}
+.crew-avatar-status[data-state="waiting"] .crew-avatar-status-glyph,
+.crew-avatar-status[data-state="attention"] .crew-avatar-status-glyph {
+  fill: none;
+  stroke: var(--d-marigold-ink);
+}
+.crew-avatar-status[data-state="attention"] .crew-avatar-status-ring {
+  fill: var(--d-marigold-soft);
+}
+.crew-avatar-status[data-state="success"] .crew-avatar-status-glyph {
+  fill: none;
+  stroke: var(--d-primary);
+}
+.crew-avatar-status[data-state="offline"] .crew-avatar-status-glyph {
+  fill: none;
+  stroke: var(--d-ink-3);
+}
+.crew-avatar[data-state="offline"] .crew-avatar-body {
+  opacity: 0.55;
+}
+
+/* Small, infrequent signs of life. Nothing loops faster than once a few
+   seconds, and all of it stops under prefers-reduced-motion. */
+.crew-avatar-eyes {
+  transform-origin: 24px 26px;
+  animation: crew-blink 7s infinite;
+}
+.crew-avatar[data-state="working"] .crew-avatar-body {
+  transform-origin: 24px 42px;
+  animation: crew-tilt 2.4s ease-in-out infinite;
+}
+.crew-avatar[data-state="attention"] .crew-avatar-status-ring {
+  animation: crew-pulse 1.8s ease-in-out infinite;
+}
+@keyframes crew-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes crew-tilt {
+  0%,
+  100% {
+    transform: rotate(-2.5deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+}
+@keyframes crew-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.crew-group {
+  display: inline-flex;
+  align-items: center;
+}
+.crew-group .crew-avatar {
+  border-radius: 50%;
+  filter: drop-shadow(0 0 1.5px var(--d-surface))
+    drop-shadow(0 0 1.5px var(--d-surface));
+}
+
+.dash[data-theme="dark"] .crew-avatar[data-role="receptionist"] {
+  --crew-body: #4e9b80;
+  --crew-face: #04140d;
+  --crew-mark: #04140d;
+}
+.dash[data-theme="dark"] .crew-avatar[data-role="reputation"] {
+  --crew-body: #c9a53f;
+  --crew-face: #241905;
+  --crew-mark: #241905;
+}
+.dash[data-theme="dark"] .crew-avatar[data-role="inbox"] {
+  --crew-body: #5c87b8;
+  --crew-face: #07182a;
+  --crew-mark: #07182a;
+}
+.dash[data-theme="dark"] .crew-avatar[data-role="booking"] {
+  --crew-body: #c87b64;
+  --crew-face: #2b0f07;
+  --crew-mark: #2b0f07;
+}
+.dash[data-theme="dark"] .crew-avatar[data-role="account"] {
+  --crew-body: #8f73b8;
+  --crew-face: #190b2d;
+  --crew-mark: #190b2d;
+}
+
+/* Shared confirmation for anything that cannot be undone. */
+.ui-confirm {
+  width: min(420px, calc(100vw - 32px));
+}
+.ui-confirm p {
+  margin-top: 10px;
+  color: var(--d-ink-2);
+}
+.ui-confirm .ui-btn[data-busy="true"] {
+  cursor: progress;
+  opacity: 0.75;
+}
+@media (max-width: 860px) {
+  .ui-dialog-actions {
+    flex-direction: column-reverse;
+  }
+  .ui-dialog-actions .ui-btn {
+    width: 100%;
+  }
 }
 
 /* Command menu */
@@ -3478,7 +3697,9 @@ a.crew-tile:hover {
   .dash-topbar {
     padding: 0 16px;
   }
-  .dash-mode {
+  /* Only the topbar copy is dropped for space — Conversations keeps its
+     badge, which is where the mode actually matters. */
+  .dash-topbar .dash-mode {
     display: none;
   }
   .dash-save span {
@@ -3497,6 +3718,45 @@ a.crew-tile:hover {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* Everything a finger lands on gets 44px of height. Height only: widening
+     these pushed .dash-topbar-actions into horizontal overflow. */
+  .dash-nav-link,
+  .dash-search,
+  .dash-brand,
+  .dash-mini-badge {
+    min-height: 44px;
+  }
+  .dash-skip:focus-visible {
+    min-height: 44px;
+  }
+  .ui-btn,
+  .ui-btn-sm,
+  .ui-btn-md {
+    min-height: 44px;
+  }
+  .chip,
+  .composer-send,
+  .kitem,
+  .tab,
+  .segmented button,
+  .staff-filter button,
+  .price-mode button {
+    min-height: 44px;
+  }
+  .composer-send {
+    min-width: 44px;
+  }
+  .dash-theme button {
+    min-height: 44px;
+  }
+  /* Text fields are targets too, and a 22px one is hard to land on. The
+     checkbox inputs are left alone: their <label> is the real target. */
+  .dash input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  .dash select,
+  .dash textarea {
+    min-height: 44px;
+  }
+
   /* Touch targets. The 60px topbar has vertical room to spare but no spare
      width at 390px, so these grow on the height axis only; widening them
      pushes .dash-topbar-actions into horizontal overflow. flex: none stops

@@ -31,8 +31,10 @@ import {
 import { WebsiteChatGuide } from "@/components/website-chat-guide";
 import { ChatThread } from "./chat-thread";
 import { WorksOnPanel } from "./connections";
+import { CrewAvatar } from "./crew-avatar";
 import { useDashboard } from "./provider";
 import { Button, ButtonLink, PageHeader, Pill } from "./ui";
+import { useUnsavedChanges } from "./unsaved-changes";
 
 const jobIcon = { receptionist: Globe, reviews: Star, phone: Phone } as const;
 const jobBlurb = {
@@ -55,7 +57,7 @@ export function CrewView() {
       <h2 className="section-title">On your crew</h2>
       <Link href="/app/crew/receptionist" className="agent-card">
         <span className="agent-card-avatar" aria-hidden="true">
-          {identity.name.slice(0, 1).toUpperCase()}
+          <CrewAvatar role="receptionist" size={40} />
         </span>
         <div className="agent-card-main">
           <div className="agent-card-title">
@@ -86,7 +88,7 @@ export function CrewView() {
       </Link>
       <Link href="/app/crew/reputation" className="agent-card">
         <span className="agent-card-avatar" aria-hidden="true">
-          <Star size={20} />
+          <CrewAvatar role="reputation" size={40} />
         </span>
         <div className="agent-card-main">
           <div className="agent-card-title">
@@ -148,7 +150,7 @@ export function AgentLayout({ children }: { children: React.ReactNode }) {
       </nav>
       <header className="agent-head">
         <span className="agent-card-avatar" aria-hidden="true">
-          {identity.name.slice(0, 1).toUpperCase()}
+          <CrewAvatar role="receptionist" size={40} />
         </span>
         <div>
           <h1>{identity.name}</h1>
@@ -252,6 +254,8 @@ function PersonalityForm({ identity }: { identity: AssistantIdentity }) {
   const [draft, setDraft] = useState<AssistantIdentity>(identity);
   const [error, setError] = useState("");
   const dirty = JSON.stringify(draft) !== JSON.stringify(identity);
+  // Saving makes draft match identity, so the guard stops asking on its own.
+  useUnsavedChanges("personality", dirty);
 
   function field<K extends keyof AssistantIdentity>(key: K, value: AssistantIdentity[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
