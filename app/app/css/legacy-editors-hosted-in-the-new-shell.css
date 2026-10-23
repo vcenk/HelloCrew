@@ -1,0 +1,53 @@
+/* ---------- Legacy editors hosted in the new shell ---------- */
+.legacy-host {
+  display: grid;
+  gap: 0;
+}
+.dash .button {
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  transition:
+    background var(--d-fast),
+    border-color var(--d-fast),
+    transform var(--d-fast) var(--d-ease);
+}
+.dash .button:hover {
+  transform: none;
+}
+.dash .button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.dash .button.compact {
+  min-height: 34px;
+  padding: 0 13px;
+  font-size: 13px;
+}
+.dash .button.dark {
+  background: var(--d-primary);
+  color: var(--d-primary-ink);
+}
+.dash .button.dark:hover {
+  background: var(--d-primary-hover);
+}
+.dash .button.outline {
+  border-color: var(--d-line-strong);
+  background: var(--d-surface);
+  color: var(--d-ink);
+}
+.dash .button.outline:hover {
+  background: var(--d-surface-2);
+}
+/* The new page header already introduces the section. */
+.legacy-host .assistant-setup-intro {
+  display: none;
+}
+.dash .eyebrow {
+  letter-spacing: 0.02em;
+}
+.dash :where(input, textarea, select) {
+  color: var(--d-ink);
+}
+

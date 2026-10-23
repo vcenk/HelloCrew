@@ -1,0 +1,176 @@
+/* ---------- Knowledge ---------- */
+.suggestions {
+  margin-bottom: 20px;
+  border-color: color-mix(in srgb, var(--d-primary) 30%, var(--d-line));
+}
+.suggestions ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.suggestions li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.suggestions li > svg {
+  color: var(--d-primary);
+}
+.suggestions li > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.knowledge-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+.knowledge-main {
+  display: grid;
+  gap: 14px;
+}
+.knowledge-side {
+  position: sticky;
+  top: 84px;
+  display: grid;
+  gap: 14px;
+}
+.kgroup {
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-lg);
+  background: var(--d-surface);
+  box-shadow: var(--d-shadow-1);
+  overflow: hidden;
+}
+.kgroup > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+}
+.kgroup h2 {
+  font: 650 16px/1.2 var(--d-display);
+}
+.kgroup header small {
+  color: var(--d-ink-3);
+  font-size: 12.5px;
+}
+.kgroup-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--d-primary-soft);
+  color: var(--d-primary);
+}
+.kgroup-empty {
+  padding: 0 16px 16px;
+  color: var(--d-ink-3);
+  font-size: 13px;
+}
+.kgroup ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kgroup li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px 10px 16px;
+  border-top: 1px solid var(--d-line);
+}
+.kgroup li[data-status="draft"] .kitem,
+.kgroup li[data-status="outdated"] .kitem {
+  opacity: 0.6;
+}
+.kitem {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.kitem strong {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+}
+.kitem-price {
+  color: var(--d-primary);
+  font-variant-numeric: tabular-nums;
+}
+.kitem > span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--d-ink-2);
+  font-size: 13px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.kitem:hover strong {
+  color: var(--d-primary);
+}
+.dash .search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--d-ink-3);
+}
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--d-ink);
+  font: inherit;
+}
+.preview-hits {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.preview-hits li {
+  display: grid;
+  padding: 8px 10px;
+  border-radius: var(--d-r-sm);
+  background: var(--d-primary-soft);
+}
+.preview-hits small {
+  color: var(--d-ink-3);
+  font-size: 12px;
+}
+.preview-miss {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: var(--d-r-sm);
+  background: var(--d-marigold-soft);
+  color: var(--d-marigold-ink);
+  font-size: 13px;
+}
+.kdialog {
+  width: min(520px, calc(100vw - 32px));
+}
+.kdialog .ui-dialog-actions {
+  margin-top: 4px;
+}
+.kdialog-delete {
+  margin-right: auto;
+}
+
+

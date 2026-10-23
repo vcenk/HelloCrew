@@ -1,0 +1,147 @@
+/* ---------- Conversations ---------- */
+.convo-grid {
+  grid-template-columns: 240px minmax(0, 1fr) 320px;
+}
+.convo-list {
+  display: grid;
+  gap: 12px;
+}
+.convo-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--d-primary);
+  border-radius: var(--d-r-md);
+  background: var(--d-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--d-primary) 12%, transparent);
+}
+.convo-item-text {
+  display: grid;
+  min-width: 0;
+}
+.convo-item-text strong {
+  font-size: 14px;
+}
+.convo-item-text small {
+  overflow: hidden;
+  color: var(--d-ink-3);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Where a conversation came from, at a glance. */
+.channel-tag {
+  justify-self: start;
+  margin-bottom: 2px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--channel-bg, var(--d-surface-2));
+  color: var(--channel-ink, var(--d-ink-2));
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+[data-channel="whatsapp"] {
+  --channel-bg: color-mix(in srgb, #25d366 18%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #128c4b 85%, var(--d-ink));
+}
+[data-channel="messenger"] {
+  --channel-bg: color-mix(in srgb, #0a7cff 16%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #0a5fd0 85%, var(--d-ink));
+}
+[data-channel="instagram"] {
+  --channel-bg: color-mix(in srgb, #e1306c 15%, var(--d-surface));
+  --channel-ink: color-mix(in srgb, #b81f57 85%, var(--d-ink));
+}
+[data-channel="website"] {
+  --channel-bg: color-mix(in srgb, var(--d-primary) 14%, var(--d-surface));
+  --channel-ink: var(--d-primary);
+}
+.convo-item .dash-avatar[data-channel]:not([data-channel="test"]) {
+  background: var(--channel-bg);
+  color: var(--channel-ink);
+}
+.convo-note {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--d-line-strong);
+  border-radius: var(--d-r-md);
+  color: var(--d-ink-3);
+  font-size: 12.5px;
+}
+.convo-note svg {
+  flex: none;
+  margin-top: 2px;
+}
+.row-used {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  max-width: min(560px, 82%);
+}
+.row-used > span {
+  color: var(--d-ink-3);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.used-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--d-line);
+  border-radius: 999px;
+  background: var(--d-surface);
+  color: var(--d-ink-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    border-color var(--d-fast),
+    color var(--d-fast);
+}
+.used-chip[data-tone="skill"] {
+  background: var(--d-marigold-soft);
+  color: var(--d-marigold-ink);
+}
+.used-chip:hover {
+  border-color: var(--d-primary);
+  color: var(--d-primary);
+}
+.teach-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, 92%);
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--d-primary) 30%, var(--d-line));
+  border-radius: var(--d-r-md);
+  background: var(--d-primary-soft);
+  color: var(--d-ink);
+  font-size: 13px;
+}
+.teach-callout > svg {
+  color: var(--d-primary);
+}
+.teach-callout > span {
+  flex: 1 1 200px;
+}
+.thread[data-compact="true"] {
+  height: calc(100dvh - 300px);
+  min-height: 460px;
+}
+.thread[data-compact="true"] .bubble,
+.thread[data-compact="true"] .row-used {
+  max-width: 92%;
+}
+.thread[data-compact="true"] .thread-prompts {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+

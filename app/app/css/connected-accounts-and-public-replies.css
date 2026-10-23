@@ -1,0 +1,5 @@
+/* ---------- Connected accounts and public replies ---------- */
+.connections-panel {
+  display: grid;
+  gap: 14px;
+}

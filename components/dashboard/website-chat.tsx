@@ -12,6 +12,7 @@ import {
 import { normalizeOrigin } from "@/lib/widget";
 import { useDashboard } from "./provider";
 import { Button, ButtonLink, Panel, Pill } from "./ui";
+import { useUnsavedChanges } from "./unsaved-changes";
 
 export function WebsiteChatSetup() {
   const { identity, liveStatus, toast } = useDashboard();
@@ -47,6 +48,7 @@ export function WebsiteChatSetup() {
   const dirty =
     chat !== null && chat !== undefined &&
     (enabled !== chat.enabled || JSON.stringify(origins) !== JSON.stringify(chat.allowedOrigins));
+  useUnsavedChanges("website-chat", dirty);
 
   async function create() {
     setSaving(true);

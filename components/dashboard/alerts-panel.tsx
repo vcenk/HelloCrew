@@ -11,6 +11,7 @@ import {
 } from "@/app/app/alert-actions";
 import { useDashboard } from "./provider";
 import { Button, Panel, Pill } from "./ui";
+import { useUnsavedChanges } from "./unsaved-changes";
 
 const toggles: {
   key: keyof Omit<AlertSettings, "email">;
@@ -62,6 +63,12 @@ export function AlertsPanel() {
     };
   }, [account.status]);
 
+  // Computed before the early returns, so the guard hook below stays
+  // unconditional.
+  const dirty =
+    settings !== null && JSON.stringify(settings) !== JSON.stringify(saved);
+  useUnsavedChanges("alerts", dirty);
+
   if (account.status !== "signed_in")
     return (
       <Panel title="Email alerts">
@@ -76,8 +83,6 @@ export function AlertsPanel() {
         <p className="settings-copy">Loading…</p>
       </Panel>
     );
-
-  const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
 
   return (
     <Panel

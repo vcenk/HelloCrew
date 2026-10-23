@@ -1,0 +1,130 @@
+/* HelloCrew dashboard design system.
+   Scoped to .dash so the public landing page keeps its own styles. */
+
+.dash {
+  --d-bg: #f3f5f2;
+  --d-surface: #ffffff;
+  --d-surface-2: #edf1ed;
+  --d-surface-3: #e4eae5;
+  --d-ink: #15201a;
+  --d-ink-2: #4b5850;
+  --d-ink-3: #75817a;
+  --d-line: #dde4de;
+  --d-line-strong: #c6d0c8;
+  --d-primary: #1f5a44;
+  --d-primary-hover: #174836;
+  --d-primary-ink: #ffffff;
+  --d-primary-soft: #dfede4;
+  --d-marigold: #f2b632;
+  --d-marigold-soft: #fcf1d5;
+  --d-marigold-ink: #6a4900;
+  --d-danger: #b3372c;
+  --d-danger-soft: #fae8e5;
+  --d-focus: #c08a12;
+  --d-shadow-1: 0 1px 2px rgb(18 32 26 / 6%), 0 0 0 1px rgb(18 32 26 / 3%);
+  --d-shadow-2:
+    0 12px 32px -12px rgb(18 32 26 / 22%), 0 2px 6px rgb(18 32 26 / 6%);
+  --d-shadow-pop:
+    0 24px 60px -18px rgb(10 22 16 / 38%), 0 0 0 1px rgb(18 32 26 / 6%);
+  --d-r-sm: 8px;
+  --d-r-md: 12px;
+  --d-r-lg: 18px;
+  --d-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --d-fast: 140ms;
+  --d-med: 240ms;
+  --d-display: "Bricolage Grotesque Variable", "DM Sans", system-ui, sans-serif;
+  --d-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Legacy component tokens follow the dashboard palette. */
+  --canvas: var(--d-bg);
+  --ink: var(--d-ink);
+  --muted: var(--d-ink-2);
+  --line: var(--d-line);
+
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  min-height: 100dvh;
+  background: var(--d-bg);
+  color: var(--d-ink);
+  font-family: var(--d-body);
+  font-size: 14.5px;
+  line-height: 1.5;
+  color-scheme: light;
+}
+
+.dash[data-theme="dark"] {
+  --d-bg: #0d1411;
+  --d-surface: #141d19;
+  --d-surface-2: #1a2520;
+  --d-surface-3: #22302a;
+  --d-ink: #e5ece7;
+  --d-ink-2: #a7b4ac;
+  --d-ink-3: #7c8a82;
+  --d-line: #24312b;
+  --d-line-strong: #33433b;
+  --d-primary: #52bb8f;
+  --d-primary-hover: #68ca9f;
+  --d-primary-ink: #06140e;
+  --d-primary-soft: #173329;
+  --d-marigold: #f5c451;
+  --d-marigold-soft: #2d2512;
+  --d-marigold-ink: #f5c451;
+  --d-danger: #f07a6e;
+  --d-danger-soft: #371c19;
+  --d-focus: #f5c451;
+  --d-shadow-1: 0 0 0 1px rgb(255 255 255 / 4%);
+  --d-shadow-2:
+    0 16px 40px -16px rgb(0 0 0 / 60%), 0 0 0 1px rgb(255 255 255 / 5%);
+  --d-shadow-pop:
+    0 30px 70px -20px rgb(0 0 0 / 75%), 0 0 0 1px rgb(255 255 255 / 8%);
+  color-scheme: dark;
+}
+
+.dash *,
+.dash *::before,
+.dash *::after {
+  box-sizing: border-box;
+}
+.dash :where(h1, h2, h3, p) {
+  margin: 0;
+}
+.dash p {
+  color: var(--d-ink-2);
+  line-height: 1.55;
+}
+.dash :where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 2px;
+}
+.dash .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.dash .spin {
+  animation: dash-spin 0.9s linear infinite;
+}
+@keyframes dash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dash-skip {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: var(--d-r-sm);
+  background: var(--d-primary);
+  color: var(--d-primary-ink);
+  transform: translateY(-160%);
+}
+.dash-skip:focus-visible {
+  transform: none;
+}
+

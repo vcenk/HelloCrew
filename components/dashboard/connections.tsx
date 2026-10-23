@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -30,6 +30,7 @@ import {
 import { postingModeHelp, postingModeLabel, postingModeOf, postingModes, setPostingMode } from "@/lib/crew";
 
 import { useDashboard } from "./provider";
+import { useDropTransientParams, useQueryState } from "./use-query-state";
 import { Button, ButtonLink, EmptyState, PageHeader, Panel, Pill } from "./ui";
 import { WebsiteChatSetup } from "./website-chat";
 import { WhatsAppSignupButton } from "./whatsapp-signup";
@@ -64,7 +65,6 @@ const errorText: Record<string, string> = {
 export function useConnections() {
   const { account, toast } = useDashboard();
   const params = useSearchParams();
-  const router = useRouter();
   const [connections, setConnections] = useState<ChannelConnection[] | null>(null);
   const [setup, setSetup] = useState<Awaited<ReturnType<typeof channelSetupStatus>> | null>(null);
   const signedIn = account.status === "signed_in";
@@ -83,12 +83,14 @@ export function useConnections() {
 
   const connected = params.get("connected");
   const error = params.get("error");
+  const dropTransient = useDropTransientParams();
   useEffect(() => {
     if (!connected && !error) return;
     if (connected) toast(Number(connected) > 0 ? `${connected} account${connected === "1" ? "" : "s"} connected` : "Nothing was connected", Number(connected) > 0 ? "success" : "info");
     if (error) toast(errorText[error] ?? "Connecting didn’t work. Try again.", "error");
-    router.replace(window.location.pathname, { scroll: false });
-  }, [connected, error, router, toast]);
+    // Only the one-shot OAuth result goes; an expanded connector stays put.
+    dropTransient(["connected", "error"]);
+  }, [connected, error, dropTransient, toast]);
 
   const disconnect = useCallback(
     async (connection: ChannelConnection) => {
@@ -226,8 +228,11 @@ function WhatsAppForm({ onDone }: { onDone: () => void }) {
 export function ConnectionsView() {
   const state = useConnections();
   const { account } = useDashboard();
-  const params = useSearchParams();
-  const [open, setOpen] = useState<ConnectorId | null>(params.get("open") === "website" ? "website" : null);
+  // Which connector is expanded lives in the URL, so a half-finished setup
+  // survives a refresh and Back closes it again.
+  const [openParam, setOpenParam] = useQueryState("open");
+  const open = (openParam as ConnectorId | null) ?? null;
+  const setOpen = (next: ConnectorId | null) => setOpenParam(next);
   const signedIn = account.status === "signed_in";
   const ready = {
     meta: Boolean(state.setup?.meta && state.setup.secrets),

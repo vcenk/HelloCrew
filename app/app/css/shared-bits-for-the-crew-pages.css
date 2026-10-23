@@ -1,0 +1,89 @@
+/* ---------- Shared bits for the crew pages ---------- */
+.section-title {
+  margin: 28px 0 12px;
+  color: var(--d-ink-2);
+  font: 650 13px/1.2 var(--d-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.today-note {
+  margin-top: 4px;
+  color: var(--d-ink-3);
+  font-size: 12.5px;
+}
+.dash .field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+/* A long unbroken line (the install snippet) must scroll inside its box,
+   not stretch the grid track and push the card under the try panel. */
+.dash .field > * {
+  min-width: 0;
+}
+.dash .field label {
+  color: var(--d-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dash .field small {
+  color: var(--d-ink-3);
+  font-size: 12.5px;
+}
+.dash .field input,
+.dash .field select,
+.dash .field textarea,
+.dash .search-field {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--d-line-strong);
+  border-radius: var(--d-r-sm);
+  background: var(--d-surface);
+  color: var(--d-ink);
+  font: 400 14px/1.45 var(--d-body);
+  transition:
+    border-color var(--d-fast),
+    box-shadow var(--d-fast);
+}
+.dash .field textarea {
+  resize: vertical;
+}
+.dash .field input:focus,
+.dash .field select:focus,
+.dash .field textarea:focus,
+.dash .search-field:focus-within {
+  outline: none;
+  border-color: var(--d-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--d-primary) 18%, transparent);
+}
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.form-stack {
+  display: grid;
+  gap: 14px;
+}
+.form-card {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-lg);
+  background: var(--d-surface);
+  box-shadow: var(--d-shadow-1);
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+.form-error {
+  color: var(--d-danger);
+  font-size: 13px;
+  font-weight: 500;
+}
+

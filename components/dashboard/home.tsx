@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import {
   CalendarCheck,
   ChevronRight,
+  FlaskConical,
   GraduationCap,
   Hand,
   UserPlus,
@@ -57,6 +58,10 @@ export function HomeView() {
   useEffect(() => {
     void refreshThreads();
   }, [refreshThreads]);
+  // Real customer chats and practice chats are counted separately, so a busy
+  // afternoon of testing never looks like real demand.
+  const realThreads = threads.filter((t) => t.channel !== "test");
+  const testThreads = threads.filter((t) => t.channel === "test");
   const skills = crew.members[0].skills;
   const signedIn = account.status === "signed_in" && server !== null;
   const taught = new Set(knowledge.sources.map((s) => s.title.trim().toLowerCase()));
@@ -203,6 +208,22 @@ export function HomeView() {
                   </div>
                 </li>
               ))}
+              {unanswered.slice(0, 5).map((question) => (
+                <li key={question}>
+                  <span className="decision-icon" data-tone="teach" aria-hidden="true">
+                    <GraduationCap size={18} />
+                  </span>
+                  <div>
+                    <strong>“{question}”</strong>
+                    <p>{identity.name} didn’t know this. Teach it once and every agent can use it.</p>
+                  </div>
+                  <div className="decision-actions">
+                    <ButtonLink href={`/app/knowledge?teach=${encodeURIComponent(question)}`} size="sm" variant="secondary">
+                      Teach this answer
+                    </ButtonLink>
+                  </div>
+                </li>
+              ))}
               {leads.map((lead) => (
                 <li key={lead.id} className="lead-item">
                   <span className="decision-icon" data-tone="lead" aria-hidden="true">
@@ -249,22 +270,6 @@ export function HomeView() {
                   </div>
                 </li>
               ))}
-              {unanswered.slice(0, 5).map((question) => (
-                <li key={question}>
-                  <span className="decision-icon" data-tone="teach" aria-hidden="true">
-                    <GraduationCap size={18} />
-                  </span>
-                  <div>
-                    <strong>“{question}”</strong>
-                    <p>{identity.name} didn’t know this. Teach it once and every agent can use it.</p>
-                  </div>
-                  <div className="decision-actions">
-                    <ButtonLink href={`/app/knowledge?teach=${encodeURIComponent(question)}`} size="sm" variant="secondary">
-                      Teach this answer
-                    </ButtonLink>
-                  </div>
-                </li>
-              ))}
             </ul>
           )}
           {publicReplies.items.length > 0 && (
@@ -280,26 +285,36 @@ export function HomeView() {
           )}
         </Panel>
 
-        <Panel title={signedIn ? "Conversations" : "Test chats so far"}>
+        <Panel title={signedIn ? "Real customers" : "Test chats so far"}>
           {signedIn ? (
-            <dl className="session-stats">
-              <div>
-                <dt>Saved chats</dt>
-                <dd>{threads.length}</dd>
-              </div>
-              <div>
-                <dt>Waiting for you</dt>
-                <dd data-warn={approvals.length > 0}>{threads.filter((t) => t.status === "waiting").length}</dd>
-              </div>
-              <div>
-                <dt>Didn’t know</dt>
-                <dd data-warn={unanswered.length > 0}>{unanswered.length}</dd>
-              </div>
-              <div>
-                <dt>To a person</dt>
-                <dd>{threads.filter((t) => t.status === "handoff").length}</dd>
-              </div>
-            </dl>
+            <>
+              {/* Counts here are real customers only. Test chats are counted
+                  separately below, so practice never inflates them. */}
+              <dl className="session-stats">
+                <div>
+                  <dt>Live now</dt>
+                  <dd>{realThreads.filter((t) => t.status === "open").length}</dd>
+                </div>
+                <div>
+                  <dt>Waiting for you</dt>
+                  <dd data-warn={approvals.length > 0}>{realThreads.filter((t) => t.status === "waiting").length}</dd>
+                </div>
+                <div>
+                  <dt>Didn’t know</dt>
+                  <dd data-warn={unanswered.length > 0}>{unanswered.length}</dd>
+                </div>
+                <div>
+                  <dt>To a person</dt>
+                  <dd>{realThreads.filter((t) => t.status === "handoff").length}</dd>
+                </div>
+              </dl>
+              <p className="today-note">
+                <FlaskConical size={14} aria-hidden="true" />{" "}
+                {testThreads.length === 0
+                  ? "No test chats saved. Practice chats never count as real customers."
+                  : `Plus ${testThreads.length} saved test chat${testThreads.length === 1 ? "" : "s"}, kept apart from real customers.`}
+              </p>
+            </>
           ) : (
             <dl className="session-stats">
               <div>

@@ -47,6 +47,8 @@ import {
 } from "./team";
 import { useDashboard } from "./provider";
 import { Button, EmptyState, PageHeader, Panel, Pill } from "./ui";
+import { useUnsavedChanges } from "./unsaved-changes";
+import { useQueryState } from "./use-query-state";
 
 const groups: {
   kind: KnowledgeKind;
@@ -118,7 +120,11 @@ export function KnowledgeView() {
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [staffFilter, setStaffFilter] = useState<string | null>(null);
+  // The staff filter is navigational state: it changes what the page shows,
+  // so Back should undo it and a refresh should keep it.
+  const [staffParam, setStaffParam] = useQueryState("staff");
+  const staffFilter = staffParam;
+  const setStaffFilter = (next: string | null) => setStaffParam(next);
   const team = knowledge.team ?? [];
   const [mode, setMode] = useState<"write" | "upload" | "link">("write");
   const [link, setLink] = useState("");
@@ -861,6 +867,7 @@ function ProfileForm({
   const { knowledge } = useDashboard();
   const [profile, setProfile] = useState(knowledge.profile);
   const dirty = JSON.stringify(profile) !== JSON.stringify(knowledge.profile);
+  useUnsavedChanges("business-profile", dirty);
   return (
     <form
       className="form-stack"
