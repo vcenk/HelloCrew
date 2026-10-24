@@ -6,11 +6,11 @@ import {
   LoaderCircle,
   MessageCircle,
   ShieldCheck,
-  Sparkles,
   X,
 } from "lucide-react";
 
 import type { WidgetChatMessage, WidgetInstallation } from "@/lib/widget";
+import { CrewAvatar } from "@/components/crew-avatar";
 import styles from "./widget-frame.module.css";
 
 type Message = {
@@ -204,8 +204,16 @@ export function WidgetFrame({ installation }: { installation: WidgetInstallation
       {open ? (
         <section className={styles.panel} aria-label={workspace ? "Website chat" : "Website chat practice"}>
           <header className={styles.header}>
+            {/* The receptionist is the crew member that answers website chat,
+                so the visitor sees who they are actually talking to. It leans
+                while a reply is being written; the "thinking" row below is the
+                signal that does not depend on seeing it. */}
             <span className={styles.avatar}>
-              <Sparkles size={18} aria-hidden="true" />
+              <CrewAvatar
+                role="receptionist"
+                size={32}
+                state={busy ? "working" : "idle"}
+              />
             </span>
             <div>
               <strong>{installation.identity.name}</strong>

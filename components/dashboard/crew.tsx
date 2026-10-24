@@ -31,7 +31,7 @@ import {
 import { WebsiteChatGuide } from "@/components/website-chat-guide";
 import { ChatThread } from "./chat-thread";
 import { WorksOnPanel } from "./connections";
-import { CrewAvatar } from "./crew-avatar";
+import { CrewAvatar } from "@/components/crew-avatar";
 import { useDashboard } from "./provider";
 import { Button, ButtonLink, PageHeader, Pill } from "./ui";
 import { useUnsavedChanges } from "./unsaved-changes";

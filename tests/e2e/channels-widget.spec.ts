@@ -38,3 +38,46 @@ test("the installed widget answers on the test website", async ({ page }) => {
   await site.close();
   await shot(page, "agent-channels-desktop");
 });
+
+test("the widget header shows the receptionist Crewling", async ({ page }) => {
+  await page.goto("/widget/demo-hellocrew");
+  await page.getByRole("button", { name: "Open website chat", exact: true }).click();
+
+  const avatar = page.locator('.crew-avatar[data-role="receptionist"]');
+  await expect(avatar).toHaveCount(1);
+  // Decorative: the agent's name is right beside it in text.
+  await expect(avatar).toHaveAttribute("aria-hidden", "true");
+
+  // The widget does not load dashboard.css, so its own stylesheet has to
+  // colour the character — a bare shape would mean that regressed.
+  const fill = await avatar
+    .locator(".crew-avatar-shape")
+    .evaluate((el) => getComputedStyle(el).fill);
+  expect(fill).not.toBe("none");
+  expect(fill).not.toBe("rgb(0, 0, 0)");
+
+  // It leans while a reply is being written, then settles.
+  await expect(avatar).toHaveAttribute("data-state", "idle");
+  await page.getByRole("button", { name: "When are you open?", exact: true }).click();
+  await expect(avatar).toHaveAttribute("data-state", "idle");
+  await expect(page.getByText("Saved sample hours:", { exact: false })).toBeVisible();
+});
+
+test("the widget Crewling stops moving under reduced motion", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ reducedMotion: "reduce" });
+  const page = await context.newPage();
+  await page.goto("/widget/demo-hellocrew");
+  await page.getByRole("button", { name: "Open website chat", exact: true }).click();
+
+  const running = await page.evaluate(
+    () =>
+      [...document.querySelectorAll(".crew-avatar *")].filter((el) => {
+        const cs = getComputedStyle(el);
+        return cs.animationName !== "none" && parseFloat(cs.animationDuration) > 0.01;
+      }).length,
+  );
+  expect(running, "widget avatar animation should be stopped").toBe(0);
+  await context.close();
+});

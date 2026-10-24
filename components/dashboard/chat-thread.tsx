@@ -17,7 +17,7 @@ import {
 import { channelLabel } from "@/lib/conversations";
 import type { Scenario } from "@/lib/demo";
 import { MAX_PRACTICE_TURNS, useDashboard, type ChatMessage } from "./provider";
-import { CrewAvatar } from "./crew-avatar";
+import { CrewAvatar } from "@/components/crew-avatar";
 import { Pill } from "./ui";
 
 export const UNANSWERED = "No matching information";
@@ -159,7 +159,13 @@ export function ChatThread({
     >
       <header className="thread-head">
         <span className="dash-avatar" aria-hidden="true">
-          <CrewAvatar role="receptionist" size={24} />
+          {/* Leans while a reply is being composed, alongside the existing
+              "typing" row — the motion is a hint, never the only signal. */}
+          <CrewAvatar
+            role="receptionist"
+            size={24}
+            state={conversation.busy ? "working" : "idle"}
+          />
         </span>
         <div>
           <strong>

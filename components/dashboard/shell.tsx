@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 
 import { Brand } from "@/components/brand";
-import { CrewAvatar } from "./crew-avatar";
+import { CrewAvatar } from "@/components/crew-avatar";
 import { ModeBadge } from "./mode-badge";
 import { operatingMode } from "./operating-mode";
 import { useDashboard, type Theme } from "./provider";

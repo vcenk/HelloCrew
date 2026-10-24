@@ -60,6 +60,60 @@
   background: #f1d96f;
 }
 
+/* The Crewling's colours normally come from dashboard.css, which this widget
+   deliberately does not load — it is embedded on other people's sites and
+   carries only what it needs. The receptionist palette is restated here. */
+.avatar :global(.crew-avatar) {
+  --crew-body: #7fc9ad;
+  --crew-face: #103b2d;
+  --crew-mark: #103b2d;
+}
+.avatar :global(.crew-avatar-shape) {
+  fill: var(--crew-body);
+}
+.avatar :global(.crew-avatar-eyes) circle {
+  fill: var(--crew-face);
+}
+.avatar :global(.crew-avatar-smile) {
+  stroke: var(--crew-face);
+}
+.avatar :global(.crew-avatar-line) {
+  stroke: var(--crew-mark);
+}
+.avatar :global(.crew-avatar-mark) {
+  fill: var(--crew-mark);
+}
+/* A blink every few seconds, and a lean while a reply is being written. */
+.avatar :global(.crew-avatar-eyes) {
+  transform-box: view-box;
+  transform-origin: 24px 26px;
+  animation: crewBlink 7s infinite;
+}
+.avatar :global(.crew-avatar[data-state="working"] .crew-avatar-body) {
+  transform-box: view-box;
+  transform-origin: 24px 42px;
+  animation: crewTilt 2.4s ease-in-out infinite;
+}
+@keyframes crewBlink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes crewTilt {
+  0%,
+  100% {
+    transform: rotate(-2.5deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+}
+
 .header div {
   min-width: 0;
   flex: 1;
@@ -279,6 +333,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .spin {
+    animation: none;
+  }
+  /* The dashboard's blanket reduced-motion rule does not reach this iframe,
+     so the character's motion is stopped here explicitly. */
+  .avatar :global(.crew-avatar-eyes),
+  .avatar :global(.crew-avatar-body) {
     animation: none;
   }
 }

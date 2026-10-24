@@ -38,6 +38,40 @@ test("roles are told apart by silhouette, not only colour", async ({ page }) => 
   expect(new Set(paths).size).toBe(paths.length);
 });
 
+test("the chat Crewling works while a reply is being composed", async ({
+  page,
+}) => {
+  await openDashboard(page, "/app/conversations");
+  const avatar = page.locator(".thread-head .crew-avatar");
+  await expect(avatar).toHaveAttribute("data-state", "idle");
+
+  // A practice reply can land in a few milliseconds, so record the states the
+  // avatar passes through rather than trying to catch "working" mid-flight.
+  await page.evaluate(() => {
+    const el = document.querySelector(".thread-head .crew-avatar")!;
+    const seen: string[] = [el.getAttribute("data-state") ?? ""];
+    (window as unknown as { __states: string[] }).__states = seen;
+    new MutationObserver(() => {
+      const next = el.getAttribute("data-state") ?? "";
+      if (next !== seen[seen.length - 1]) seen.push(next);
+    }).observe(el, { attributes: true, attributeFilter: ["data-state"] });
+  });
+
+  await page
+    .getByLabel("Message as a customer", { exact: true })
+    .first()
+    .fill("When are you open?");
+  await page.getByRole("button", { name: "Send message", exact: true }).first().click();
+
+  await expect(page.locator(".bubble-assistant").last()).toBeVisible();
+  await expect(avatar).toHaveAttribute("data-state", "idle");
+
+  const states = await page.evaluate(
+    () => (window as unknown as { __states: string[] }).__states,
+  );
+  expect(states, "avatar should pass through working").toContain("working");
+});
+
 test("decorative Crewlings are hidden from assistive tech", async ({ page }) => {
   await openDashboard(page, "/app/crew");
   const unlabelled = await page.evaluate(

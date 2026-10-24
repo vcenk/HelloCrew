@@ -18,7 +18,7 @@ import { crewJobs, receptionistSkills } from "@/lib/crew";
 import { UNANSWERED } from "./chat-thread";
 import { PublicReplyCard, usePublicReplies } from "./connections";
 import { useDashboard, useLaunchChecklist } from "./provider";
-import { CrewAvatar, type CrewRole } from "./crew-avatar";
+import { CrewAvatar, type CrewRole } from "@/components/crew-avatar";
 import { ButtonLink, EmptyState, Panel, Pill } from "./ui";
 
 // Jobs that are not hired yet still get a recognisable silhouette.
