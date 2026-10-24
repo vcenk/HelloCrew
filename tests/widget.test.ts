@@ -141,9 +141,11 @@ describe("website widget", () => {
       "openai",
       "anthropic",
     ]);
-    expect(
-      modelProviders.filter((provider) => provider.status === "active"),
-    ).toHaveLength(1);
+    // Practice and OpenAI both run today; Anthropic is still a slot. This used
+    // to assert exactly one active provider, which kept reporting OpenAI as
+    // not connected long after Live AI started using it.
+    const active = modelProviders.filter((p) => p.status === "active");
+    expect(active.map((p) => p.id)).toEqual(["practice", "openai"]);
   });
 });
 

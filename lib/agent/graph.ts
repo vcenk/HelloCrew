@@ -20,7 +20,7 @@ import type { AgentContext } from "./context";
 import { buildSystemPrompt } from "./prompt";
 import {
   buildTools,
-  toolEffects,
+  effectsByName,
   type Handoff,
   type Lead,
   type PendingApproval,
@@ -73,6 +73,9 @@ export function buildAgentGraph(
   const byName = new Map<string, StructuredToolInterface>(
     tools.map((t) => [t.name, t]),
   );
+  // Effects come from the contracts offered this turn, so a tool can never be
+  // runnable without a declared effect.
+  const effectOf = effectsByName(context, effects);
   if (!model.bindTools) throw new Error("Model does not support tools.");
   const withTools = model.bindTools(tools);
   const system = new SystemMessage(buildSystemPrompt(context));
@@ -93,7 +96,7 @@ export function buildAgentGraph(
     for (const call of last.tool_calls ?? []) {
       const selected = byName.get(call.name);
       const id = call.id ?? crypto.randomUUID();
-      if (!selected || !(call.name in toolEffects)) {
+      if (!selected || !(call.name in effectOf)) {
         results.push(
           new ToolMessage({ tool_call_id: id, content: "Tool not available." }),
         );
@@ -112,13 +115,13 @@ export function buildAgentGraph(
         activity.push({
           label: toolLabel(call.name),
           detail:
-            toolEffects[call.name] === "needs_approval"
+            effectOf[call.name] === "needs_approval"
               ? "Waiting for your approval. Nothing was booked."
               : call.name === "search_knowledge"
                 ? `Query: ${String((call.args as { query?: string }).query ?? "")}`
                 : "Ran with your approved information.",
           kind:
-            toolEffects[call.name] === "needs_approval" ? "approval" : "tool",
+            effectOf[call.name] === "needs_approval" ? "approval" : "tool",
         });
       } catch {
         results.push(

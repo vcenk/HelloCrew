@@ -15,6 +15,7 @@ import { appendMessages, historyForModel } from "@/lib/data/conversations";
 import { businessFromKnowledge } from "@/lib/knowledge";
 import { createOpenAIChatModel } from "@/lib/models/openai";
 import { readLiveConfig, type LiveConfig } from "@/lib/server/live-config";
+import { withModelFallback } from "@/lib/server/model-router";
 import { costMicroUsd, worstCaseMicroUsd } from "@/lib/usage/cost";
 import { getTenantLimits, monthSpendMicroUsd, reserveUsage, settleUsage } from "@/lib/usage/ledger";
 
@@ -72,7 +73,12 @@ export async function runLiveTurn(
   if (!reservation) return { ok: false, code: "budget_exhausted" };
 
   try {
-    const result = await runAgentTurn(createOpenAIChatModel(config), context, history);
+    // The router chooses the model for a live conversation and falls back to
+    // the fast one if the first is unavailable.
+    const attempt = await withModelFallback(config, "converse", (model) =>
+      runAgentTurn(createOpenAIChatModel(config, { model }), context, history),
+    );
+    const result = attempt.value;
     const actual = costMicroUsd(
       result.usage.inputTokens,
       result.usage.outputTokens,
@@ -80,7 +86,14 @@ export async function runLiveTurn(
       config.outputUsdPerMTok,
     );
     await settleUsage(admin, target.tenantId, reservation, actual);
-    const usage = { ...result.usage, costMicroUsd: actual, model: config.model };
+    const usage = {
+      ...result.usage,
+      costMicroUsd: actual,
+      // The model that actually answered, not the one we hoped for.
+      model: attempt.model,
+      latencyMs: attempt.latencyMs,
+      fellBack: attempt.fellBack,
+    };
     const replyId = crypto.randomUUID();
     const handoff = result.handoffs.length > 0;
     await appendMessages(admin, tenant, target.conversationId, [

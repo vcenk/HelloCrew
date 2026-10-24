@@ -233,7 +233,7 @@ describe("live AI cost accounting", () => {
       OPENAI_API_KEY: "k",
       SUPABASE_SECRET_KEY: "s",
     });
-    expect(ready.ready && ready.config.model).toBe("gpt-4o-mini");
+    expect(ready.ready && ready.config.models.fast).toBe("gpt-4o-mini");
   });
 });
 

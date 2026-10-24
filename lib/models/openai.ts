@@ -8,10 +8,12 @@ import type { LiveConfig } from "@/lib/server/live-config";
 // never pick a provider or model; they call the agent runtime.
 export function createOpenAIChatModel(
   config: LiveConfig,
-  options: { maxTokens?: number; timeoutMs?: number } = {},
+  options: { maxTokens?: number; timeoutMs?: number; model?: string } = {},
 ) {
   return new ChatOpenAI({
-    model: config.model,
+    // The router picks the model; this is only the fallback for callers that
+    // have not been given a task yet.
+    model: options.model ?? config.models.fast,
     apiKey: config.openaiApiKey,
     maxTokens: options.maxTokens ?? config.maxOutputTokens,
     timeout: options.timeoutMs ?? 25_000,

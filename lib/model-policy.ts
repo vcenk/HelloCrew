@@ -11,9 +11,9 @@ export const modelProviders = [
     id: "openai",
     label: "OpenAI",
     product: "GPT models",
-    status: "not-connected",
+    status: "active",
     description:
-      "A future server-side adapter can use an approved OpenAI model profile.",
+      "Used for Live AI. Model ids, routing and budgets are server-side; see lib/server/model-router.ts.",
   },
   {
     id: "anthropic",
@@ -27,8 +27,10 @@ export const modelProviders = [
 
 export type ModelProviderId = (typeof modelProviders)[number]["id"];
 
+// Practice is what a signed-out visitor gets; Live AI falls back to it when
+// a workspace has no budget left or no provider configured.
 export const activeModelPolicy = {
-  primary: "practice" as ModelProviderId,
-  fallbacks: [] as ModelProviderId[],
+  primary: "openai" as ModelProviderId,
+  fallbacks: ["practice"] as ModelProviderId[],
   managedOnServer: true,
 };

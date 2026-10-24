@@ -10,6 +10,7 @@ import {
   type WorkspaceRole,
 } from "@/lib/data/workspace";
 import { readLiveConfig } from "@/lib/server/live-config";
+import { modelFor } from "@/lib/server/model-router";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
@@ -134,7 +135,7 @@ export async function getLiveAiStatus(): Promise<LiveAiStatus> {
       state: "ready",
       enabled: limits.liveAiEnabled,
       canManage: context.role === "owner",
-      model: live.config.model,
+      model: modelFor(live.config, "converse"),
       budgetMicroUsd: limits.monthlyBudgetMicroUsd,
       spentMicroUsd: spent,
     };

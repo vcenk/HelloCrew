@@ -3,7 +3,8 @@ import "server-only";
 // Server-only configuration for live AI. Nothing here is exposed to the browser.
 export type LiveConfig = {
   openaiApiKey: string;
-  model: string;
+  /** Chosen per task by lib/server/model-router.ts, never by a feature. */
+  models: { fast: string; strong: string };
   inputUsdPerMTok: number;
   outputUsdPerMTok: number;
   maxOutputTokens: number;
@@ -34,7 +35,18 @@ export function readLiveConfig(
     config: {
       openaiApiKey,
       supabaseSecretKey,
-      model: env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
+      models: {
+        // OPENAI_MODEL stays the single-model default so existing
+        // deployments keep working without new variables.
+        fast:
+          env.OPENAI_MODEL_FAST?.trim() ||
+          env.OPENAI_MODEL?.trim() ||
+          "gpt-4o-mini",
+        strong:
+          env.OPENAI_MODEL_STRONG?.trim() ||
+          env.OPENAI_MODEL?.trim() ||
+          "gpt-4o-mini",
+      },
       // Conservative defaults so the budget over- rather than under-estimates.
       inputUsdPerMTok: positiveNumber(env.OPENAI_INPUT_USD_PER_MTOK, 0.15),
       outputUsdPerMTok: positiveNumber(env.OPENAI_OUTPUT_USD_PER_MTOK, 0.6),
