@@ -24,7 +24,12 @@ test("a booking request waits for the owner, then clears from Today", async ({
   await expect(page.getByText("All clear", { exact: true })).toBeVisible();
 
   await nav(page, "Conversations");
-  await expect(page.getByText("Booking approved", { exact: true })).toBeVisible();
+  // Scoped to the thread: the toast says "Booking approved" too, and on a
+  // slower machine it is still on screen here, which makes a page-wide
+  // locator ambiguous.
+  await expect(
+    page.locator(".thread").getByText("Booking approved", { exact: true }),
+  ).toBeVisible();
 });
 
 test("answers name the knowledge they came from", async ({ page }) => {
