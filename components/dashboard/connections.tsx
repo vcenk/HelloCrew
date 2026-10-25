@@ -40,8 +40,9 @@ const kindLabel: Record<ChannelConnection["kind"], string> = {
   instagram: "Instagram",
   whatsapp: "WhatsApp",
   google_location: "Google Business Profile",
+  google_calendar: "Google Calendar",
 };
-const kindIcon = { facebook_page: MessageSquare, instagram: Camera, whatsapp: Phone, google_location: MapPin } as const;
+const kindIcon = { facebook_page: MessageSquare, instagram: Camera, whatsapp: Phone, google_location: MapPin, google_calendar: CalendarDays } as const;
 
 const errorText: Record<string, string> = {
   meta_not_configured: "Meta isn’t set up on the server yet (app id, secret and encryption key).",
@@ -58,6 +59,9 @@ const errorText: Record<string, string> = {
   google_not_approved: "Google hasn’t approved Business Profile API access for HelloCrew yet.",
   google_no_locations: "This Google account doesn’t manage any business locations.",
   google_taken: "One of the locations is already connected to another HelloCrew workspace.",
+  gcal_no_calendar: "That Google account has no calendar HelloCrew can write to.",
+  gcal_taken: "That calendar is already connected to another HelloCrew workspace.",
+  gcal_save: "The calendar connected, but saving it failed. Try again.",
   forbidden: "Only owners and operators can connect accounts.",
 };
 
@@ -139,7 +143,7 @@ function ConnectionRow({
   );
 }
 
-type ConnectorId = "meta" | "whatsapp" | "google" | "website";
+type ConnectorId = "meta" | "whatsapp" | "google" | "google_calendar" | "website";
 
 const connectors: {
   id: ConnectorId;
@@ -173,11 +177,28 @@ const connectors: {
     summary: "Your Google reviews, checked every 30 minutes.",
     usedBy: "Reputation manager",
   },
+  {
+    id: "google_calendar",
+    name: "Google Calendar",
+    icon: CalendarDays,
+    kinds: ["google_calendar"],
+    summary:
+      "Read when you are free, so the crew only offers real times. Every booking still waits for your approval.",
+    usedBy: "Receptionist (proposes times) · you (approve)",
+  },
 ];
+
+// Where each connector's OAuth starts. Calendar is separate from Business
+// Profile: different scope, and a salon may want one without the other.
+const connectHref: Partial<Record<ConnectorId, string>> = {
+  meta: "/api/connect/meta",
+  google: "/api/connect/google",
+  google_calendar: "/api/connect/google-calendar",
+};
 
 const comingSoon = [
   { name: "Phone calls", icon: Phone, summary: "A phone number your crew answers." },
-  { name: "Booking systems", icon: CalendarDays, summary: "Phorest, Fresha, Square and others, to book on its own." },
+  { name: "Booking systems", icon: CalendarDays, summary: "Square, Vagaro and others, so times come straight from the system you already use." },
 ];
 
 function WhatsAppForm({ onDone }: { onDone: () => void }) {
@@ -283,7 +304,7 @@ export function ConnectionsView() {
                 ) : (
                   <a
                     className={`ui-btn ui-btn-${accounts.length ? "secondary" : "primary"} ui-btn-sm${available ? "" : " is-disabled"}`}
-                    href={available ? (connector.id === "meta" ? "/api/connect/meta" : "/api/connect/google") : undefined}
+                    href={available ? connectHref[connector.id] : undefined}
                     aria-disabled={!available}
                   >
                     {accounts.length ? "Add more" : "Connect"}

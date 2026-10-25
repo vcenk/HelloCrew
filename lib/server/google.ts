@@ -28,12 +28,19 @@ export class GoogleApiError extends Error {
   }
 }
 
-export function googleLoginUrl(clientId: string, redirectUri: string, state: string) {
+export function googleLoginUrl(
+  clientId: string,
+  redirectUri: string,
+  state: string,
+  // Calendar and Business Profile are connected separately: a salon may want
+  // one without the other, and Business Profile access is review-gated.
+  scope: string = SCOPE,
+) {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", SCOPE);
+  url.searchParams.set("scope", scope);
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
   url.searchParams.set("include_granted_scopes", "true");
@@ -67,6 +74,10 @@ export async function exchangeGoogleCode(code: string, redirectUri: string) {
     redirect_uri: redirectUri,
     grant_type: "authorization_code",
   });
+}
+
+export async function googleAccessToken(credentials: GoogleCredentials | null) {
+  return accessToken(credentials);
 }
 
 async function accessToken(credentials: GoogleCredentials | null) {

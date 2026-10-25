@@ -16,6 +16,8 @@ import { businessFromKnowledge } from "@/lib/knowledge";
 import { createOpenAIChatModel } from "@/lib/models/openai";
 import { readLiveConfig, type LiveConfig } from "@/lib/server/live-config";
 import { withModelFallback } from "@/lib/server/model-router";
+import { calendarForTurn } from "@/lib/calendar/for-turn";
+import type { CalendarTurnEffects } from "@/lib/calendar/tools";
 import { costMicroUsd, worstCaseMicroUsd } from "@/lib/usage/cost";
 import { getTenantLimits, monthSpendMicroUsd, reserveUsage, settleUsage } from "@/lib/usage/ledger";
 
@@ -56,6 +58,14 @@ export async function runLiveTurn(
   const tenant = { tenantId: target.tenantId };
   const history = await historyForModel(admin, tenant, target.conversationId, MAX_HISTORY_MESSAGES);
   const context = await loadAgentContext(admin, tenant);
+  // Calendar tools are offered only when a calendar is connected and its
+  // working hours are readable; otherwise the model is never shown them.
+  const calendarEffects: CalendarTurnEffects = { proposals: [] };
+  const calendar = await calendarForTurn(
+    admin,
+    target.tenantId,
+    calendarEffects,
+  );
   const worstCase = worstCaseMicroUsd({
     promptChars: buildSystemPrompt(context).length + history.reduce((n, m) => n + m.content.length, 0),
     rounds: MAX_MODEL_ROUNDS,
@@ -76,7 +86,10 @@ export async function runLiveTurn(
     // The router chooses the model for a live conversation and falls back to
     // the fast one if the first is unavailable.
     const attempt = await withModelFallback(config, "converse", (model) =>
-      runAgentTurn(createOpenAIChatModel(config, { model }), context, history),
+      runAgentTurn(createOpenAIChatModel(config, { model }), context, history, {
+        connected: calendar.connected,
+        extraContracts: calendar.contracts,
+      }),
     );
     const result = attempt.value;
     const actual = costMicroUsd(
@@ -181,6 +194,8 @@ export async function runPracticeTurn(
 ): Promise<StoredTurn> {
   const tenant = { tenantId: target.tenantId };
   const context = await loadAgentContext(admin, tenant);
+  // No calendar tools here: the practice engine is rule-based and calls no
+  // model, so it has nothing to offer them to.
   const business = businessFromKnowledge(context.knowledge);
   const answer = answerFromBusiness(business, target.question);
   const unanswered = answer.source === UNANSWERED_SOURCE;

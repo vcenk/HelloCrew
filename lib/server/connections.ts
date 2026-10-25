@@ -4,7 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { decryptSecret, encryptSecret } from "./secrets";
 
-export type ConnectionKind = "facebook_page" | "instagram" | "whatsapp" | "google_location";
+export type ConnectionKind =
+  | "facebook_page"
+  | "instagram"
+  | "whatsapp"
+  | "google_location"
+  | "google_calendar";
 
 export type Connection<C = Record<string, unknown>> = {
   tenantId: string;
@@ -121,6 +126,21 @@ export async function getConnection<C>(admin: SupabaseClient, tenantId: string, 
     .eq("id", id)
     .maybeSingle();
   return data ? toConnection<C>(data) : null;
+}
+
+/** Every connection of one kind for a workspace, newest first. */
+export async function listConnectionsFor<C>(
+  admin: SupabaseClient,
+  tenantId: string,
+  kind: ConnectionKind,
+) {
+  const { data } = await admin
+    .from("hc_channel_connections")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("kind", kind)
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((row) => toConnection<C>(row));
 }
 
 export async function markConnectionError(admin: SupabaseClient, tenantId: string, id: string, message: string) {

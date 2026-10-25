@@ -26,6 +26,7 @@ import {
   type PendingApproval,
   type TurnEffects,
 } from "./tools";
+import type { IntegrationId, ToolContract } from "./tool-contract";
 
 export const MAX_MODEL_ROUNDS = 3;
 export const MAX_HISTORY_MESSAGES = 20;
@@ -64,18 +65,27 @@ function toolLabel(name: string) {
   );
 }
 
+export type AgentTurnOptions = {
+  /** Integrations the business has actually connected. */
+  connected?: ReadonlySet<IntegrationId>;
+  /** Contracts those integrations bring, e.g. the calendar tools. */
+  extraContracts?: ToolContract[];
+};
+
 export function buildAgentGraph(
   model: BaseChatModel,
   context: AgentContext,
   effects: TurnEffects,
+  options: AgentTurnOptions = {},
 ) {
-  const tools = buildTools(context, effects);
+  const { connected, extraContracts = [] } = options;
+  const tools = buildTools(context, effects, connected, extraContracts);
   const byName = new Map<string, StructuredToolInterface>(
     tools.map((t) => [t.name, t]),
   );
   // Effects come from the contracts offered this turn, so a tool can never be
   // runnable without a declared effect.
-  const effectOf = effectsByName(context, effects);
+  const effectOf = effectsByName(context, effects, connected, extraContracts);
   if (!model.bindTools) throw new Error("Model does not support tools.");
   const withTools = model.bindTools(tools);
   const system = new SystemMessage(buildSystemPrompt(context));
@@ -173,9 +183,10 @@ export async function runAgentTurn(
   model: BaseChatModel,
   context: AgentContext,
   history: ChatTurn[],
+  options: AgentTurnOptions = {},
 ): Promise<AgentTurnResult> {
   const effects: TurnEffects = { approvals: [], handoffs: [], leads: [] };
-  const graph = buildAgentGraph(model, context, effects);
+  const graph = buildAgentGraph(model, context, effects, options);
   const messages = history
     .slice(-MAX_HISTORY_MESSAGES)
     .map((turn) =>

@@ -27,7 +27,12 @@ import { createClient } from "@/lib/supabase/server";
 export type ChannelConnection = {
   id: string;
   provider: "meta" | "google";
-  kind: "facebook_page" | "instagram" | "whatsapp" | "google_location";
+  kind:
+    | "facebook_page"
+    | "instagram"
+    | "whatsapp"
+    | "google_location"
+    | "google_calendar";
   externalId: string;
   displayName: string;
   status: "connected" | "error" | "disconnected";

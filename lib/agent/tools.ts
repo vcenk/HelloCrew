@@ -222,9 +222,11 @@ export function contractsForTurn(
   context: AgentContext,
   effects: TurnEffects,
   connectedIntegrations?: ReadonlySet<IntegrationId>,
+  /** Contracts from a connected integration, e.g. the calendar tools. */
+  extraContracts: ToolContract[] = [],
 ): Map<string, ToolContract> {
   const offered = availableContracts(
-    buildContracts(effects),
+    [...buildContracts(effects), ...extraContracts],
     context,
     connectedIntegrations,
   );
@@ -237,8 +239,16 @@ export function buildTools(
   context: AgentContext,
   effects: TurnEffects,
   connectedIntegrations?: ReadonlySet<IntegrationId>,
+  extraContracts: ToolContract[] = [],
 ) {
-  return [...contractsForTurn(context, effects, connectedIntegrations).values()].map(
+  return [
+    ...contractsForTurn(
+      context,
+      effects,
+      connectedIntegrations,
+      extraContracts,
+    ).values(),
+  ].map(
     (contract) =>
       tool(async (args) => String(await contract.run(args, context)), {
         name: contract.name,
@@ -253,12 +263,14 @@ export function effectsByName(
   context: AgentContext,
   effects: TurnEffects,
   connectedIntegrations?: ReadonlySet<IntegrationId>,
+  extraContracts: ToolContract[] = [],
 ): Record<string, ToolEffect> {
   const out: Record<string, ToolEffect> = {};
   for (const [name, contract] of contractsForTurn(
     context,
     effects,
     connectedIntegrations,
+    extraContracts,
   ))
     out[name] = contract.effect;
   return out;
