@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { buildAgentContext } from "@/lib/agent/context";
 import {
@@ -263,5 +264,71 @@ describe("grounding against prompt injection", () => {
     );
     // No phone and no email: it must ask rather than make one up.
     expect(out).toMatch(/ask for a phone number or an email/i);
+  });
+});
+
+/**
+ * Found driving a real conversation: with a calendar connected the model was
+ * offered both request_booking and propose_booking, picked the generic one,
+ * and produced an approval that wrote nothing to the calendar — with a time
+ * it had written down itself rather than one the calendar said was free.
+ */
+describe("two tools for the same job", () => {
+  const base = {
+    description: "",
+    schema: z.object({}),
+    effect: "internal_write" as const,
+    scope: "conversation" as const,
+    approval: "none" as const,
+    audit: { action: "t", recordsPii: false },
+    isEnabled: () => true,
+    run: () => "ok",
+  };
+
+  const generic: ToolContract = {
+    ...base,
+    name: "request_booking",
+    requires: null,
+    supersededBy: ["propose_booking"],
+  };
+  const calendar: ToolContract = {
+    ...base,
+    name: "propose_booking",
+    requires: "google_calendar",
+  };
+  const context = buildAgentContext(
+    sampleAssistantIdentity,
+    createKnowledgeStoreFromBusiness(sampleBusiness, "2026-01-01T00:00:00.000Z"),
+  );
+
+  it("offers only the calendar one when a calendar is connected", () => {
+    const names = availableContracts(
+      [generic, calendar],
+      context,
+      new Set(["google_calendar" as const]),
+    ).map((contract) => contract.name);
+
+    expect(names).toContain("propose_booking");
+    expect(names).not.toContain("request_booking");
+  });
+
+  it("keeps the generic one when there is no calendar", () => {
+    // A workspace on Fresha, or none at all, must still be able to book.
+    const names = availableContracts([generic, calendar], context).map(
+      (contract) => contract.name,
+    );
+
+    expect(names).toEqual(["request_booking"]);
+  });
+
+  it("does not withhold a tool for a replacement that is switched off", () => {
+    const offCalendar: ToolContract = { ...calendar, isEnabled: () => false };
+    const names = availableContracts(
+      [generic, offCalendar],
+      context,
+      new Set(["google_calendar" as const]),
+    ).map((contract) => contract.name);
+
+    expect(names).toEqual(["request_booking"]);
   });
 });

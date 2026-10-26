@@ -113,6 +113,10 @@ export function buildContracts(effects: TurnEffects): ToolContract[] {
     idempotencyKey: ({ service, preferredTime }) =>
       `booking:${service.toLowerCase()}:${(preferredTime ?? "any").toLowerCase()}`,
     audit: { action: "booking.requested", recordsPii: true },
+    // With a calendar connected, propose_booking does this properly: a real
+    // free slot, and an approval that writes the appointment. This one only
+    // records a time the model wrote down, so it stands aside.
+    supersededBy: ["propose_booking"],
     isEnabled: (context) => context.skills.booking === "ask",
     run: ({ service, preferredTime, customerName }) => {
       if (effects.approvals.length >= 2)

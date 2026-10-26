@@ -70,6 +70,17 @@ export type ToolContract<Schema extends z.ZodTypeAny = z.ZodTypeAny> = {
   /** Owner switches and connected integrations decide what is offered. */
   isEnabled: (context: AgentContext) => boolean;
 
+  /**
+   * Tools that replace this one. When any of them is offered in the same
+   * turn, this one is withheld.
+   *
+   * Two tools for the same job is not a harmless overlap: the model picks
+   * one, and if it picks the weaker one the stronger one's guarantees are
+   * simply absent. Declared here rather than in a list somewhere else, so a
+   * tool that supersedes another cannot drift away from the one it replaces.
+   */
+  supersededBy?: readonly string[];
+
   run: (args: z.infer<Schema>, context: AgentContext) => Promise<string> | string;
 };
 
@@ -96,7 +107,7 @@ export function availableContracts(
   context: AgentContext,
   connectedIntegrations: ReadonlySet<IntegrationId> = new Set(),
 ): ToolContract[] {
-  return contracts.filter((contract) => {
+  const usable = contracts.filter((contract) => {
     if (!contract.isEnabled(context)) return false;
     // An unconnected integration means the tool is not offered at all, rather
     // than offered and failing halfway through.
@@ -104,4 +115,12 @@ export function availableContracts(
       return false;
     return true;
   });
+
+  // Resolved against what survived the first pass, so a tool is only withheld
+  // for a replacement that is genuinely on offer this turn.
+  const offered = new Set(usable.map((contract) => contract.name));
+  return usable.filter(
+    (contract) =>
+      !contract.supersededBy?.some((name) => offered.has(name)),
+  );
 }
