@@ -65,6 +65,12 @@ const errorText: Record<string, string> = {
     "Google rejected the redirect address. Add /api/connect/google-calendar/callback to the OAuth client's authorised redirect URIs.",
   gcal_api_disabled:
     "The Google Calendar API isn't enabled on that Google Cloud project yet.",
+  gcal_bad_client:
+    "Google didn't recognise the OAuth client. Check GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.",
+  gcal_invalid_grant:
+    "Google rejected the sign-in code. It expired or was already used — start the connection again.",
+  gcal_scope:
+    "Google granted the sign-in but not calendar access. Remove HelloCrew from your Google account's connected apps, then connect again and leave the calendar permission ticked.",
   gcal_taken: "That calendar is already connected to another HelloCrew workspace.",
   gcal_save: "The calendar connected, but saving it failed. Try again.",
   forbidden: "Only owners and operators can connect accounts.",

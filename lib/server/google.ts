@@ -58,9 +58,18 @@ async function tokenRequest(body: Record<string, string>) {
   const data = (await response.json().catch(() => ({}))) as {
     access_token?: string;
     refresh_token?: string;
+    error?: string;
     error_description?: string;
   };
-  if (!response.ok || !data.access_token) throw new GoogleApiError(data.error_description ?? "Google sign-in failed.", response.status);
+  if (!response.ok || !data.access_token) {
+    // Google puts the useful part in `error` ("redirect_uri_mismatch",
+    // "invalid_client") and often only "Bad Request" in `error_description`.
+    // Reading the description alone threw the diagnosis away.
+    const detail = [data.error, data.error_description]
+      .filter(Boolean)
+      .join(": ");
+    throw new GoogleApiError(detail || "Google sign-in failed.", response.status);
+  }
   return data;
 }
 

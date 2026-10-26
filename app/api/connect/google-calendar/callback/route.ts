@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { DEFAULT_CALENDAR_SETTINGS } from "@/lib/calendar/account";
+import { calendarConnectError } from "@/lib/calendar/connect-errors";
 import { getWorkspaceContext } from "@/lib/data/workspace";
 import { ConnectionTakenError, saveConnection } from "@/lib/server/connections";
 import { exchangeGoogleCode, GoogleApiError } from "@/lib/server/google";
@@ -42,8 +43,17 @@ async function primaryCalendar(
       signal: AbortSignal.timeout(15_000),
     },
   );
-  if (!response.ok)
-    throw new GoogleApiError("Could not list calendars.", response.status);
+  if (!response.ok) {
+    // Keep Google's own reason: "accessNotConfigured" when the Calendar API
+    // is not enabled reads very differently from a scope problem.
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: { message?: string; status?: string };
+    };
+    throw new GoogleApiError(
+      body.error?.message ?? body.error?.status ?? "Could not list calendars.",
+      response.status,
+    );
+  }
   const data = (await response.json()) as { items?: CalendarListEntry[] };
   const items = data.items ?? [];
   return items.find((item) => item.primary) ?? items[0] ?? null;
@@ -84,13 +94,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
     console.error("[google-calendar] connect failed:", message);
-    // The two first-run mistakes are worth naming: a redirect URI that is not
-    // registered, and the Calendar API not being enabled on the project.
-    if (/redirect_uri/i.test(message))
-      return done(request, "error=gcal_redirect_uri");
-    if (/has not been used|is disabled|accessNotConfigured/i.test(message))
-      return done(request, "error=gcal_api_disabled");
-    return done(request, "error=google_login");
+    return done(request, `error=${calendarConnectError(message)}`);
   }
 
   if (!calendar) return done(request, "error=gcal_no_calendar");
