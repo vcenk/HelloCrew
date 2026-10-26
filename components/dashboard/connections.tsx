@@ -260,10 +260,18 @@ export function ConnectionsView() {
   const open = (openParam as ConnectorId | null) ?? null;
   const setOpen = (next: ConnectorId | null) => setOpenParam(next);
   const signedIn = account.status === "signed_in";
-  const ready = {
+  // Typed as a full record on purpose. This was an untyped object read
+  // through an "as" cast, so a connector with no entry here read as
+  // undefined and silently disabled its own Connect button.
+  const googleReady = Boolean(state.setup?.google && state.setup.secrets);
+  const ready: Record<ConnectorId, boolean> = {
     meta: Boolean(state.setup?.meta && state.setup.secrets),
     whatsapp: Boolean(state.setup?.meta && state.setup.secrets),
-    google: Boolean(state.setup?.google && state.setup.secrets),
+    google: googleReady,
+    // Calendar uses the same OAuth client and encryption key as Business
+    // Profile, but none of its review-gated API access.
+    google_calendar: googleReady,
+    website: true,
   };
   const websiteOpen = open === "website";
   return (
@@ -276,7 +284,7 @@ export function ConnectionsView() {
         {connectors.map((connector) => {
           const accounts = (state.connections ?? []).filter((c) => connector.kinds.includes(c.kind));
           const Icon = connector.icon;
-          const available = signedIn && ready[connector.id as "meta" | "whatsapp" | "google"];
+          const available = signedIn && ready[connector.id];
           return (
             <li key={connector.id} className="connector">
               <div className="connector-head">
@@ -352,10 +360,12 @@ export function ConnectionsView() {
                   }}
                 />
               )}
-              {signedIn && state.setup && !ready[connector.id as "meta" | "whatsapp" | "google"] && (
+              {signedIn && state.setup && !ready[connector.id] && (
                 <p className="today-note">
                   <AlertTriangle size={13} aria-hidden="true" />{" "}
-                  {connector.id === "google" ? "Waiting for server setup and Google’s API approval." : "Waiting for server setup."}
+                  {connector.id === "google"
+                    ? "Waiting for server setup and Google’s API approval."
+                    : "Waiting for server setup."}
                 </p>
               )}
             </li>
