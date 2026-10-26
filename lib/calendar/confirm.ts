@@ -34,10 +34,6 @@ export async function confirmBooking(options: {
   const { account, adapter, proposal } = options;
   const now = options.now ?? new Date();
 
-  // An approval sitting unread until after the appointment is not an approval.
-  if (proposal.start.getTime() <= now.getTime())
-    return { status: "no_longer_free" };
-
   if (!canWrite(adapter))
     return {
       status: "owner_books",
@@ -45,6 +41,23 @@ export async function confirmBooking(options: {
     };
 
   try {
+    // Before anything else: have we already written this one? An approval
+    // can arrive twice — a double click, a retried webhook, a replayed
+    // callback. Asking the calendar first is what makes the second pass
+    // report the booking that exists instead of re-reading, finding our own
+    // event in the way, and telling the owner nothing was booked.
+    const already = await adapter.findEvent?.(
+      account,
+      proposal.idempotencyKey,
+    );
+    if (already) return { status: "booked", event: already };
+
+    // An approval sitting unread until after the appointment is not an
+    // approval. Checked after the lookup above, because an appointment we
+    // did book stays booked even once its start time has passed.
+    if (proposal.start.getTime() <= now.getTime())
+      return { status: "no_longer_free" };
+
     // Re-read rather than trust the proposal: the owner may have approved
     // hours after the customer asked.
     const busy = await adapter.readBusy(account, {

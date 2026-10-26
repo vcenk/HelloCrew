@@ -72,6 +72,19 @@ export type CalendarAdapter = {
    * their own system after approving. An adapter without this still supports
    * the whole propose-and-approve flow.
    */
+  /**
+   * The appointment already written under this key, if there is one.
+   *
+   * Asked before anything else, because an approval that arrives twice must
+   * be recognised as the same approval. Without it the second pass re-reads
+   * the calendar, finds the event it just wrote, and calls the slot taken —
+   * telling the owner nothing was booked when something was.
+   */
+  findEvent?(
+    account: CalendarAccount,
+    idempotencyKey: string,
+  ): Promise<CreatedEvent | null>;
+
   createEvent?(
     account: CalendarAccount,
     event: {

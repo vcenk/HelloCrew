@@ -9,6 +9,7 @@ import { calendarContracts, type CalendarTurnEffects } from "../lib/calendar/too
 import type {
   CalendarAccount,
   CalendarAdapter,
+  CreatedEvent,
   Interval,
 } from "../lib/calendar/types";
 import { createKnowledgeStoreFromBusiness } from "../lib/knowledge";
@@ -329,5 +330,98 @@ describe("confirming after approval", () => {
         event: { externalId: "e", start: NOW, end: NOW },
       }),
     ).toMatch(/added to the calendar/i);
+  });
+});
+
+/**
+ * Found by the live check against a real Google Calendar: the first approval
+ * booked, and the second one re-read the calendar, saw the event it had just
+ * written, and reported "no longer free" — telling the owner nothing was
+ * booked when something was.
+ */
+describe("approving the same booking twice", () => {
+  const slot = {
+    start: new Date(NOW.getTime() + 60 * 60 * 1000),
+    end: new Date(NOW.getTime() + 2 * 60 * 60 * 1000),
+  };
+  const proposal = {
+    id: "p1",
+    service: "Cut",
+    start: slot.start,
+    end: slot.end,
+    idempotencyKey: "key-1",
+  };
+
+  /** A calendar that reports what it has been told to write. */
+  function recordingAdapter(): CalendarAdapter {
+    const written: { key: string; event: CreatedEvent }[] = [];
+    return {
+      provider: "google_calendar",
+      // Once written, the slot reads as busy — exactly what Google does.
+      readBusy: vi.fn(async () => written.map((entry) => entry.event)),
+      findEvent: vi.fn(
+        async (_account, key) =>
+          written.find((entry) => entry.key === key)?.event ?? null,
+      ),
+      createEvent: vi.fn(async (_account, event) => {
+        const created: CreatedEvent = {
+          externalId: `evt_${written.length + 1}`,
+          start: event.start,
+          end: event.end,
+        };
+        written.push({ key: event.idempotencyKey, event: created });
+        return created;
+      }),
+    };
+  }
+
+  it("reports the booking that exists, not a lost slot", async () => {
+    const adapter = recordingAdapter();
+    const first = await confirmBooking({ account, adapter, proposal, now: NOW });
+    expect(first.status).toBe("booked");
+
+    const second = await confirmBooking({ account, adapter, proposal, now: NOW });
+    expect(second.status).toBe("booked");
+    if (first.status !== "booked" || second.status !== "booked") return;
+    expect(second.event.externalId).toBe(first.event.externalId);
+  });
+
+  it("writes the appointment only once", async () => {
+    const adapter = recordingAdapter();
+    await confirmBooking({ account, adapter, proposal, now: NOW });
+    await confirmBooking({ account, adapter, proposal, now: NOW });
+    expect(adapter.createEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("never tells the owner nothing was booked when it was", async () => {
+    const adapter = recordingAdapter();
+    await confirmBooking({ account, adapter, proposal, now: NOW });
+    const second = await confirmBooking({ account, adapter, proposal, now: NOW });
+    expect(describeOutcome(second)).not.toMatch(/nothing was booked/i);
+  });
+
+  it("still refuses a slot someone else took", async () => {
+    // Busy for a different reason: no event of ours carries this key.
+    const adapter = adapterWith([slot]);
+    const outcome = await confirmBooking({
+      account,
+      adapter,
+      proposal,
+      now: NOW,
+    });
+    expect(outcome.status).toBe("no_longer_free");
+    expect(adapter.createEvent).not.toHaveBeenCalled();
+  });
+
+  it("an adapter with no lookup still books once and says so", async () => {
+    // Adapters are allowed to omit findEvent; the flow must not depend on it.
+    const adapter = adapterWith([]);
+    const outcome = await confirmBooking({
+      account,
+      adapter,
+      proposal,
+      now: NOW,
+    });
+    expect(outcome.status).toBe("booked");
   });
 });

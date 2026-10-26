@@ -134,13 +134,12 @@ export function googleCalendarAdapter(options: {
       }));
     },
 
-    async createEvent(account, event): Promise<CreatedEvent> {
+    // Google has no idempotency header for insert, so the key is carried in
+    // the event's private metadata and looked up by it. A retry, a duplicate
+    // webhook or a replayed approval finds the original appointment instead
+    // of writing a second one.
+    async findEvent(account, idempotencyKey): Promise<CreatedEvent | null> {
       const token = await options.accessToken();
-
-      // Google has no idempotency header for insert, so the key is carried in
-      // the event's private metadata and looked for first. A retry, a
-      // duplicate webhook or a replayed approval finds the original instead
-      // of writing a second appointment.
       const existing = await call<{
         items?: { id: string; start?: { dateTime?: string }; end?: { dateTime?: string }; htmlLink?: string }[];
       }>(
@@ -149,19 +148,27 @@ export function googleCalendarAdapter(options: {
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
           account.calendarId,
         )}/events?privateExtendedProperty=${encodeURIComponent(
-          `hellocrewKey=${event.idempotencyKey}`,
-        )}&maxResults=1`,
+          `hellocrewKey=${idempotencyKey}`,
+        )}&maxResults=1&showDeleted=false`,
       );
 
       const already = existing.items?.[0];
-      if (already)
-        return {
-          externalId: already.id,
-          start: new Date(already.start?.dateTime ?? event.start),
-          end: new Date(already.end?.dateTime ?? event.end),
-          url: already.htmlLink,
-        };
+      if (!already?.start?.dateTime || !already.end?.dateTime) return null;
+      return {
+        externalId: already.id,
+        start: new Date(already.start.dateTime),
+        end: new Date(already.end.dateTime),
+        url: already.htmlLink,
+      };
+    },
 
+    async createEvent(account, event): Promise<CreatedEvent> {
+      // Checked again here, so an adapter used directly still cannot write
+      // the same appointment twice.
+      const already = await this.findEvent!(account, event.idempotencyKey);
+      if (already) return already;
+
+      const token = await options.accessToken();
       const created = await call<{
         id: string;
         htmlLink?: string;
