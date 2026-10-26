@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { buildAgentContext } from "../lib/agent/context";
 import { runAgentTurn, MAX_MODEL_ROUNDS } from "../lib/agent/graph";
 import { buildSystemPrompt } from "../lib/agent/prompt";
+import type { IntegrationId } from "../lib/agent/tool-contract";
 import { sampleAssistantIdentity } from "../lib/assistant";
 import { sampleBusiness } from "../lib/business";
 import { createKnowledgeStoreFromBusiness } from "../lib/knowledge";
@@ -271,5 +272,68 @@ describe("crew skills control the live agent", () => {
     const changed = setSkillMode(defaultCrew, "booking", "off");
     expect(changed.members[0].skills.booking).toBe("off");
     expect(setSkillMode(defaultCrew, "booking", "auto")).toBe(defaultCrew);
+  });
+});
+
+/**
+ * The prompt names the booking tool, and which tool exists depends on what is
+ * connected. Naming one the model has not been given is worse than naming
+ * none: it follows the rule, finds no such tool, and falls back to "I don't
+ * have an approved answer for that" — which is what a real conversation did.
+ */
+describe("the booking rule matches the tools on offer", () => {
+  const withCalendar = new Set<IntegrationId>(["google_calendar"]);
+  const contextWithBooking = (booking: "ask" | "off") =>
+    buildAgentContext(
+      sampleAssistantIdentity,
+      createKnowledgeStoreFromBusiness(sampleBusiness),
+      new Date(),
+      { answer: "auto", booking, handoff: "auto", leads: "auto" },
+    );
+  const rule3 = (prompt: string) =>
+    prompt.split("\n").find((line) => line.startsWith("3.")) ?? "";
+
+  it("names the calendar tools when a calendar is connected", () => {
+    const prompt = buildSystemPrompt(contextWithBooking("ask"), withCalendar);
+    expect(rule3(prompt)).toContain("check_availability");
+    expect(rule3(prompt)).toContain("propose_booking");
+  });
+
+  it("never names request_booking when it is not offered", () => {
+    // availableContracts withholds it once propose_booking is available, so
+    // naming it here would point the model at a tool it does not have.
+    const prompt = buildSystemPrompt(contextWithBooking("ask"), withCalendar);
+    expect(prompt).not.toContain("request_booking");
+  });
+
+  it("tells the model to check before answering, not after", () => {
+    const prompt = buildSystemPrompt(contextWithBooking("ask"), withCalendar);
+    expect(rule3(prompt)).toMatch(/first/i);
+    expect(rule3(prompt)).toMatch(/first message/i);
+  });
+
+  it("forbids offering a time it worked out itself", () => {
+    const prompt = buildSystemPrompt(contextWithBooking("ask"), withCalendar);
+    expect(rule3(prompt)).toMatch(/only the times it returns/i);
+  });
+
+  it("keeps the generic tool when there is no calendar", () => {
+    const prompt = buildSystemPrompt(contextWithBooking("ask"));
+    expect(rule3(prompt)).toContain("request_booking");
+    expect(rule3(prompt)).not.toContain("check_availability");
+  });
+
+  it("says bookings are off whatever is connected", () => {
+    for (const connected of [undefined, withCalendar])
+      expect(rule3(buildSystemPrompt(contextWithBooking("off"), connected))).toContain(
+        "You cannot take bookings",
+      );
+  });
+
+  it("never claims a booking is confirmed", () => {
+    for (const connected of [undefined, withCalendar])
+      expect(rule3(buildSystemPrompt(contextWithBooking("ask"), connected))).toMatch(
+        /never say it is confirmed/i,
+      );
   });
 });

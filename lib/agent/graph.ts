@@ -88,7 +88,7 @@ export function buildAgentGraph(
   const effectOf = effectsByName(context, effects, connected, extraContracts);
   if (!model.bindTools) throw new Error("Model does not support tools.");
   const withTools = model.bindTools(tools);
-  const system = new SystemMessage(buildSystemPrompt(context));
+  const system = new SystemMessage(buildSystemPrompt(context, connected));
 
   async function agent(state: typeof AgentState.State) {
     // On the last allowed round the model must answer without more tools.

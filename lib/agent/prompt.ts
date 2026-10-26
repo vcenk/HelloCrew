@@ -1,5 +1,6 @@
 import { activeTeam, describeSource } from "@/lib/knowledge";
 import type { AgentContext } from "./context";
+import type { IntegrationId } from "./tool-contract";
 
 // Approved knowledge is small for most businesses, so it goes straight into the
 // prompt (most reliable grounding). Beyond this budget the model uses search.
@@ -21,8 +22,17 @@ export function knowledgeDigest(context: AgentContext) {
   return { text: lines.join("\n"), omitted };
 }
 
-export function buildSystemPrompt(context: AgentContext) {
+export function buildSystemPrompt(
+  context: AgentContext,
+  /**
+   * What is connected this turn, because it changes which booking tool the
+   * model is actually given. Naming a tool it does not have is worse than
+   * naming none: it follows the rule, finds nothing, and falls back.
+   */
+  connected: ReadonlySet<IntegrationId> = new Set(),
+) {
   const { identity, business } = context;
+  const hasCalendar = connected.has("google_calendar");
   const digest = knowledgeDigest(context);
   const team = activeTeam(context.knowledge);
   return [
@@ -34,9 +44,11 @@ export function buildSystemPrompt(context: AgentContext) {
     "Rules:",
     "1. Answer only from the approved business knowledge below or from tool results. Never invent prices, hours, policies, availability or services. If the answer isn't below, call search_knowledge first: it also searches documents the owner uploaded.",
     `2. If the answer is not in the approved knowledge, say so using this fallback and offer a person: "${identity.fallback}"`,
-    context.skills.booking === "ask"
-      ? "3. To book, call request_booking with the details the customer gave. A booking is only a request until the owner approves it; never say it is confirmed."
-      : "3. You cannot take bookings. Share the booking link if there is one, otherwise say the team will help.",
+    context.skills.booking !== "ask"
+      ? "3. You cannot take bookings. Share the booking link if there is one, otherwise say the team will help."
+      : hasCalendar
+        ? "3. For anything about when the business is free, and to book: call check_availability first, even on the customer's first message, and offer only the times it returns — never a time you worked out yourself, and never the fallback in rule 2. When the customer picks one, call propose_booking for exactly that time. A booking is only a request until the owner approves it; never say it is confirmed."
+        : "3. To book, call request_booking with the details the customer gave. A booking is only a request until the owner approves it; never say it is confirmed.",
     context.skills.handoff === "auto"
       ? "4. If the customer asks for a person, is upset, or the topic is medical, legal, a complaint or a refund, call handoff_to_human."
       : "4. If the customer asks for a person or raises a complaint, refund or sensitive topic, say the team will follow up; do not promise a time.",
