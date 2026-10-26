@@ -32,6 +32,7 @@ import { postingModeHelp, postingModeLabel, postingModeOf, postingModes, setPost
 import { useDashboard } from "./provider";
 import { useDropTransientParams, useQueryState } from "./use-query-state";
 import { Button, ButtonLink, EmptyState, PageHeader, Panel, Pill } from "./ui";
+import { CalendarHours } from "./calendar-hours";
 import { WebsiteChatSetup } from "./website-chat";
 import { WhatsAppSignupButton } from "./whatsapp-signup";
 
@@ -60,6 +61,10 @@ const errorText: Record<string, string> = {
   google_no_locations: "This Google account doesn’t manage any business locations.",
   google_taken: "One of the locations is already connected to another HelloCrew workspace.",
   gcal_no_calendar: "That Google account has no calendar HelloCrew can write to.",
+  gcal_redirect_uri:
+    "Google rejected the redirect address. Add /api/connect/google-calendar/callback to the OAuth client's authorised redirect URIs.",
+  gcal_api_disabled:
+    "The Google Calendar API isn't enabled on that Google Cloud project yet.",
   gcal_taken: "That calendar is already connected to another HelloCrew workspace.",
   gcal_save: "The calendar connected, but saving it failed. Try again.",
   forbidden: "Only owners and operators can connect accounts.",
@@ -322,6 +327,22 @@ export function ConnectionsView() {
                 <button type="button" className="connector-alt" onClick={() => setOpen("whatsapp")}>
                   Developer option: connect with a phone number ID and token
                 </button>
+              )}
+              {connector.id === "google_calendar" && accounts.length > 0 && (
+                <button
+                  type="button"
+                  className="connector-alt"
+                  onClick={() =>
+                    setOpen(open === "google_calendar" ? null : "google_calendar")
+                  }
+                >
+                  {open === "google_calendar"
+                    ? "Close working hours"
+                    : "Set the hours the crew may offer"}
+                </button>
+              )}
+              {connector.id === "google_calendar" && open === "google_calendar" && (
+                <CalendarHours />
               )}
               {connector.id === "whatsapp" && open === "whatsapp" && (
                 <WhatsAppForm

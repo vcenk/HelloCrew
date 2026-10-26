@@ -65,3 +65,27 @@ test("Google Calendar is offered and promises approval, not autonomy", async ({
   await expect(connect).toHaveAttribute("aria-disabled", "true");
   expect(await connect.getAttribute("href")).toBeNull();
 });
+
+test("the working-hours editor says what to do before a calendar exists", async ({
+  page,
+}) => {
+  // ?open= drives which connector is expanded, so the panel is reachable
+  // directly — that is also what the OAuth callback redirects to.
+  await openDashboard(page, "/app/connections?open=google_calendar");
+  const card = page.locator(".connector", { hasText: "Google Calendar" });
+  await expect(card).toContainText("Connect a calendar first");
+
+  // No editor is shown until there is something to edit.
+  await expect(page.locator(".calendar-hours")).toHaveCount(0);
+});
+
+test("the expand control only appears once a calendar is connected", async ({
+  page,
+}) => {
+  await openDashboard(page, "/app/connections");
+  const card = page.locator(".connector", { hasText: "Google Calendar" });
+  // Signed out there are no connected accounts, so there is nothing to open.
+  await expect(
+    card.locator("button", { hasText: "Set the hours" }),
+  ).toHaveCount(0);
+});

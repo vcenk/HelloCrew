@@ -197,3 +197,57 @@
   justify-content: flex-end;
 }
 
+
+/* Working hours for a connected calendar. */
+.calendar-hours {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--d-line);
+}
+.hours-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hours-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-sm);
+  background: var(--d-surface);
+}
+.hours-times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--d-ink-2);
+  font-size: 13px;
+}
+.hours-times input {
+  min-height: 36px;
+}
+/* Said in words, so a closed day is never signalled by absence alone. */
+.hours-closed {
+  color: var(--d-ink-3);
+  font-size: 13px;
+  font-weight: 600;
+}
+@media (max-width: 860px) {
+  .hours-row {
+    align-items: flex-start;
+  }
+  .hours-times {
+    width: 100%;
+  }
+  .hours-times input {
+    flex: 1;
+  }
+}

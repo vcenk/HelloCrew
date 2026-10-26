@@ -82,10 +82,14 @@ export async function GET(request: NextRequest) {
     if (!tokens.refresh_token) return done(request, "error=google_no_refresh");
     calendar = await primaryCalendar(tokens.access_token!);
   } catch (error) {
-    console.error(
-      "[google-calendar] connect failed:",
-      error instanceof Error ? error.message : "unknown",
-    );
+    const message = error instanceof Error ? error.message : "unknown";
+    console.error("[google-calendar] connect failed:", message);
+    // The two first-run mistakes are worth naming: a redirect URI that is not
+    // registered, and the Calendar API not being enabled on the project.
+    if (/redirect_uri/i.test(message))
+      return done(request, "error=gcal_redirect_uri");
+    if (/has not been used|is disabled|accessNotConfigured/i.test(message))
+      return done(request, "error=gcal_api_disabled");
     return done(request, "error=google_login");
   }
 
