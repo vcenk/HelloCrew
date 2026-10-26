@@ -16,6 +16,7 @@ import { businessFromKnowledge } from "@/lib/knowledge";
 import { createOpenAIChatModel } from "@/lib/models/openai";
 import { readLiveConfig, type LiveConfig } from "@/lib/server/live-config";
 import { withModelFallback } from "@/lib/server/model-router";
+import { calendarApprovalDetails } from "@/lib/calendar/approval";
 import { calendarForTurn } from "@/lib/calendar/for-turn";
 import type { CalendarTurnEffects } from "@/lib/calendar/tools";
 import { costMicroUsd, worstCaseMicroUsd } from "@/lib/usage/cost";
@@ -109,6 +110,20 @@ export async function runLiveTurn(
     };
     const replyId = crypto.randomUUID();
     const handoff = result.handoffs.length > 0;
+    // A proposed time is an approval like any other, so the owner decides it
+    // on the same card. Without this the crew told the customer their time
+    // had been sent to the business and nothing ever reached the owner.
+    const approvals = [
+      ...result.approvals,
+      ...calendarEffects.proposals.map((proposal) => ({
+        id: proposal.id,
+        kind: "booking" as const,
+        summary: `${proposal.service} — ${proposal.says}${
+          proposal.customerName ? ` for ${proposal.customerName}` : ""
+        }`,
+        details: calendarApprovalDetails(proposal),
+      })),
+    ];
     await appendMessages(admin, tenant, target.conversationId, [
       {
         id: replyId,
@@ -125,9 +140,9 @@ export async function runLiveTurn(
         },
       },
     ]);
-    if (result.approvals.length > 0) {
+    if (approvals.length > 0) {
       const { error } = await admin.from("hc_approvals").insert(
-        result.approvals.map((a) => ({
+        approvals.map((a) => ({
           tenant_id: target.tenantId,
           id: a.id,
           conversation_id: target.conversationId,
@@ -152,7 +167,7 @@ export async function runLiveTurn(
     // Alerts are for real customers; the owner's own test chats stay quiet.
     if (before && before.channel !== "test") {
       const events: OwnerEvent[] = [
-        ...result.approvals.map((a) => ({ kind: "approval" as const, conversationId: target.conversationId, summary: a.summary })),
+        ...approvals.map((a) => ({ kind: "approval" as const, conversationId: target.conversationId, summary: a.summary })),
         ...(handoff && before.status !== "handoff"
           ? [{ kind: "handoff" as const, conversationId: target.conversationId, title: before.title as string }]
           : []),
@@ -174,7 +189,7 @@ export async function runLiveTurn(
       status,
       unanswered: result.unanswered,
       activity: result.activity,
-      approvals: result.approvals.map((a) => ({ id: a.id, summary: a.summary })),
+      approvals: approvals.map((a) => ({ id: a.id, summary: a.summary })),
       usage,
       spentMicroUsd: await monthSpendMicroUsd(admin, target.tenantId),
     };

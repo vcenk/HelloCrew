@@ -7,6 +7,7 @@ import { listConnectionsFor } from "@/lib/server/connections";
 import type { GoogleCredentials } from "@/lib/server/google";
 import { calendarFromConnection, CalendarSettingsError } from "./account";
 import { calendarContracts, type CalendarTurnEffects } from "./tools";
+import type { CalendarAccount, CalendarAdapter } from "./types";
 
 /**
  * The calendar tools for one workspace's turn, if it has a calendar connected
@@ -25,8 +26,26 @@ export async function calendarForTurn(
   contracts: ToolContract[];
   connected: Set<IntegrationId>;
 }> {
-  const none = { contracts: [], connected: new Set<IntegrationId>() };
+  const calendar = await calendarForTenant(admin, tenantId);
+  if (!calendar) return { contracts: [], connected: new Set<IntegrationId>() };
 
+  return {
+    contracts: calendarContracts({ ...calendar, effects }),
+    connected: new Set<IntegrationId>(["google_calendar"]),
+  };
+}
+
+/**
+ * The workspace's calendar, or null when there is none to use.
+ *
+ * Shared by the agent's turn and by the owner's approval, so the booking is
+ * written against exactly the calendar and working hours the time was offered
+ * from — rather than two paths that could drift apart.
+ */
+export async function calendarForTenant(
+  admin: SupabaseClient,
+  tenantId: string,
+): Promise<{ account: CalendarAccount; adapter: CalendarAdapter } | null> {
   const connections = await listConnectionsFor<GoogleCredentials>(
     admin,
     tenantId,
@@ -36,20 +55,16 @@ export async function calendarForTurn(
   const usable = connections.find(
     (connection) => connection.status === "connected",
   );
-  if (!usable) return none;
+  if (!usable) return null;
 
   try {
-    const { account, adapter } = calendarFromConnection(usable);
-    return {
-      contracts: calendarContracts({ account, adapter, effects }),
-      connected: new Set<IntegrationId>(["google_calendar"]),
-    };
+    return calendarFromConnection(usable);
   } catch (error) {
     if (error instanceof CalendarSettingsError)
       console.warn(
         `[calendar] tenant ${tenantId} has a calendar connected but unusable:`,
         error.message,
       );
-    return none;
+    return null;
   }
 }

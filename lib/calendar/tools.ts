@@ -14,6 +14,12 @@ export type BookingProposal = {
   start: Date;
   end: Date;
   customerName?: string;
+  /**
+   * The time in the business's own words, built where the timezone is known.
+   * The owner's approval card and the customer's confirmation both use it,
+   * so neither has to re-derive a local time from an instant.
+   */
+  says: string;
   /** Carried through approval so a replay cannot book twice. */
   idempotencyKey: string;
 };
@@ -148,6 +154,7 @@ export function calendarContracts(options: {
         start,
         end,
         customerName,
+        says: describeSlot({ start, end }, account.timeZone),
         idempotencyKey: `calendar:${service.trim().toLowerCase()}:${start.toISOString()}`,
       });
 

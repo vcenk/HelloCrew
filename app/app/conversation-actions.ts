@@ -23,6 +23,13 @@ import {
 } from "@/lib/data/conversations";
 import { getWorkspaceContext, type WorkspaceContext } from "@/lib/data/workspace";
 import { deliverToCustomer } from "@/lib/server/deliver";
+import {
+  calendarProposalFromApproval,
+  customerReplyFor,
+  ownerNoteFor,
+} from "@/lib/calendar/approval";
+import { confirmBooking, type ConfirmOutcome } from "@/lib/calendar/confirm";
+import { calendarForTenant } from "@/lib/calendar/for-turn";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -150,35 +157,71 @@ const decisionSchema = z
 export async function decideApproval(input: {
   approvalId: string;
   decision: "approved" | "rejected";
-}): Promise<Result<{ message: StoredMessage | null; deliveryError?: string }>> {
+}): Promise<
+  Result<{
+    message: StoredMessage | null;
+    deliveryError?: string;
+    /** Said to the owner when approving did not end in a booking. */
+    bookingNote?: string;
+  }>
+> {
   const parsed = decisionSchema.safeParse(input);
   if (!parsed.success) return failure("invalid", "Unknown approval.");
   return run(true, async (db, ws) => {
     const { approvalId, decision } = parsed.data;
+    const admin = widgetAdminClient();
+
+    // Read before deciding: a calendar booking has to be written before the
+    // customer is told anything, so that what they are told is true.
+    const { data: approval } = await db
+      .from("hc_approvals")
+      .select("conversation_id, details, status")
+      .eq("tenant_id", ws.tenantId)
+      .eq("id", approvalId)
+      .maybeSingle();
+
+    const proposal =
+      decision === "approved" && approval?.status === "pending"
+        ? calendarProposalFromApproval(approvalId, approval.details)
+        : null;
+
+    let outcome: ConfirmOutcome | null = null;
+    if (proposal) {
+      const calendar = admin
+        ? await calendarForTenant(admin, ws.tenantId)
+        : null;
+      // Writing is idempotent on the proposal's key, so the narrow race with
+      // another operator deciding at the same moment cannot double-book.
+      outcome = calendar
+        ? await confirmBooking({ ...calendar, proposal })
+        : {
+            status: "failed",
+            reason: "No calendar is connected to write it to.",
+          };
+    }
+
     const { data, error } = await db.rpc("hc_decide_approval", {
       p_approval_id: approvalId,
       p_decision: decision,
-      p_reply: decisionReply[decision],
+      p_reply:
+        outcome && proposal
+          ? customerReplyFor(outcome, proposal)
+          : decisionReply[decision],
     });
     if (error) return failure(error.code === "P0002" ? "not_found" : "error", "That approval couldn’t be updated.");
     if (!data) return { ok: true, message: null }; // already decided or expired
     const row = data as { id: string; body: string; createdAt: string };
     // The customer may be on Messenger, Instagram or WhatsApp: send them the outcome.
     let deliveryError: string | undefined;
-    const { data: approval } = await db
-      .from("hc_approvals")
-      .select("conversation_id")
-      .eq("tenant_id", ws.tenantId)
-      .eq("id", approvalId)
-      .maybeSingle();
-    const admin = widgetAdminClient();
     if (approval && admin) {
       const result = await deliverToCustomer(admin, ws.tenantId, approval.conversation_id as string, row.body);
       if (result.delivered === false) deliveryError = result.reason;
     }
+    const bookingNote = outcome ? ownerNoteFor(outcome) : undefined;
     return {
       ok: true,
       ...(deliveryError ? { deliveryError } : {}),
+      ...(bookingNote ? { bookingNote } : {}),
       message: {
         id: row.id,
         role: "assistant",

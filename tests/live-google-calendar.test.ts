@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { calendarFromConnection } from "../lib/calendar/account";
 import { confirmBooking } from "../lib/calendar/confirm";
 import type { BookingProposal } from "../lib/calendar/tools";
-import { proposeSlots } from "../lib/calendar/slots";
+import { describeSlot, proposeSlots } from "../lib/calendar/slots";
 import {
   listConnectionsFor,
   type Connection,
@@ -207,6 +207,7 @@ describe.skipIf(!liveWrite)("writing an approved booking", () => {
       start: slot.start,
       end: slot.end,
       service: "HelloCrew write check (safe to delete)",
+      says: describeSlot(slot, account.timeZone),
       idempotencyKey: key,
     };
 

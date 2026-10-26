@@ -4,6 +4,10 @@ import { buildAgentContext } from "../lib/agent/context";
 import { assertContractIsSound } from "../lib/agent/tool-contract";
 import { sampleAssistantIdentity } from "../lib/assistant";
 import { sampleBusiness } from "../lib/business";
+import {
+  calendarApprovalDetails,
+  calendarProposalFromApproval,
+} from "../lib/calendar/approval";
 import { confirmBooking, describeOutcome } from "../lib/calendar/confirm";
 import { calendarContracts, type CalendarTurnEffects } from "../lib/calendar/tools";
 import type {
@@ -239,6 +243,7 @@ describe("confirming after approval", () => {
     service: "Haircut",
     start: new Date("2026-01-05T09:00:00Z"),
     end: new Date("2026-01-05T10:00:00Z"),
+    says: "Monday at 09:00",
     customerName: "Sam",
     idempotencyKey: "calendar:haircut:2026-01-05T09:00:00.000Z",
   };
@@ -349,6 +354,7 @@ describe("approving the same booking twice", () => {
     service: "Cut",
     start: slot.start,
     end: slot.end,
+    says: "Monday at 10:00",
     idempotencyKey: "key-1",
   };
 
@@ -423,5 +429,78 @@ describe("approving the same booking twice", () => {
       now: NOW,
     });
     expect(outcome.status).toBe("booked");
+  });
+});
+
+/**
+ * The gap between the two halves: propose_booking recorded a proposal that
+ * nothing ever read, so the crew told the customer their time had been sent
+ * to the business and the owner was never shown anything to approve.
+ */
+describe("from the crew's proposal to the owner's decision", () => {
+  it("a proposed time carries everything the approval needs", async () => {
+    const effects = noEffects();
+    const adapter = adapterWith([]);
+    await tools(adapter, effects)
+      .get("propose_booking")!
+      .run(
+        {
+          service: "Haircut",
+          startsAt: "2026-01-05T09:00:00.000Z",
+          customerName: "Sam",
+        },
+        context(),
+      );
+
+    expect(effects.proposals).toHaveLength(1);
+    const [proposal] = effects.proposals;
+
+    // Everything the owner's approval will need, hours later, in another
+    // request, with the agent turn long gone.
+    const details = calendarApprovalDetails(proposal);
+    const restored = calendarProposalFromApproval("approval-1", details);
+    expect(restored).not.toBeNull();
+    expect(restored!.start.toISOString()).toBe("2026-01-05T09:00:00.000Z");
+    expect(restored!.idempotencyKey).toBe(proposal.idempotencyKey);
+  });
+
+  it("says the time in the business's own words, not as an instant", async () => {
+    const effects = noEffects();
+    await tools(adapterWith([]), effects)
+      .get("propose_booking")!
+      .run(
+        { service: "Haircut", startsAt: "2026-01-05T09:00:00.000Z" },
+        context(),
+      );
+
+    // The owner's card must not read "2026-01-05T09:00:00.000Z".
+    expect(effects.proposals[0].says).toBeTruthy();
+    expect(effects.proposals[0].says).not.toMatch(/\dT\d|Z$/);
+  });
+
+  it("approving what was proposed books that exact slot", async () => {
+    const effects = noEffects();
+    const adapter = adapterWith([]);
+    await tools(adapter, effects)
+      .get("propose_booking")!
+      .run(
+        { service: "Haircut", startsAt: "2026-01-05T09:00:00.000Z" },
+        context(),
+      );
+
+    const restored = calendarProposalFromApproval(
+      "approval-1",
+      JSON.parse(JSON.stringify(calendarApprovalDetails(effects.proposals[0]))),
+    )!;
+    const outcome = await confirmBooking({
+      account,
+      adapter,
+      proposal: restored,
+      now: new Date("2026-01-04T00:00:00Z"),
+    });
+
+    expect(outcome.status).toBe("booked");
+    if (outcome.status !== "booked") return;
+    expect(outcome.event.start.toISOString()).toBe("2026-01-05T09:00:00.000Z");
   });
 });

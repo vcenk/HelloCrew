@@ -482,6 +482,9 @@ export function useConversations(deps: {
       });
       if (result.deliveryError)
         toast(`Saved, but the customer didn’t get it: ${result.deliveryError}`, "error");
+      // Approving does not always end in a booking: the slot may have gone,
+      // or the calendar may have refused. Say so instead of "Booking approved".
+      else if (result.bookingNote) toast(result.bookingNote, "error");
       else
         toast(
           result.message ? (value === "approve" ? "Booking approved" : "Booking declined") : "Already decided",
