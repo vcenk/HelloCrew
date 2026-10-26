@@ -13,13 +13,27 @@ import type {
  * access, which makes it the reference implementation of the adapter and the
  * right fit for operators with no booking platform at all.
  *
- * Scope needed: https://www.googleapis.com/auth/calendar.events
- * Reading free/busy alone needs only .readonly.
+ * Scopes, one per endpoint this adapter actually calls. calendar.events does
+ * not cover calendarList or freeBusy — asking for it alone returns a token
+ * that signs in fine and then gets 403 "insufficient authentication scopes"
+ * on the first real call, so each entry below names what needs it.
+ *
+ * Deliberately not calendar.readonly: that reads the content of every event
+ * on every calendar, where freeBusy returns only the busy intervals. The
+ * crew is promised "reads when you are free", and this is that promise.
  */
-export const GOOGLE_CALENDAR_SCOPE =
-  "https://www.googleapis.com/auth/calendar.events";
-export const GOOGLE_CALENDAR_READ_SCOPE =
-  "https://www.googleapis.com/auth/calendar.readonly";
+export const GOOGLE_CALENDAR_SCOPES = [
+  // calendarList.list — finding the calendar to connect.
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+  // freeBusy.query — the busy intervals, without any event content.
+  "https://www.googleapis.com/auth/calendar.events.freebusy",
+  // events.insert and events.list — writing an approved booking, and the
+  // idempotency lookup that stops a double-write.
+  "https://www.googleapis.com/auth/calendar.events",
+] as const;
+
+/** What the OAuth request sends: scopes are space-separated. */
+export const GOOGLE_CALENDAR_SCOPE = GOOGLE_CALENDAR_SCOPES.join(" ");
 
 export class CalendarApiError extends Error {
   constructor(

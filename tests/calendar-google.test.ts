@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CalendarApiError,
   googleCalendarAdapter,
+  GOOGLE_CALENDAR_SCOPE,
+  GOOGLE_CALENDAR_SCOPES,
 } from "../lib/calendar/google-calendar";
 import { canWrite } from "../lib/calendar/types";
 import type { CalendarAccount } from "../lib/calendar/types";
@@ -209,5 +211,62 @@ describe("adapters without write access", () => {
       readBusy: async () => [],
     };
     expect(canWrite(readOnly)).toBe(false);
+  });
+});
+
+/**
+ * Google's scopes are per-endpoint, and the mismatch is silent: a token with
+ * only calendar.events signs in, stores happily, and then 403s on the first
+ * real call. This pins each endpoint the adapter calls to the scopes Google
+ * documents for it, so dropping one from the OAuth request fails here first.
+ *
+ * Tables taken from developers.google.com/workspace/calendar/api/v3/reference.
+ */
+describe("the scopes the connection has to ask for", () => {
+  const accepts: Record<string, string[]> = {
+    "calendarList.list": [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.calendarlist",
+      "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+    ],
+    "freeBusy.query": [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.events.freebusy",
+      "https://www.googleapis.com/auth/calendar.freebusy",
+    ],
+    "events.insert": [
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.events",
+    ],
+    "events.list": [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/calendar.events.readonly",
+    ],
+  };
+
+  it.each(Object.keys(accepts))("%s is covered by what we request", (endpoint) => {
+    const granted = GOOGLE_CALENDAR_SCOPES as readonly string[];
+    expect(accepts[endpoint].some((scope) => granted.includes(scope))).toBe(true);
+  });
+
+  it("asks for no scope it does not need", () => {
+    const needed = new Set(Object.values(accepts).flat());
+    for (const scope of GOOGLE_CALENDAR_SCOPES) expect(needed).toContain(scope);
+  });
+
+  it("stays away from reading every event on every calendar", () => {
+    const granted = GOOGLE_CALENDAR_SCOPES as readonly string[];
+    expect(granted).not.toContain("https://www.googleapis.com/auth/calendar");
+    expect(granted).not.toContain(
+      "https://www.googleapis.com/auth/calendar.readonly",
+    );
+  });
+
+  it("sends them to Google space-separated", () => {
+    expect(GOOGLE_CALENDAR_SCOPE.split(" ")).toEqual([...GOOGLE_CALENDAR_SCOPES]);
   });
 });
