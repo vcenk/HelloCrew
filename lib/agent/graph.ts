@@ -15,6 +15,8 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 
+import { ZodError } from "zod";
+
 import type { Activity } from "@/lib/demo";
 import type { AgentContext } from "./context";
 import { buildSystemPrompt } from "./prompt";
@@ -27,6 +29,19 @@ import {
   type TurnEffects,
 } from "./tools";
 import type { IntegrationId, ToolContract } from "./tool-contract";
+
+/** What the model is told about a rejected tool call, in its own terms. */
+function reasonFor(error: unknown): string {
+  if (error instanceof ZodError)
+    return error.issues
+      .map((issue) =>
+        issue.path.length ? `${issue.path.join(".")} — ${issue.message}` : issue.message,
+      )
+      .join("; ");
+  return error instanceof Error && error.message
+    ? error.message
+    : "they did not pass validation";
+}
 
 export const MAX_MODEL_ROUNDS = 3;
 export const MAX_HISTORY_MESSAGES = 20;
@@ -133,16 +148,20 @@ export function buildAgentGraph(
           kind:
             effectOf[call.name] === "needs_approval" ? "approval" : "tool",
         });
-      } catch {
+      } catch (error) {
+        // Say what was wrong. "The tool rejected those arguments" gives the
+        // model nothing to correct, so it either gives up or guesses again —
+        // and a booking tool that fails silently loses a real customer.
+        const reason = reasonFor(error);
         results.push(
           new ToolMessage({
             tool_call_id: id,
-            content: "The tool rejected those arguments.",
+            content: `The tool rejected those arguments: ${reason}. Correct them and call it again.`,
           }),
         );
         activity.push({
           label: `${toolLabel(call.name)} failed`,
-          detail: "Arguments did not pass validation.",
+          detail: reason,
           kind: "error",
         });
       }

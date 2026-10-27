@@ -9,7 +9,10 @@ import {
   calendarProposalFromApproval,
 } from "../lib/calendar/approval";
 import { confirmBooking, describeOutcome } from "../lib/calendar/confirm";
-import { calendarContracts, type CalendarTurnEffects } from "../lib/calendar/tools";
+import {
+  calendarContracts,
+  type CalendarTurnEffects,
+} from "../lib/calendar/tools";
 import type {
   CalendarAccount,
   CalendarAdapter,
@@ -65,7 +68,7 @@ const tools = (adapter: CalendarAdapter, effects: CalendarTurnEffects) =>
     ]),
   );
 
-const noEffects = (): CalendarTurnEffects => ({ proposals: [] });
+const noEffects = (): CalendarTurnEffects => ({ proposals: [], offered: [] });
 
 describe("calendar tool contracts", () => {
   it("declares sound contracts", () => {
@@ -102,6 +105,24 @@ describe("calendar tool contracts", () => {
   });
 });
 
+/**
+ * Offers times the way a real turn does. propose_booking picks by number
+ * from what check_availability just produced, so a test that skips this is
+ * testing a sequence the model is not allowed to perform.
+ */
+async function offerTimes(
+  adapter: CalendarAdapter,
+  effects: CalendarTurnEffects,
+) {
+  return JSON.parse(
+    String(
+      await tools(adapter, effects)
+        .get("check_availability")!
+        .run({}, context()),
+    ),
+  ) as { timeZone: string; note: string; options: { option: number; says: string }[] };
+}
+
 describe("checking availability", () => {
   it("offers real free times from the calendar", async () => {
     const byName = tools(adapterWith([]), noEffects());
@@ -110,7 +131,8 @@ describe("checking availability", () => {
     );
     expect(out.timeZone).toBe("Europe/London");
     expect(out.options).toHaveLength(3);
-    expect(out.options[0].startsAt).toBe("2026-01-05T09:00:00.000Z");
+    expect(out.options[0].option).toBe(1);
+    expect(out.options[0].says).toMatch(/09:00/);
     expect(out.note).toMatch(/do not invent/i);
   });
 
@@ -127,7 +149,7 @@ describe("checking availability", () => {
     const out = JSON.parse(
       String(await byName.get("check_availability")!.run({}, context())),
     );
-    expect(out.options[0].startsAt).toBe("2026-01-05T12:00:00.000Z");
+    expect(out.options[0].says).toMatch(/12:00/);
   });
 
   it("says so plainly when there is nothing free", async () => {
@@ -163,9 +185,10 @@ describe("proposing a booking", () => {
   it("records the request and never claims it is booked", async () => {
     const effects = noEffects();
     const adapter = adapterWith([]);
+    await offerTimes(adapter, effects);
     const out = String(
       await propose(adapter, effects).run(
-        { service: "Haircut", startsAt: "2026-01-05T09:00:00.000Z" },
+        { service: "Haircut", option: 1 },
         context(),
       ),
     );
@@ -185,9 +208,16 @@ describe("proposing a booking", () => {
       },
     ]);
     const effects = noEffects();
+    // Offered while it was free, taken by the time the customer chose it.
+    effects.offered = [
+      {
+        start: new Date("2026-01-05T09:00:00Z"),
+        end: new Date("2026-01-05T10:00:00Z"),
+      },
+    ];
     const out = String(
       await propose(adapter, effects).run(
-        { service: "Haircut", startsAt: "2026-01-05T09:00:00.000Z" },
+        { service: "Haircut", option: 1 },
         context(),
       ),
     );
@@ -195,45 +225,110 @@ describe("proposing a booking", () => {
     expect(effects.proposals).toHaveLength(0);
   });
 
-  it("rejects a time the model made up", async () => {
+  it("books without a separate check first, from the calendar's own list", async () => {
+    // A model that proposes straight away must not have to spend a round
+    // being told to look: it ran out of rounds doing exactly that, and told
+    // the customer a booking was being requested when none was.
+    const effects = noEffects();
     const out = String(
-      await propose(adapterWith([]), noEffects()).run(
-        { service: "Haircut", startsAt: "not-a-time" },
+      await propose(adapterWith([]), effects).run(
+        { service: "Haircut", option: 1 },
         context(),
       ),
     );
-    expect(out).toMatch(/wasn't understood/i);
+    expect(out).toMatch(/awaiting_owner_approval/);
+    expect(effects.proposals[0].start.toISOString()).toBe(
+      "2026-01-05T09:00:00.000Z",
+    );
+  });
+
+  it("numbers the options the same whichever tool worked them out", async () => {
+    const direct = noEffects();
+    await propose(adapterWith([]), direct).run(
+      { service: "Haircut", option: 2 },
+      context(),
+    );
+
+    const afterCheck = noEffects();
+    const adapter = adapterWith([]);
+    await offerTimes(adapter, afterCheck);
+    await propose(adapter, afterCheck).run(
+      { service: "Haircut", option: 2 },
+      context(),
+    );
+
+    expect(direct.proposals[0].start.toISOString()).toBe(
+      afterCheck.proposals[0].start.toISOString(),
+    );
+  });
+
+  it("says what is on offer when the number is not one of them", async () => {
+    const effects = noEffects();
+    const out = String(
+      await propose(adapterWith([]), effects).run(
+        { service: "Haircut", option: 3 + 1 },
+        context(),
+      ),
+    );
+    expect(out).toMatch(/no option 4/i);
+    // The model is handed the real times rather than left to guess again.
+    expect(out).toMatch(/09:00/);
+    expect(effects.proposals).toEqual([]);
+  });
+
+  it("refuses an option number that was never on offer", async () => {
+    const effects = noEffects();
+    const adapter = adapterWith([]);
+    const offered = await offerTimes(adapter, effects);
+    const out = String(
+      await propose(adapter, effects).run(
+        { service: "Haircut", option: offered.options.length + 1 },
+        context(),
+      ),
+    );
+    expect(out).toMatch(/no option/i);
+    expect(effects.proposals).toEqual([]);
+  });
+
+  it("books the instant behind the number, not the number", async () => {
+    const effects = noEffects();
+    const adapter = adapterWith([]);
+    await offerTimes(adapter, effects);
+    await propose(adapter, effects).run(
+      { service: "Haircut", option: 2 },
+      context(),
+    );
+    // Option 2 is the second time the calendar offered: 09:15.
+    expect(effects.proposals[0].start.toISOString()).toBe(
+      "2026-01-05T09:15:00.000Z",
+    );
   });
 
   it("holds only one proposal per conversation", async () => {
     const effects = noEffects();
-    const tool = propose(adapterWith([]), effects);
-    await tool.run(
-      { service: "Haircut", startsAt: "2026-01-05T09:00:00.000Z" },
-      context(),
-    );
+    const adapter = adapterWith([]);
+    await offerTimes(adapter, effects);
+    const tool = propose(adapter, effects);
+    await tool.run({ service: "Haircut", option: 1 }, context());
     const second = String(
-      await tool.run(
-        { service: "Colour", startsAt: "2026-01-05T11:00:00.000Z" },
-        context(),
-      ),
+      await tool.run({ service: "Colour", option: 2 }, context()),
     );
     expect(second).toMatch(/already waiting/i);
     expect(effects.proposals).toHaveLength(1);
   });
 
-  it("gives the same request the same idempotency key", () => {
-    const tool = propose(adapterWith([]), noEffects());
+  it("gives the same request the same idempotency key", async () => {
+    const effects = noEffects();
+    const adapter = adapterWith([]);
+    await offerTimes(adapter, effects);
+    const tool = propose(adapter, effects);
     const ctx = context();
-    const a = tool.idempotencyKey!(
-      { service: "Haircut", startsAt: "2026-01-05T09:00:00.000Z" },
-      ctx,
-    );
-    const b = tool.idempotencyKey!(
-      { service: "  haircut ", startsAt: "2026-01-05T09:00:00Z" },
-      ctx,
-    );
+    const a = tool.idempotencyKey!({ service: "Haircut", option: 1 }, ctx);
+    const b = tool.idempotencyKey!({ service: "  haircut ", option: 1 }, ctx);
     expect(b).toBe(a);
+    // The key names the instant, not the option number, which means nothing
+    // once the turn is over.
+    expect(a).toContain("2026-01-05T09:00:00.000Z");
   });
 });
 
@@ -441,16 +536,10 @@ describe("from the crew's proposal to the owner's decision", () => {
   it("a proposed time carries everything the approval needs", async () => {
     const effects = noEffects();
     const adapter = adapterWith([]);
+    await offerTimes(adapter, effects);
     await tools(adapter, effects)
       .get("propose_booking")!
-      .run(
-        {
-          service: "Haircut",
-          startsAt: "2026-01-05T09:00:00.000Z",
-          customerName: "Sam",
-        },
-        context(),
-      );
+      .run({ service: "Haircut", option: 1, customerName: "Sam" }, context());
 
     expect(effects.proposals).toHaveLength(1);
     const [proposal] = effects.proposals;
@@ -466,12 +555,11 @@ describe("from the crew's proposal to the owner's decision", () => {
 
   it("says the time in the business's own words, not as an instant", async () => {
     const effects = noEffects();
-    await tools(adapterWith([]), effects)
+    const adapter = adapterWith([]);
+    await offerTimes(adapter, effects);
+    await tools(adapter, effects)
       .get("propose_booking")!
-      .run(
-        { service: "Haircut", startsAt: "2026-01-05T09:00:00.000Z" },
-        context(),
-      );
+      .run({ service: "Haircut", option: 1 }, context());
 
     // The owner's card must not read "2026-01-05T09:00:00.000Z".
     expect(effects.proposals[0].says).toBeTruthy();
@@ -481,12 +569,10 @@ describe("from the crew's proposal to the owner's decision", () => {
   it("approving what was proposed books that exact slot", async () => {
     const effects = noEffects();
     const adapter = adapterWith([]);
+    await offerTimes(adapter, effects);
     await tools(adapter, effects)
       .get("propose_booking")!
-      .run(
-        { service: "Haircut", startsAt: "2026-01-05T09:00:00.000Z" },
-        context(),
-      );
+      .run({ service: "Haircut", option: 1 }, context());
 
     const restored = calendarProposalFromApproval(
       "approval-1",
@@ -504,3 +590,6 @@ describe("from the crew's proposal to the owner's decision", () => {
     expect(outcome.event.start.toISOString()).toBe("2026-01-05T09:00:00.000Z");
   });
 });
+
+
+

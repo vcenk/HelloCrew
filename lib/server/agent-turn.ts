@@ -61,7 +61,7 @@ export async function runLiveTurn(
   const context = await loadAgentContext(admin, tenant);
   // Calendar tools are offered only when a calendar is connected and its
   // working hours are readable; otherwise the model is never shown them.
-  const calendarEffects: CalendarTurnEffects = { proposals: [] };
+  const calendarEffects: CalendarTurnEffects = { proposals: [], offered: [] };
   const calendar = await calendarForTurn(
     admin,
     target.tenantId,

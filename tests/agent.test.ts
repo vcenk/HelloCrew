@@ -337,3 +337,57 @@ describe("the booking rule matches the tools on offer", () => {
       );
   });
 });
+
+/**
+ * When a tool call is rejected the model gets one chance to correct it, and
+ * it can only do that if it is told what was wrong. A real conversation lost
+ * a booking here: propose_booking was rejected, the model was told only
+ * "The tool rejected those arguments", and it never recovered.
+ */
+describe("a rejected tool call", () => {
+  it("tells the model which argument was wrong", async () => {
+    const { model, seen } = scriptedModel([
+      new AIMessage({
+        content: "",
+        tool_calls: [
+          {
+            id: "call_1",
+            name: "search_knowledge",
+            // query is required; omitting it is what a confused model does.
+            args: {},
+          },
+        ],
+      }),
+      new AIMessage({ content: "Sorry, let me try that again." }),
+    ]);
+    await runAgentTurn(model, context, [
+      { role: "user", content: "Is there parking?" },
+    ]);
+
+    const toolReply = seen[1]
+      .map((message) => String(message.content))
+      .find((text) => text.includes("rejected those arguments"));
+    expect(toolReply).toBeTruthy();
+    // The name of the offending argument has to survive to the model.
+    expect(toolReply).toMatch(/query/i);
+    expect(toolReply).toMatch(/call it again/i);
+  });
+
+  it("records the reason for the owner, not just that it failed", async () => {
+    const { model } = scriptedModel([
+      new AIMessage({
+        content: "",
+        tool_calls: [{ id: "call_1", name: "search_knowledge", args: {} }],
+      }),
+      new AIMessage({ content: "Sorry about that." }),
+    ]);
+    const result = await runAgentTurn(model, context, [
+      { role: "user", content: "Is there parking?" },
+    ]);
+
+    const failure = result.activity.find((entry) => entry.kind === "error");
+    expect(failure).toBeTruthy();
+    expect(failure!.detail).not.toBe("Arguments did not pass validation.");
+    expect(failure!.detail).toMatch(/query/i);
+  });
+});
