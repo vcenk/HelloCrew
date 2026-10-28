@@ -11,6 +11,7 @@ import {
 import { confirmBooking, describeOutcome } from "../lib/calendar/confirm";
 import {
   calendarContracts,
+  type BookingProposal,
   type CalendarTurnEffects,
 } from "../lib/calendar/tools";
 import type {
@@ -68,7 +69,7 @@ const tools = (adapter: CalendarAdapter, effects: CalendarTurnEffects) =>
     ]),
   );
 
-const noEffects = (): CalendarTurnEffects => ({ proposals: [], offered: [] });
+const noEffects = (): CalendarTurnEffects => ({ proposals: [], offered: [], booked: [], cancellations: [] });
 
 describe("calendar tool contracts", () => {
   it("declares sound contracts", () => {
@@ -593,3 +594,85 @@ describe("from the crew's proposal to the owner's decision", () => {
 
 
 
+
+/**
+ * Cancelling is the mirror of booking and is held to the same two rules: the
+ * owner decides, and nobody is told it happened until the calendar says so.
+ */
+describe("cancelling an appointment", () => {
+  const booked = (over: Partial<BookingProposal> = {}): BookingProposal => ({
+    id: "b1",
+    service: "Haircut",
+    start: new Date("2026-01-05T09:00:00Z"),
+    end: new Date("2026-01-05T10:00:00Z"),
+    says: "Monday 5 January at 09:00",
+    idempotencyKey: "calendar:haircut:2026-01-05T09:00:00.000Z",
+    ...over,
+  });
+
+  const cancelTool = (adapter: CalendarAdapter, effects: CalendarTurnEffects) =>
+    tools(adapter, effects).get("cancel_booking")!;
+
+  it("records the request and never claims it is cancelled", async () => {
+    const effects = { ...noEffects(), booked: [booked()] };
+    const adapter = adapterWith([]);
+    const out = String(
+      await cancelTool(adapter, effects).run({ booking: 1 }, context()),
+    );
+
+    expect(effects.cancellations).toHaveLength(1);
+    expect(out).toMatch(/awaiting_owner_approval/);
+    expect(out).toMatch(/do not say it is cancelled/i);
+  });
+
+  it("refuses when the customer has nothing booked", async () => {
+    // The crew must not go looking through the calendar for a near match.
+    const effects = noEffects();
+    const out = String(
+      await cancelTool(adapterWith([]), effects).run({ booking: 1 }, context()),
+    );
+
+    expect(out).toMatch(/no appointments booked through us/i);
+    expect(effects.cancellations).toEqual([]);
+  });
+
+  it("lists what they do have when the number is wrong", async () => {
+    const effects = { ...noEffects(), booked: [booked()] };
+    const out = String(
+      await cancelTool(adapterWith([]), effects).run({ booking: 2 }, context()),
+    );
+
+    expect(out).toMatch(/no appointment 2/i);
+    expect(out).toContain("Monday 5 January at 09:00");
+    expect(effects.cancellations).toEqual([]);
+  });
+
+  it("asks once, however many times the customer repeats it", async () => {
+    const effects = { ...noEffects(), booked: [booked()] };
+    const adapter = adapterWith([]);
+    await cancelTool(adapter, effects).run({ booking: 1 }, context());
+    const second = String(
+      await cancelTool(adapter, effects).run({ booking: 1 }, context()),
+    );
+
+    expect(second).toMatch(/already waiting/i);
+    expect(effects.cancellations).toHaveLength(1);
+  });
+
+  it("keys the cancellation to the booking it cancels", () => {
+    const effects = { ...noEffects(), booked: [booked()] };
+    const key = cancelTool(adapterWith([]), effects).idempotencyKey!(
+      { booking: 1 },
+      context(),
+    );
+    expect(key).toContain("calendar:haircut:2026-01-05T09:00:00.000Z");
+    expect(key).toContain("cancel");
+  });
+
+  it("writes nothing to the calendar during the turn", async () => {
+    const effects = { ...noEffects(), booked: [booked()] };
+    const adapter = adapterWith([]);
+    await cancelTool(adapter, effects).run({ booking: 1 }, context());
+    expect(adapter.createEvent).not.toHaveBeenCalled();
+  });
+});

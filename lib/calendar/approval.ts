@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { CancelOutcome } from "./cancel";
 import type { ConfirmOutcome } from "./confirm";
 import type { BookingProposal } from "./tools";
 
@@ -18,6 +19,11 @@ import type { BookingProposal } from "./tools";
  */
 export const calendarApprovalSchema = z.object({
   calendar: z.literal(true),
+  /**
+   * What the owner is approving. Defaulted rather than required, so the
+   * booking approvals already sitting in the database keep their meaning.
+   */
+  action: z.enum(["book", "cancel"]).default("book"),
   service: z.string().min(1),
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
@@ -31,9 +37,11 @@ export type CalendarApprovalDetails = z.infer<typeof calendarApprovalSchema>;
 /** What goes into the approval row's `details`. */
 export function calendarApprovalDetails(
   proposal: BookingProposal,
+  action: CalendarApprovalDetails["action"] = "book",
 ): CalendarApprovalDetails {
   return {
     calendar: true,
+    action,
     service: proposal.service,
     startsAt: proposal.start.toISOString(),
     endsAt: proposal.end.toISOString(),
@@ -49,6 +57,13 @@ export function calendarApprovalDetails(
  * Null is the ordinary case for a workspace with no calendar connected: its
  * bookings are approved and then entered by the owner, exactly as before.
  */
+export function calendarApprovalAction(
+  details: unknown,
+): CalendarApprovalDetails["action"] | null {
+  const parsed = calendarApprovalSchema.safeParse(details);
+  return parsed.success ? parsed.data.action : null;
+}
+
 export function calendarProposalFromApproval(
   approvalId: string,
   details: unknown,
@@ -99,6 +114,27 @@ export function customerReplyFor(
   }
 }
 
+/**
+ * What the customer is told after a cancellation, which must match what
+ * actually happened to the calendar.
+ */
+export function customerCancelReplyFor(
+  outcome: CancelOutcome,
+  proposal: BookingProposal,
+): string {
+  switch (outcome.status) {
+    case "cancelled":
+    case "already_gone":
+      return `That's cancelled — ${proposal.says} is no longer booked. Just ask if you'd like another time.`;
+    case "owner_cancels":
+      // Nothing has moved yet: the owner removes it in their own system, so
+      // the customer is promised a confirmation rather than a free slot.
+      return "The business has approved your cancellation and will confirm it shortly.";
+    case "failed":
+      return `Sorry, we couldn't cancel ${proposal.says} just now, so it is still booked. The business will be in touch.`;
+  }
+}
+
 /** What the owner sees in the dashboard, in the same honest terms. */
 export function ownerNoteFor(outcome: ConfirmOutcome): string | undefined {
   switch (outcome.status) {
@@ -110,5 +146,19 @@ export function ownerNoteFor(outcome: ConfirmOutcome): string | undefined {
       return "That time was taken before you approved it. Nothing was booked.";
     case "failed":
       return `Approved, but not booked: ${outcome.reason}`;
+  }
+}
+
+/** The owner's version, for a cancellation that did not go through. */
+export function ownerCancelNoteFor(outcome: CancelOutcome): string | undefined {
+  switch (outcome.status) {
+    case "cancelled":
+      return undefined; // The card already shows it as approved.
+    case "already_gone":
+      return "That appointment was already off the calendar.";
+    case "owner_cancels":
+      return `Approved. ${outcome.reason}`;
+    case "failed":
+      return `Approved, but not cancelled: ${outcome.reason}`;
   }
 }

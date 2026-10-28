@@ -270,3 +270,75 @@ describe("the scopes the connection has to ask for", () => {
     expect(GOOGLE_CALENDAR_SCOPE.split(" ")).toEqual([...GOOGLE_CALENDAR_SCOPES]);
   });
 });
+
+describe("cancelling through Google", () => {
+  const key = "calendar:haircut:2026-01-05T09:00:00.000Z";
+  const existing = {
+    items: [
+      {
+        id: "evt_1",
+        start: { dateTime: "2026-01-05T09:00:00Z" },
+        end: { dateTime: "2026-01-05T10:00:00Z" },
+      },
+    ],
+  };
+
+  it("deletes the event it wrote under that key", async () => {
+    const { fetcher, calls } = stubFetch([
+      { body: existing },
+      { status: 204, body: {} },
+    ]);
+    const result = await adapter(fetcher).cancelEvent!(account, key);
+
+    expect(result).toBe("cancelled");
+    // Found by our own key, never by matching a name or a time.
+    expect(calls[0].url).toContain(encodeURIComponent(`hellocrewKey=${key}`));
+    expect(calls[1].method).toBe("DELETE");
+    expect(calls[1].url).toContain("/events/evt_1");
+  });
+
+  it("does not call Google when there is nothing under that key", async () => {
+    const { fetcher, calls } = stubFetch([{ body: { items: [] } }]);
+    const result = await adapter(fetcher).cancelEvent!(account, key);
+
+    expect(result).toBe("already_gone");
+    expect(calls).toHaveLength(1);
+  });
+
+  it.each([404, 410])(
+    "treats %s from the delete as already gone",
+    async (status) => {
+      // Somebody removed it in the calendar first. The slot is free, which
+      // is the outcome asked for, so it must not surface as a failure.
+      const { fetcher } = stubFetch([
+        { body: existing },
+        { ok: false, status, body: { error: { message: "Not Found" } } },
+      ]);
+      expect(await adapter(fetcher).cancelEvent!(account, key)).toBe(
+        "already_gone",
+      );
+    },
+  );
+
+  it("keeps Google's reason when it refuses for any other cause", async () => {
+    const { fetcher } = stubFetch([
+      { body: existing },
+      {
+        ok: false,
+        status: 403,
+        body: { error: { message: "Insufficient permissions" } },
+      },
+    ]);
+    await expect(adapter(fetcher).cancelEvent!(account, key)).rejects.toThrow(
+      /insufficient permissions/i,
+    );
+  });
+
+  it("is offered alongside writing, so the pair stays in step", () => {
+    // An adapter that can create but not cancel would strand appointments.
+    const { fetcher } = stubFetch([]);
+    const built = adapter(fetcher);
+    expect(canWrite(built)).toBe(true);
+    expect(typeof built.cancelEvent).toBe("function");
+  });
+});

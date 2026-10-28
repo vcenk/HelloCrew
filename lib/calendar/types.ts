@@ -85,6 +85,22 @@ export type CalendarAdapter = {
     idempotencyKey: string,
   ): Promise<CreatedEvent | null>;
 
+  /**
+   * Cancels the appointment written under this key.
+   *
+   * Optional alongside createEvent: an adapter that cannot write cannot
+   * un-write either, and those businesses cancel in their own system.
+   *
+   * Returns "already_gone" when there is nothing there — someone removed it
+   * in the calendar itself, which is a success, not a failure. Google treats
+   * a cancelled event as deleted, so our own approval row is the record of
+   * what happened, not the calendar.
+   */
+  cancelEvent?(
+    account: CalendarAccount,
+    idempotencyKey: string,
+  ): Promise<"cancelled" | "already_gone">;
+
   createEvent?(
     account: CalendarAccount,
     event: {
@@ -105,4 +121,9 @@ export type CalendarAdapter = {
 /** True when the business can have HelloCrew write the appointment itself. */
 export function canWrite(adapter: CalendarAdapter): boolean {
   return typeof adapter.createEvent === "function";
+}
+
+/** True when HelloCrew can take an appointment back off the calendar. */
+export function canCancel(adapter: CalendarAdapter): boolean {
+  return typeof adapter.cancelEvent === "function";
 }

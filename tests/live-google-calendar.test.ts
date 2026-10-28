@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { calendarFromConnection } from "../lib/calendar/account";
+import { cancelBooking } from "../lib/calendar/cancel";
 import { confirmBooking } from "../lib/calendar/confirm";
 import type { BookingProposal } from "../lib/calendar/tools";
 import { describeSlot, proposeSlots } from "../lib/calendar/slots";
@@ -182,6 +183,54 @@ describe.skipIf(!liveWrite)("writing an approved booking", () => {
     console.info(`[live] removed the test event ${createdId}`);
     createdId = null;
   }, 30_000);
+
+  it("cancels what it booked, and says so only once Google agrees", async () => {
+    const { account, adapter } = calendarFromConnection(connection);
+    const start = new Date();
+    const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const busy = await adapter.readBusy(account, { start, end });
+    const [slot] = proposeSlots({
+      window: { start, end },
+      busy,
+      openingHours: account.openingHours,
+      timeZone: account.timeZone,
+      durationMinutes: account.defaultDurationMinutes,
+      leadTimeMinutes: account.leadTimeMinutes,
+      now: start,
+      maxSlots: 1,
+    });
+    expect(slot, "no free slot in the next 7 days to test with").toBeTruthy();
+
+    const key = `live-cancel-check-${Date.now()}`;
+    const proposal: BookingProposal = {
+      id: key,
+      start: slot.start,
+      end: slot.end,
+      service: "HelloCrew cancel check (safe to delete)",
+      says: describeSlot(slot, account.timeZone),
+      idempotencyKey: key,
+    };
+
+    const booked = await confirmBooking({ account, adapter, proposal });
+    expect(booked.status).toBe("booked");
+    if (booked.status === "booked") createdId = booked.event.externalId;
+
+    const cancelled = await cancelBooking({
+      account,
+      adapter,
+      idempotencyKey: key,
+    });
+    expect(cancelled.status).toBe("cancelled");
+    createdId = null; // Gone from Google, so afterAll has nothing to remove.
+
+    // Really gone: a fresh lookup must not find it.
+    expect(await adapter.findEvent!(account, key)).toBeNull();
+
+    // And asking again is settled, not an error.
+    const again = await cancelBooking({ account, adapter, idempotencyKey: key });
+    expect(again.status).toBe("already_gone");
+    console.info(`[live] booked and cancelled ${proposal.says}`);
+  }, 60_000);
 
   it("books an approved slot and reports only what Google confirmed", async () => {
     const { account, adapter } = calendarFromConnection(connection);

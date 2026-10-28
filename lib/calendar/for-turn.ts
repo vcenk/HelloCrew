@@ -6,7 +6,15 @@ import type { IntegrationId, ToolContract } from "@/lib/agent/tool-contract";
 import { listConnectionsFor } from "@/lib/server/connections";
 import type { GoogleCredentials } from "@/lib/server/google";
 import { calendarFromConnection, CalendarSettingsError } from "./account";
-import { calendarContracts, type CalendarTurnEffects } from "./tools";
+import {
+  calendarApprovalAction,
+  calendarProposalFromApproval,
+} from "./approval";
+import {
+  calendarContracts,
+  type BookingProposal,
+  type CalendarTurnEffects,
+} from "./tools";
 import type { CalendarAccount, CalendarAdapter } from "./types";
 
 /**
@@ -21,6 +29,7 @@ import type { CalendarAccount, CalendarAdapter } from "./types";
 export async function calendarForTurn(
   admin: SupabaseClient,
   tenantId: string,
+  conversationId: string,
   effects: CalendarTurnEffects,
 ): Promise<{
   contracts: ToolContract[];
@@ -28,6 +37,8 @@ export async function calendarForTurn(
 }> {
   const calendar = await calendarForTenant(admin, tenantId);
   if (!calendar) return { contracts: [], connected: new Set<IntegrationId>() };
+
+  effects.booked = await bookingsFor(admin, tenantId, conversationId);
 
   return {
     contracts: calendarContracts({ ...calendar, effects }),
@@ -67,4 +78,50 @@ export async function calendarForTenant(
       );
     return null;
   }
+}
+
+/**
+ * The appointments this conversation actually booked and still has.
+ *
+ * Read from our own approvals rather than searched for in the calendar: the
+ * crew must never cancel something because the name looked close enough.
+ * Past appointments and ones already being cancelled are left out, so the
+ * list the model sees only contains things it can really act on.
+ */
+async function bookingsFor(
+  admin: SupabaseClient,
+  tenantId: string,
+  conversationId: string,
+  now = new Date(),
+): Promise<BookingProposal[]> {
+  const { data } = await admin
+    .from("hc_approvals")
+    .select("id, status, details")
+    .eq("tenant_id", tenantId)
+    .eq("conversation_id", conversationId)
+    .in("status", ["approved", "pending"])
+    .order("created_at", { ascending: true });
+
+  const rows = data ?? [];
+  const cancelling = new Set(
+    rows
+      .filter((row) => calendarApprovalAction(row.details) === "cancel")
+      .map((row) => calendarProposalFromApproval(String(row.id), row.details))
+      .filter((proposal): proposal is BookingProposal => proposal !== null)
+      .map((proposal) => proposal.idempotencyKey),
+  );
+
+  return rows
+    .filter(
+      (row) =>
+        row.status === "approved" &&
+        calendarApprovalAction(row.details) === "book",
+    )
+    .map((row) => calendarProposalFromApproval(String(row.id), row.details))
+    .filter((proposal): proposal is BookingProposal => proposal !== null)
+    .filter(
+      (proposal) =>
+        proposal.start.getTime() > now.getTime() &&
+        !cancelling.has(proposal.idempotencyKey),
+    );
 }

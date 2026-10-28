@@ -78,7 +78,7 @@ describe("what the model is offered", () => {
     handoffs: [],
     leads: [],
   });
-  const calEffects = (): CalendarTurnEffects => ({ proposals: [], offered: [] });
+  const calEffects = (): CalendarTurnEffects => ({ proposals: [], offered: [], booked: [], cancellations: [] });
 
   it("hides the calendar tools when nothing is connected", () => {
     const extra = calendarContracts({

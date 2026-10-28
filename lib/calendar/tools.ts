@@ -50,6 +50,16 @@ export type CalendarTurnEffects = {
    * makes "check before you book" structural rather than an instruction.
    */
   offered: Interval[];
+  /**
+   * Appointments this conversation already has, loaded before the turn.
+   *
+   * The crew cannot cancel what it cannot see, and it must not go looking
+   * through the calendar for something that matches a name — these are the
+   * ones this customer actually booked through HelloCrew.
+   */
+  booked: BookingProposal[];
+  /** Cancellations the customer asked for, waiting for the owner. */
+  cancellations: BookingProposal[];
 };
 
 /**
@@ -230,5 +240,52 @@ export function calendarContracts(options: {
     },
   };
 
-  return [checkAvailability, proposeBooking];
+  const cancelBookingTool: ToolContract<
+    z.ZodObject<{ booking: z.ZodNumber }>
+  > = {
+    name: "cancel_booking",
+    description:
+      "Ask the business to cancel an appointment this customer already has. Only for a booking listed in your appointments.",
+    schema: z.object({
+      booking: z
+        .number()
+        .int()
+        .min(1)
+        .describe(
+          "The number of the appointment to cancel, as the appointments list numbers them",
+        ),
+    }),
+    effect: "needs_approval",
+    scope: "conversation",
+    approval: "owner",
+    requires: "google_calendar",
+    // Cancelling the same appointment twice is one cancellation, however
+    // many times the request is retried or the approval replayed.
+    idempotencyKey: ({ booking }) =>
+      `calendar:cancel:${effects.booked[booking - 1]?.idempotencyKey ?? booking}`,
+    audit: { action: "calendar.cancel_requested", recordsPii: true },
+    isEnabled: (context: AgentContext) => context.skills.booking === "ask",
+    run: ({ booking }) => {
+      const chosen = effects.booked[booking - 1];
+      if (!chosen)
+        return effects.booked.length === 0
+          ? "This customer has no appointments booked through us. Do not cancel anything; offer to pass them to a person."
+          : `There is no appointment ${booking}. They have: ${effects.booked
+              .map((appointment, index) => `${index + 1}. ${appointment.says}`)
+              .join("; ")}.`;
+
+      if (effects.cancellations.some((c) => c.id === chosen.id))
+        return "That cancellation is already waiting for the owner.";
+
+      effects.cancellations.push(chosen);
+
+      return JSON.stringify({
+        status: AWAITING_APPROVAL,
+        time: chosen.says,
+        note: "Tell the customer the cancellation has been sent to the business to confirm. Do not say it is cancelled.",
+      });
+    },
+  };
+
+  return [checkAvailability, proposeBooking, cancelBookingTool];
 }

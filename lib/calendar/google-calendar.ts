@@ -162,6 +162,38 @@ export function googleCalendarAdapter(options: {
       };
     },
 
+    async cancelEvent(account, idempotencyKey) {
+      const existing = await this.findEvent!(account, idempotencyKey);
+      if (!existing) return "already_gone";
+
+      const token = await options.accessToken();
+      // Not through call(): a delete answers 204 with no body, and a 404 or
+      // 410 means somebody removed it in the calendar already — which is the
+      // outcome we wanted, not an error to report to the owner.
+      const response = await fetcher(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+          account.calendarId,
+        )}/events/${encodeURIComponent(existing.externalId)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (response.status === 404 || response.status === 410)
+        return "already_gone";
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: { message?: string };
+        };
+        throw new CalendarApiError(
+          body.error?.message ?? "Google Calendar refused the cancellation.",
+          response.status,
+        );
+      }
+      return "cancelled";
+    },
+
     async createEvent(account, event): Promise<CreatedEvent> {
       // Checked again here, so an adapter used directly still cannot write
       // the same appointment twice.

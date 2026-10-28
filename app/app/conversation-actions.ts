@@ -24,10 +24,14 @@ import {
 import { getWorkspaceContext, type WorkspaceContext } from "@/lib/data/workspace";
 import { deliverToCustomer } from "@/lib/server/deliver";
 import {
+  calendarApprovalAction,
   calendarProposalFromApproval,
+  customerCancelReplyFor,
   customerReplyFor,
+  ownerCancelNoteFor,
   ownerNoteFor,
 } from "@/lib/calendar/approval";
+import { cancelBooking, type CancelOutcome } from "@/lib/calendar/cancel";
 import { confirmBooking, type ConfirmOutcome } from "@/lib/calendar/confirm";
 import { calendarForTenant } from "@/lib/calendar/for-turn";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
@@ -185,28 +189,43 @@ export async function decideApproval(input: {
         ? calendarProposalFromApproval(approvalId, approval.details)
         : null;
 
+    const action = proposal ? calendarApprovalAction(approval!.details) : null;
+
     let outcome: ConfirmOutcome | null = null;
+    let cancelled: CancelOutcome | null = null;
     if (proposal) {
       const calendar = admin
         ? await calendarForTenant(admin, ws.tenantId)
         : null;
-      // Writing is idempotent on the proposal's key, so the narrow race with
-      // another operator deciding at the same moment cannot double-book.
-      outcome = calendar
-        ? await confirmBooking({ ...calendar, proposal })
-        : {
-            status: "failed",
-            reason: "No calendar is connected to write it to.",
-          };
+      if (!calendar) {
+        const reason = "No calendar is connected to change.";
+        if (action === "cancel") cancelled = { status: "failed", reason };
+        else outcome = { status: "failed", reason };
+      } else if (action === "cancel") {
+        // Cancelling twice is one cancellation: the second pass finds
+        // nothing there and reports the slot free, not an error.
+        cancelled = await cancelBooking({
+          ...calendar,
+          idempotencyKey: proposal.idempotencyKey,
+        });
+      } else {
+        // Writing is idempotent on the proposal's key, so the narrow race
+        // with another operator deciding at the same moment cannot
+        // double-book.
+        outcome = await confirmBooking({ ...calendar, proposal });
+      }
     }
 
     const { data, error } = await db.rpc("hc_decide_approval", {
       p_approval_id: approvalId,
       p_decision: decision,
-      p_reply:
-        outcome && proposal
-          ? customerReplyFor(outcome, proposal)
-          : decisionReply[decision],
+      p_reply: proposal
+        ? cancelled
+          ? customerCancelReplyFor(cancelled, proposal)
+          : outcome
+            ? customerReplyFor(outcome, proposal)
+            : decisionReply[decision]
+        : decisionReply[decision],
     });
     if (error) return failure(error.code === "P0002" ? "not_found" : "error", "That approval couldn’t be updated.");
     if (!data) return { ok: true, message: null }; // already decided or expired
@@ -217,7 +236,11 @@ export async function decideApproval(input: {
       const result = await deliverToCustomer(admin, ws.tenantId, approval.conversation_id as string, row.body);
       if (result.delivered === false) deliveryError = result.reason;
     }
-    const bookingNote = outcome ? ownerNoteFor(outcome) : undefined;
+    const bookingNote = cancelled
+      ? ownerCancelNoteFor(cancelled)
+      : outcome
+        ? ownerNoteFor(outcome)
+        : undefined;
     return {
       ok: true,
       ...(deliveryError ? { deliveryError } : {}),

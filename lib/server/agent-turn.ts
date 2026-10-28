@@ -61,10 +61,16 @@ export async function runLiveTurn(
   const context = await loadAgentContext(admin, tenant);
   // Calendar tools are offered only when a calendar is connected and its
   // working hours are readable; otherwise the model is never shown them.
-  const calendarEffects: CalendarTurnEffects = { proposals: [], offered: [] };
+  const calendarEffects: CalendarTurnEffects = {
+    proposals: [],
+    offered: [],
+    booked: [],
+    cancellations: [],
+  };
   const calendar = await calendarForTurn(
     admin,
     target.tenantId,
+    target.conversationId,
     calendarEffects,
   );
   const worstCase = worstCaseMicroUsd({
@@ -122,6 +128,16 @@ export async function runLiveTurn(
           proposal.customerName ? ` for ${proposal.customerName}` : ""
         }`,
         details: calendarApprovalDetails(proposal),
+      })),
+      // A cancellation is the owner's decision too: nothing comes off the
+      // calendar because a customer asked, any more than it goes on.
+      ...calendarEffects.cancellations.map((booking) => ({
+        id: crypto.randomUUID(),
+        kind: "booking" as const,
+        summary: `Cancel ${booking.service} — ${booking.says}${
+          booking.customerName ? ` for ${booking.customerName}` : ""
+        }`,
+        details: calendarApprovalDetails(booking, "cancel"),
       })),
     ];
     await appendMessages(admin, tenant, target.conversationId, [

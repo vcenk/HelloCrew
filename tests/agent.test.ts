@@ -450,3 +450,39 @@ describe("what the trace says about an approval", () => {
     for (const entry of refused) expect(entry.kind).not.toBe("approval");
   });
 });
+
+describe("the cancellation rule", () => {
+  const withCalendar = new Set<IntegrationId>(["google_calendar"]);
+  const rule3 = (prompt: string) =>
+    prompt.split("\n").find((line) => line.startsWith("3.")) ?? "";
+  const bookingContext = (booking: "ask" | "off") =>
+    buildAgentContext(
+      sampleAssistantIdentity,
+      createKnowledgeStoreFromBusiness(sampleBusiness),
+      new Date(),
+      { answer: "auto", booking, handoff: "auto", leads: "auto" },
+    );
+
+  it("names the cancel tool when a calendar is connected", () => {
+    expect(rule3(buildSystemPrompt(bookingContext("ask"), withCalendar))).toContain(
+      "cancel_booking",
+    );
+  });
+
+  it("forbids cancelling anything the customer does not have", () => {
+    // The crew must not go hunting through the calendar for a near match.
+    expect(
+      rule3(buildSystemPrompt(bookingContext("ask"), withCalendar)),
+    ).toMatch(/if they have none listed/i);
+  });
+
+  it("never names a cancel tool the model was not given", () => {
+    // Without a calendar there is nothing to cancel through us.
+    expect(buildSystemPrompt(bookingContext("ask"))).not.toContain(
+      "cancel_booking",
+    );
+    expect(buildSystemPrompt(bookingContext("off"), withCalendar)).not.toContain(
+      "cancel_booking",
+    );
+  });
+});
