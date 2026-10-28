@@ -46,3 +46,30 @@ test("?section=home stays on Today", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
   expect(new URL(page.url()).pathname).toBe("/app");
 });
+
+test("the setup bar can show the whole checklist, not just the next step", async ({
+  page,
+}) => {
+  await openDashboard(page);
+
+  const toggle = page.getByRole("button", { name: /show all \d+ setup steps/i });
+  await expect(toggle).toBeVisible();
+  // Collapsed to begin with: the next step stays the loudest thing here.
+  await expect(page.locator("#setup-steps")).toHaveCount(0);
+
+  await toggle.click();
+  const steps = page.locator("#setup-steps li");
+  await expect(steps.first()).toBeVisible();
+
+  // Every step the bar is counting is listed, done ones included — the point
+  // is seeing what is left, which the bar alone never showed.
+  const counted = Number(
+    ((await page.locator(".setup-bar-count").innerText()).split("/")[1] ?? "0"),
+  );
+  expect(counted).toBeGreaterThan(0);
+  await expect(steps).toHaveCount(counted);
+  await expect(page.locator('#setup-steps li[data-done="true"]').first()).toBeVisible();
+
+  await page.getByRole("button", { name: /hide the rest of setup/i }).click();
+  await expect(page.locator("#setup-steps")).toHaveCount(0);
+});

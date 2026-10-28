@@ -28,7 +28,11 @@ import {
   type PendingApproval,
   type TurnEffects,
 } from "./tools";
-import type { IntegrationId, ToolContract } from "./tool-contract";
+import {
+  leftAnApproval,
+  type IntegrationId,
+  type ToolContract,
+} from "./tool-contract";
 
 /** What the model is told about a rejected tool call, in its own terms. */
 function reasonFor(error: unknown): string {
@@ -133,20 +137,23 @@ export function buildAgentGraph(
         continue;
       }
       try {
-        const output = await selected.invoke(call.args);
-        results.push(
-          new ToolMessage({ tool_call_id: id, content: String(output) }),
-        );
+        const output = String(await selected.invoke(call.args));
+        results.push(new ToolMessage({ tool_call_id: id, content: output }));
+        // A tool allowed to ask for approval has not necessarily asked: the
+        // slot may have gone, or the request may be one already waiting. The
+        // trace follows what the call did, not what it was permitted to do.
+        const pending =
+          effectOf[call.name] === "needs_approval" && leftAnApproval(output);
         activity.push({
           label: toolLabel(call.name),
-          detail:
-            effectOf[call.name] === "needs_approval"
-              ? "Waiting for your approval. Nothing was booked."
+          detail: pending
+            ? "Waiting for your approval. Nothing was booked."
+            : effectOf[call.name] === "needs_approval"
+              ? "Nothing was sent for your approval."
               : call.name === "search_knowledge"
                 ? `Query: ${String((call.args as { query?: string }).query ?? "")}`
                 : "Ran with your approved information.",
-          kind:
-            effectOf[call.name] === "needs_approval" ? "approval" : "tool",
+          kind: pending ? "approval" : "tool",
         });
       } catch (error) {
         // Say what was wrong. "The tool rejected those arguments" gives the

@@ -5,6 +5,8 @@ import { buildAgentContext } from "@/lib/agent/context";
 import {
   assertContractIsSound,
   availableContracts,
+  AWAITING_APPROVAL,
+  leftAnApproval,
   type ToolContract,
 } from "@/lib/agent/tool-contract";
 import {
@@ -330,5 +332,32 @@ describe("two tools for the same job", () => {
     ).map((contract) => contract.name);
 
     expect(names).toEqual(["request_booking"]);
+  });
+});
+
+describe("telling a real approval from a refusal", () => {
+  it("recognises what a tool returns when it recorded one", () => {
+    expect(
+      leftAnApproval(
+        JSON.stringify({ status: AWAITING_APPROVAL, note: "Do not say booked" }),
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    "That time has just been taken. Call check_availability again.",
+    "A time is already waiting for the owner on this conversation.",
+    "Too many booking requests in one turn.",
+    '{"status":"booked"}',
+    "",
+    "not json at all {",
+  ])("treats %s as nothing waiting", (output) => {
+    expect(leftAnApproval(output)).toBe(false);
+  });
+
+  it("is the same marker both booking tools use", () => {
+    // The two tools and the trace have to agree on one word, or the trace
+    // goes back to guessing from the contract's effect.
+    expect(AWAITING_APPROVAL).toBe("awaiting_owner_approval");
   });
 });

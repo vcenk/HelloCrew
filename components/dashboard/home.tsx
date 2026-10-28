@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarCheck,
+  Check,
   ChevronRight,
+  Circle,
   FlaskConical,
   GraduationCap,
   Hand,
@@ -122,6 +124,7 @@ export function HomeView() {
   const needsYou =
     approvals.length + unanswered.length + handoffs.length + leads.length + publicReplies.items.length;
   const nextStep = steps.find((s) => !s.done);
+  const [setupOpen, setSetupOpen] = useState(false);
   const skillsOn = receptionistSkills.filter((s) => !s.comingSoon && skills[s.id] !== "off");
 
   return (
@@ -143,6 +146,7 @@ export function HomeView() {
       </div>
 
       {nextStep && (
+        <div className="setup-block">
         <Link href={nextStep.href} className="setup-bar">
           <span className="setup-bar-count">
             {done}/{steps.length}
@@ -165,6 +169,43 @@ export function HomeView() {
             {nextStep.action} <ChevronRight size={16} aria-hidden="true" />
           </span>
         </Link>
+        {/*
+          The bar names only the next step, so the rest of setup — and which
+          parts are already done — was invisible. Collapsed by default: the
+          next thing to do stays the loudest item on the page.
+        */}
+        <button
+          type="button"
+          className="setup-toggle"
+          aria-expanded={setupOpen}
+          aria-controls="setup-steps"
+          onClick={() => setSetupOpen((open) => !open)}
+        >
+          {setupOpen
+            ? "Hide the rest of setup"
+            : `Show all ${steps.length} setup steps`}
+        </button>
+        {setupOpen && (
+          <ul className="setup-steps" id="setup-steps">
+            {steps.map((step) => (
+              <li key={step.id} data-done={step.done}>
+                {step.done ? (
+                  <Check size={15} aria-hidden="true" />
+                ) : (
+                  <Circle size={15} aria-hidden="true" />
+                )}
+                <Link href={step.href}>
+                  <strong>{step.title}</strong>
+                  <small>{step.detail}</small>
+                </Link>
+                <span className="setup-steps-state">
+                  {step.done ? "Done" : step.action}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        </div>
       )}
 
       <div className="today-grid">

@@ -102,6 +102,31 @@ export function assertContractIsSound(contract: ToolContract): void {
 }
 
 /** Contracts the model may actually be offered for this turn. */
+/**
+ * What a needs_approval tool says when it really did leave the owner
+ * something to decide.
+ *
+ * A tool allowed to ask for approval does not always end up asking: the slot
+ * may have gone, or the request may be a repeat. The turn's trace was
+ * labelled from the contract's effect rather than from what happened, so a
+ * refused booking still read "Waiting for your approval" with nothing
+ * pending anywhere.
+ */
+export const AWAITING_APPROVAL = "awaiting_owner_approval";
+
+export function leftAnApproval(output: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(output);
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      (parsed as { status?: unknown }).status === AWAITING_APPROVAL
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function availableContracts(
   contracts: ToolContract[],
   context: AgentContext,

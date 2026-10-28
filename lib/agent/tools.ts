@@ -6,6 +6,7 @@ import type { AgentContext } from "./context";
 import {
   assertContractIsSound,
   availableContracts,
+  AWAITING_APPROVAL,
   type IntegrationId,
   type ToolContract,
   type ToolEffect,
@@ -128,7 +129,7 @@ export function buildContracts(effects: TurnEffects): ToolContract[] {
         details: { service, preferredTime, customerName },
       });
       return JSON.stringify({
-        status: "awaiting_owner_approval",
+        status: AWAITING_APPROVAL,
         note: "Tell the customer the request was sent and the business will confirm. Do not say it is booked.",
       });
     },

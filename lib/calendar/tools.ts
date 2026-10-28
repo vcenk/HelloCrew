@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { AgentContext } from "@/lib/agent/context";
-import type { ToolContract } from "@/lib/agent/tool-contract";
+import { AWAITING_APPROVAL, type ToolContract } from "@/lib/agent/tool-contract";
 import { describeSlot, mergeBusy, proposeSlots } from "./slots";
 import type { CalendarAccount, CalendarAdapter, Interval } from "./types";
 
@@ -223,7 +223,7 @@ export function calendarContracts(options: {
       });
 
       return JSON.stringify({
-        status: "awaiting_owner_approval",
+        status: AWAITING_APPROVAL,
         time: describeSlot({ start, end }, account.timeZone),
         note: "Tell the customer the time has been sent to the business to confirm. Do not say it is booked.",
       });

@@ -391,3 +391,62 @@ describe("a rejected tool call", () => {
     expect(failure!.detail).toMatch(/query/i);
   });
 });
+
+/**
+ * A tool allowed to ask for approval does not always end up asking: the slot
+ * may have gone, or a time may already be waiting. The trace was labelled
+ * from the contract's declared effect, so a refused booking still read
+ * "Waiting for your approval. Nothing was booked" — the owner saw a pending
+ * request that did not exist anywhere.
+ */
+describe("what the trace says about an approval", () => {
+  const bookingCall = (args: Record<string, unknown>) =>
+    new AIMessage({
+      content: "",
+      tool_calls: [{ id: "call_1", name: "request_booking", args }],
+    });
+
+  it("says it is waiting when something really is", async () => {
+    const { model } = scriptedModel([
+      bookingCall({ service: "Haircut", preferredTime: "Tuesday" }),
+      new AIMessage({ content: "Sent to the business." }),
+    ]);
+    const result = await runAgentTurn(model, context, [
+      { role: "user", content: "Book me in" },
+    ]);
+
+    expect(result.approvals).toHaveLength(1);
+    const entry = result.activity.find((a) => a.kind === "approval");
+    expect(entry?.detail).toMatch(/waiting for your approval/i);
+  });
+
+  it("does not claim a request is waiting when the tool refused", async () => {
+    // Three booking calls in one turn: the tool takes two and refuses the
+    // third, which must not be traced as something the owner can decide.
+    const { model } = scriptedModel([
+      new AIMessage({
+        content: "",
+        tool_calls: [
+          { id: "a", name: "request_booking", args: { service: "Cut" } },
+          { id: "b", name: "request_booking", args: { service: "Colour" } },
+          { id: "c", name: "request_booking", args: { service: "Perm" } },
+        ],
+      }),
+      new AIMessage({ content: "Done." }),
+    ]);
+    const result = await runAgentTurn(model, context, [
+      { role: "user", content: "Book me in" },
+    ]);
+
+    // Only what was really recorded may be traced as awaiting approval.
+    const waiting = result.activity.filter((a) => a.kind === "approval");
+    expect(waiting).toHaveLength(result.approvals.length);
+    expect(result.approvals.length).toBeLessThan(3);
+
+    const refused = result.activity.filter(
+      (a) => a.detail === "Nothing was sent for your approval.",
+    );
+    expect(refused.length).toBeGreaterThan(0);
+    for (const entry of refused) expect(entry.kind).not.toBe("approval");
+  });
+});
