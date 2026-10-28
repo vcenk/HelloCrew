@@ -22,6 +22,16 @@ const settingsSchema = z.object({
   openingHours: z.record(z.string(), z.array(openingBlock)),
   defaultDurationMinutes: z.number().int().min(5).max(480).default(60),
   leadTimeMinutes: z.number().int().min(0).max(10_080).default(60),
+  /**
+   * When the owner last confirmed these settings themselves.
+   *
+   * Absent means nobody has: the timezone is whatever the connected calendar
+   * happened to be set to, which is a reasonable guess and an easy one to be
+   * wrong about. A business whose Google Calendar still says the city they
+   * set it up in would otherwise offer customers the wrong hours with
+   * nothing on screen ever saying so.
+   */
+  reviewedAt: z.string().datetime().optional(),
 });
 
 export type CalendarSettings = z.infer<typeof settingsSchema>;

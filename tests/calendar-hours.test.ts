@@ -107,3 +107,67 @@ describe("what the editor is allowed to save", () => {
     expect(slots[0].start.toISOString()).toBe("2026-01-05T13:00:00.000Z");
   });
 });
+
+/**
+ * The timezone is taken from whatever the connected Google Calendar happens
+ * to be set to. That is a fair guess and an easy one to be wrong about — a
+ * calendar still set to the city it was created in would have the crew offer
+ * customers the wrong hours, with nothing on screen ever saying where the
+ * zone came from. So settings carry whether anyone has actually confirmed
+ * them.
+ */
+describe("whether anyone has checked the timezone", () => {
+  it("a freshly connected calendar counts as unconfirmed", () => {
+    const settings = parseCalendarSettings(DEFAULT_CALENDAR_SETTINGS);
+    expect(settings.reviewedAt).toBeUndefined();
+  });
+
+  it("keeps the stamp once the owner has saved", () => {
+    const at = "2026-10-28T09:00:00.000Z";
+    const settings = parseCalendarSettings({
+      ...DEFAULT_CALENDAR_SETTINGS,
+      reviewedAt: at,
+    });
+    expect(settings.reviewedAt).toBe(at);
+  });
+
+  it("refuses a stamp that is not a time", () => {
+    expect(() =>
+      parseCalendarSettings({
+        ...DEFAULT_CALENDAR_SETTINGS,
+        reviewedAt: "yesterday",
+      }),
+    ).toThrow();
+  });
+
+  it("does not change which times are offered", () => {
+    // The stamp is for the owner, not the crew: it must never affect what a
+    // customer is told is free.
+    const base = {
+      window: {
+        start: new Date("2026-01-05T00:00:00Z"),
+        end: new Date("2026-01-06T00:00:00Z"),
+      },
+      busy: [],
+      openingHours: { 1: [{ opens: 540, closes: 1020 }] } as OpeningHours,
+      timeZone: "Europe/London",
+      durationMinutes: 60,
+      now: new Date("2026-01-05T00:00:00Z"),
+    };
+    const before = proposeSlots(base);
+
+    const reviewed = parseCalendarSettings({
+      ...DEFAULT_CALENDAR_SETTINGS,
+      reviewedAt: "2026-10-28T09:00:00.000Z",
+    });
+    const after = proposeSlots({
+      ...base,
+      openingHours: { 1: reviewed.openingHours["1"] },
+      timeZone: reviewed.timeZone,
+    });
+
+    expect(after.map((slot) => slot.start.toISOString())).toEqual(
+      before.map((slot) => slot.start.toISOString()),
+    );
+  });
+});

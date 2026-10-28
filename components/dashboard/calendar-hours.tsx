@@ -40,6 +40,37 @@ function timeZoneOptions(current: string): string[] {
   return supported.includes(current) ? supported : [current, ...supported];
 }
 
+/** The zone this browser is in, when it can be read. */
+function deviceTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * "Europe/Istanbul (GMT+3)" rather than "Europe/Istanbul".
+ *
+ * Four hundred identifiers with no offsets is a list to get lost in, and
+ * picking the wrong one is not obvious until a customer turns up at the
+ * wrong hour. The offset is the part an owner can actually recognise.
+ */
+function zoneLabel(zone: string): string {
+  const name = zone.replace(/_/g, " ");
+  try {
+    const offset = new Intl.DateTimeFormat("en-GB", {
+      timeZone: zone,
+      timeZoneName: "shortOffset",
+    })
+      .formatToParts(new Date())
+      .find((part) => part.type === "timeZoneName")?.value;
+    return offset ? `${name} (${offset})` : name;
+  } catch {
+    return name;
+  }
+}
+
 export function CalendarHours() {
   const { toast } = useDashboard();
   const [setup, setSetup] = useState<CalendarSetup | null>(null);
@@ -75,6 +106,12 @@ export function CalendarHours() {
         Connect a calendar first, then set the hours the crew may offer.
       </p>
     );
+
+  // The saved zone, and the one this browser is in. Deduped and in that
+  // order, so the current setting is always the first thing in the list.
+  const suggestedZones = [
+    ...new Set([draft.timeZone, deviceTimeZone()].filter(Boolean) as string[]),
+  ];
 
   const blockFor = (day: string) => draft.openingHours[day]?.[0];
 
@@ -115,11 +152,18 @@ export function CalendarHours() {
     }
     setSetup((current) =>
       current
-        ? { ...current, settings: result.settings, needsAttention: false }
+        ? {
+            ...current,
+            settings: result.settings,
+            needsAttention: false,
+            // Saving is the confirmation, so the warning goes now rather
+            // than on the next load.
+            reviewed: true,
+          }
         : current,
     );
     setDraft(result.settings);
-    toast("Working hours saved");
+    toast(dirty ? "Working hours saved" : "Working hours confirmed");
   }
 
   return (
@@ -142,16 +186,35 @@ export function CalendarHours() {
         <select
           id="cal-tz"
           value={draft.timeZone}
+          aria-describedby={setup.reviewed ? undefined : "cal-tz-note"}
           onChange={(event) =>
             setDraft({ ...draft, timeZone: event.target.value })
           }
         >
-          {timeZoneOptions(draft.timeZone).map((zone) => (
-            <option key={zone} value={zone}>
-              {zone}
-            </option>
-          ))}
+          {/* The two an owner is most likely to want, out of four hundred. */}
+          <optgroup label="Likely">
+            {suggestedZones.map((zone) => (
+              <option key={`suggested-${zone}`} value={zone}>
+                {zoneLabel(zone)}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="All timezones">
+            {timeZoneOptions(draft.timeZone).map((zone) => (
+              <option key={zone} value={zone}>
+                {zoneLabel(zone)}
+              </option>
+            ))}
+          </optgroup>
         </select>
+        {!setup.reviewed && (
+          <p className="today-note" id="cal-tz-note">
+            Taken from <strong>{setup.calendarName}</strong> when you connected
+            it — nobody has checked it against your business yet. Customers are
+            offered times in this zone, so make sure it is the right one, then
+            save.
+          </p>
+        )}
       </div>
 
       <ul className="hours-list" aria-label="Working hours">
@@ -246,13 +309,25 @@ export function CalendarHours() {
         </p>
       )}
 
+      {/*
+        Confirming is a save even when nothing was edited: an owner whose
+        calendar already had the right timezone agrees with every field, and
+        would otherwise have no way to say so — leaving the warning above
+        permanently on screen for settings that were correct all along.
+      */}
       <Button
         variant="primary"
         icon={Check}
-        disabled={!dirty || saving || backwards.length > 0}
+        disabled={(!dirty && setup.reviewed) || saving || backwards.length > 0}
         onClick={() => void save()}
       >
-        {saving ? "Saving…" : "Save working hours"}
+        {saving
+          ? "Saving…"
+          : dirty
+            ? "Save working hours"
+            : setup.reviewed
+              ? "Save working hours"
+              : "These are right — confirm"}
       </Button>
     </div>
   );

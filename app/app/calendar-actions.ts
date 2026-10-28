@@ -33,6 +33,12 @@ export type CalendarSetup = {
   settings: CalendarSettings;
   /** True when the stored settings could not be read and defaults are shown. */
   needsAttention: boolean;
+  /**
+   * False until the owner has confirmed these settings themselves. Until
+   * then the timezone is the connected calendar's own, which nobody has
+   * checked against the business it is booking for.
+   */
+  reviewed: boolean;
 };
 
 /** The connected calendar and the hours the crew may offer, for the editor. */
@@ -60,6 +66,9 @@ export async function getCalendarSetup(): Promise<
         calendarName: connection.displayName,
         settings: parseCalendarSettings(connection.settings),
         needsAttention: false,
+        reviewed: Boolean(
+          parseCalendarSettings(connection.settings).reviewedAt,
+        ),
       },
     };
   } catch {
@@ -70,6 +79,7 @@ export async function getCalendarSetup(): Promise<
         calendarName: connection.displayName,
         settings: DEFAULT_CALENDAR_SETTINGS,
         needsAttention: true,
+        reviewed: false,
       },
     };
   }
@@ -91,6 +101,9 @@ const inputSchema = z.object({
   openingHours: z.record(z.string(), z.array(blockSchema).max(2)),
   defaultDurationMinutes: z.number().int().min(5).max(480),
   leadTimeMinutes: z.number().int().min(0).max(10_080),
+  // Accepted so the editor can send back what it loaded, and ignored: the
+  // stamp below is the server's, never the browser's.
+  reviewedAt: z.string().optional(),
 });
 
 /** Saves the hours the crew may offer. Never touches credentials. */
@@ -117,7 +130,12 @@ export async function updateCalendarSettings(
   // something the crew would then refuse to read.
   let settings: CalendarSettings;
   try {
-    settings = parseCalendarSettings(parsed.data);
+    // Saving is the owner confirming these are their hours, in their
+    // timezone — the only moment anyone actually checks.
+    settings = parseCalendarSettings({
+      ...parsed.data,
+      reviewedAt: new Date().toISOString(),
+    });
   } catch (error) {
     return {
       ok: false,

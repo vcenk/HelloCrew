@@ -352,7 +352,10 @@ export function ConnectionsView() {
                 >
                   {open === "google_calendar"
                     ? "Close working hours"
-                    : "Set the hours the crew may offer"}
+                    : // Names the timezone, because it is set from the
+                      // connected calendar and an owner has no reason to
+                      // look for it under "hours".
+                      "Set the hours and timezone the crew offers"}
                 </button>
               )}
               {connector.id === "google_calendar" && open === "google_calendar" && (
