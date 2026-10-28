@@ -163,6 +163,14 @@ const connectors: {
   kinds: ChannelConnection["kind"][];
   summary: string;
   usedBy: string;
+  /**
+   * Why this connector cannot be used yet, when something outside the app
+   * is holding it up. It shows as "Coming soon" with no button rather than
+   * one that walks the owner through granting real permissions and then
+   * fails — but only while nobody has connected it, so an existing
+   * connection is never stranded out of sight.
+   */
+  notYet?: string;
 }[] = [
   {
     id: "meta",
@@ -187,6 +195,10 @@ const connectors: {
     kinds: ["google_location"],
     summary: "Your Google reviews, checked every 30 minutes.",
     usedBy: "Reputation manager",
+    // Business Profile API access is applied for separately from OAuth
+    // verification, and has not been granted. Connecting would have the
+    // owner hand over their business listings for a call that 403s.
+    notYet: "Waiting on Google to approve Business Profile access.",
   },
   {
     id: "google_calendar",
@@ -291,6 +303,24 @@ export function ConnectionsView() {
           const accounts = (state.connections ?? []).filter((c) => connector.kinds.includes(c.kind));
           const Icon = connector.icon;
           const available = signedIn && ready[connector.id];
+
+          if (connector.notYet && accounts.length === 0)
+            return (
+              <li key={connector.id} className="connector" data-soon="true">
+                <div className="connector-head">
+                  <span className="connector-icon" aria-hidden="true">
+                    <Icon size={18} />
+                  </span>
+                  <span className="connector-text">
+                    <strong>{connector.name}</strong>
+                    <small>{connector.summary}</small>
+                    <small className="connector-used">{connector.notYet}</small>
+                  </span>
+                  <Pill tone="neutral">Coming soon</Pill>
+                </div>
+              </li>
+            );
+
           return (
             <li key={connector.id} className="connector">
               <div className="connector-head">

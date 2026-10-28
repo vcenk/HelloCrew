@@ -89,3 +89,31 @@ test("the expand control only appears once a calendar is connected", async ({
     card.locator("button", { hasText: "Set the hours" }),
   ).toHaveCount(0);
 });
+
+/**
+ * Business Profile API access is applied for separately from OAuth
+ * verification and has not been granted. Connecting would walk the owner
+ * through handing over their business listings for a call that then 403s.
+ */
+test("a connector waiting on Google offers no button to press", async ({
+  page,
+}) => {
+  await openDashboard(page, "/app/connections");
+
+  const card = page
+    .locator(".connector", { hasText: "Google Business Profile" })
+    .first();
+  await expect(card).toBeVisible();
+
+  // Still listed, so it reads as planned rather than missing.
+  await expect(card.getByText("Coming soon")).toBeVisible();
+  await expect(card.getByText(/waiting on google/i)).toBeVisible();
+  // And nothing to click that would ask for permissions it cannot use.
+  await expect(card.getByRole("button")).toHaveCount(0);
+
+  // The one that does work is unaffected.
+  const calendar = page
+    .locator(".connector", { hasText: "Google Calendar" })
+    .first();
+  await expect(calendar.getByText("Coming soon")).toHaveCount(0);
+});
