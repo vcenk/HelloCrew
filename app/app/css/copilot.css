@@ -1,0 +1,286 @@
+/* ---------- Owner Copilot ---------- */
+
+/*
+  A third column rather than an overlay: the owner is configuring what is on
+  the page, so covering the page would be the wrong trade.
+*/
+.dash[data-copilot="open"] {
+  grid-template-columns: 252px minmax(0, 1fr) minmax(0, 380px);
+}
+
+.copilot {
+  position: sticky;
+  top: 0;
+  display: none;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100dvh;
+  border-left: 1px solid var(--d-line);
+  background: var(--d-surface);
+}
+.copilot[data-open="true"] {
+  display: grid;
+}
+
+.copilot-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--d-line);
+}
+.copilot-title {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font: 600 14px var(--d-body);
+}
+.copilot-chip {
+  overflow: hidden;
+  margin-left: auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--d-surface-2);
+  color: var(--d-ink-3);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copilot-log {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.copilot-empty {
+  color: var(--d-ink-3);
+  font-size: 13px;
+}
+.copilot-suggestions {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.copilot-suggestions button {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-sm);
+  background: var(--d-surface-2);
+  color: var(--d-ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.copilot-suggestions button:hover {
+  border-color: var(--d-line-strong);
+}
+
+.copilot-msg {
+  max-width: 92%;
+  margin: 0;
+  padding: 8px 11px;
+  border-radius: var(--d-r-md);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.copilot-msg[data-role="owner"] {
+  justify-self: end;
+  background: var(--d-primary);
+  color: #fff;
+}
+.copilot-msg[data-role="copilot"] {
+  justify-self: start;
+  border: 1px solid var(--d-line);
+  background: var(--d-surface-2);
+  color: var(--d-ink);
+}
+
+.copilot-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-md);
+  background: var(--d-surface);
+}
+.copilot-card-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13.5px;
+}
+.copilot-card-summary,
+.copilot-card-note {
+  margin: 0;
+  color: var(--d-ink-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.copilot-card-note {
+  color: var(--d-ink-3);
+}
+
+.copilot-ops {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.copilot-op {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-sm);
+  background: var(--d-surface-2);
+}
+.copilot-op[data-conflict="true"] {
+  border-color: var(--d-warn, #b26a00);
+}
+.copilot-op-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.copilot-op-title {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.copilot-op-before,
+.copilot-op-after,
+.copilot-op-conflict {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.copilot-op-before {
+  color: var(--d-ink-3);
+  text-decoration: line-through;
+}
+.copilot-op-before span {
+  text-decoration: none;
+}
+.copilot-op-after {
+  color: var(--d-ink);
+}
+.copilot-op-conflict {
+  display: flex;
+  gap: 5px;
+  align-items: start;
+  color: var(--d-warn, #b26a00);
+}
+.copilot-op-edit {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--d-line-strong);
+  border-radius: var(--d-r-sm);
+  font: inherit;
+  font-size: 12px;
+}
+.copilot-op-editlink {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--d-ink-3);
+  font: inherit;
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.copilot-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.copilot-link {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--d-primary);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.copilot-link:hover {
+  text-decoration: underline;
+}
+
+.copilot-composer {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--d-line);
+}
+.copilot-composer textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-sm);
+  background: var(--d-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.copilot-composer-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.copilot-attached {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  color: var(--d-ink-3);
+  font-size: 12px;
+}
+.copilot-attached button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/*
+  Below the shell's own breakpoint the grid is a single column, so the panel
+  becomes a sheet. Fixed rather than another column: a 380px column beside a
+  phone-width page is how horizontal overflow starts.
+*/
+@media (max-width: 900px) {
+  .dash[data-copilot="open"] {
+    grid-template-columns: 252px minmax(0, 1fr);
+  }
+  .copilot[data-open="true"] {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    height: 100dvh;
+    max-width: 100vw;
+    border-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copilot,
+  .copilot * {
+    transition: none !important;
+  }
+}

@@ -19,6 +19,7 @@ import {
   Moon,
   Search,
   Settings,
+  Sparkles,
   Sun,
   Users,
   X,
@@ -28,6 +29,7 @@ import {
 
 import { Brand } from "@/components/brand";
 import { CrewAvatar } from "@/components/crew-avatar";
+import { CopilotPanel } from "@/components/copilot/panel";
 import { ModeBadge } from "./mode-badge";
 import { operatingMode } from "./operating-mode";
 import { useDashboard, type Theme } from "./provider";
@@ -116,6 +118,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { onNavigate } = useNavigationGuard();
   const compact = useMediaQuery(COMPACT_QUERY);
   const [navOpen, setNavOpen] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const navTrigger = useRef<HTMLButtonElement>(null);
   const navClose = useRef<HTMLButtonElement>(null);
   const commandDialog = useRef<HTMLDialogElement>(null);
@@ -186,7 +189,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [navOpen]);
 
   return (
-    <div className="dash" data-theme={resolved}>
+    <div
+      className="dash"
+      data-theme={resolved}
+      data-copilot={copilotOpen ? "open" : "closed"}
+    >
       <a className="dash-skip" href="#dash-main">
         Skip to content
       </a>
@@ -310,6 +317,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <span>{current.label}</span>
           </div>
           <div className="dash-topbar-actions">
+            <button
+              type="button"
+              className="dash-icon-button"
+              onClick={() => setCopilotOpen((open) => !open)}
+              aria-label={copilotOpen ? "Close Copilot" : "Open Copilot"}
+              aria-expanded={copilotOpen}
+              aria-controls="copilot-panel"
+            >
+              <Sparkles size={18} />
+            </button>
             <ModeBadge mode={mode} />
             <SaveIndicator />
             <ThemeSwitch />
@@ -344,6 +361,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           )}
         </main>
       </div>
+
+      <CopilotPanel open={copilotOpen} onClose={() => setCopilotOpen(false)} />
 
       <CommandMenu dialogRef={commandDialog} />
 
