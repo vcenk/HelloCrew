@@ -66,6 +66,7 @@ export async function runLiveTurn(
     offered: [],
     booked: [],
     cancellations: [],
+    reschedules: [],
   };
   const calendar = await calendarForTurn(
     admin,
@@ -138,6 +139,17 @@ export async function runLiveTurn(
           booking.customerName ? ` for ${booking.customerName}` : ""
         }`,
         details: calendarApprovalDetails(booking, "cancel"),
+      })),
+      // One approval carries both halves of a move, so the old appointment
+      // and the new time cannot be separated between the turn and the
+      // owner's decision.
+      ...calendarEffects.reschedules.map(({ from, to }) => ({
+        id: to.id,
+        kind: "booking" as const,
+        summary: `Move ${from.service} — ${from.says} to ${to.says}${
+          from.customerName ? ` for ${from.customerName}` : ""
+        }`,
+        details: calendarApprovalDetails(to, "reschedule", from),
       })),
     ];
     await appendMessages(admin, tenant, target.conversationId, [

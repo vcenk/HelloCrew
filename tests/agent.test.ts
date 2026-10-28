@@ -469,11 +469,18 @@ describe("the cancellation rule", () => {
     );
   });
 
-  it("forbids cancelling anything the customer does not have", () => {
+  it("forbids cancelling or moving anything the customer does not have", () => {
     // The crew must not go hunting through the calendar for a near match.
-    expect(
-      rule3(buildSystemPrompt(bookingContext("ask"), withCalendar)),
-    ).toMatch(/if they have none listed/i);
+    const rule = rule3(buildSystemPrompt(bookingContext("ask"), withCalendar));
+    expect(rule).toMatch(/no appointments listed/i);
+    expect(rule).toMatch(/rather than cancelling or moving anything/i);
+  });
+
+  it("names the reschedule tool and how to reach a time for it", () => {
+    const rule = rule3(buildSystemPrompt(bookingContext("ask"), withCalendar));
+    expect(rule).toContain("reschedule_booking");
+    // A move needs a real free time, same as a booking does.
+    expect(rule).toMatch(/check_availability and then reschedule_booking/i);
   });
 
   it("never names a cancel tool the model was not given", () => {

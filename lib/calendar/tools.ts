@@ -60,6 +60,8 @@ export type CalendarTurnEffects = {
   booked: BookingProposal[];
   /** Cancellations the customer asked for, waiting for the owner. */
   cancellations: BookingProposal[];
+  /** Moves the customer asked for: which appointment, and where to. */
+  reschedules: { from: BookingProposal; to: BookingProposal }[];
 };
 
 /**
@@ -287,5 +289,96 @@ export function calendarContracts(options: {
     },
   };
 
-  return [checkAvailability, proposeBooking, cancelBookingTool];
+  const rescheduleBookingTool: ToolContract<
+    z.ZodObject<{ booking: z.ZodNumber; option: z.ZodNumber }>
+  > = {
+    name: "reschedule_booking",
+    description:
+      "Ask the business to move an appointment this customer already has to one of the free times. Call check_availability first so they can choose.",
+    schema: z.object({
+      booking: z
+        .number()
+        .int()
+        .min(1)
+        .describe("The number of the appointment to move"),
+      option: z
+        .number()
+        .int()
+        .min(1)
+        .max(MAX_OPTIONS)
+        .describe("The `option` number of the time it is moving to"),
+    }),
+    effect: "needs_approval",
+    scope: "conversation",
+    approval: "owner",
+    requires: "google_calendar",
+    // One move of one appointment to one time, however many times it is
+    // retried or the approval replayed.
+    idempotencyKey: ({ booking, option }) =>
+      `calendar:move:${effects.booked[booking - 1]?.idempotencyKey ?? booking}:${
+        effects.offered[option - 1]?.start.toISOString() ?? option
+      }`,
+    audit: { action: "calendar.reschedule_requested", recordsPii: true },
+    isEnabled: (context: AgentContext) => context.skills.booking === "ask",
+    run: async ({ booking, option }) => {
+      const from = effects.booked[booking - 1];
+      if (!from)
+        return effects.booked.length === 0
+          ? "This customer has no appointments booked through us. Do not move anything; offer to pass them to a person."
+          : `There is no appointment ${booking}. They have: ${effects.booked
+              .map((appointment, index) => `${index + 1}. ${appointment.says}`)
+              .join("; ")}.`;
+
+      const minutes = from.end.getTime() - from.start.getTime();
+      const offered =
+        effects.offered.length > 0
+          ? effects.offered
+          : (effects.offered = await optionsNow(minutes / 60_000));
+      const slot = offered[option - 1];
+      if (!slot)
+        return offered.length === 0
+          ? "Nothing is free in the next two weeks to move them to."
+          : `There is no option ${option}. The times on offer are: ${offered
+              .map(
+                (candidate, index) =>
+                  `${index + 1}. ${describeSlot(candidate, account.timeZone)}`,
+              )
+              .join("; ")}.`;
+
+      if (slot.start.getTime() === from.start.getTime())
+        return "That is the time they already have. Offer a different one.";
+
+      if (effects.reschedules.some((move) => move.from.id === from.id))
+        return "That change is already waiting for the owner.";
+
+      const to: BookingProposal = {
+        id: crypto.randomUUID(),
+        service: from.service,
+        start: slot.start,
+        end: new Date(slot.start.getTime() + minutes),
+        says: describeSlot(
+          { start: slot.start, end: new Date(slot.start.getTime() + minutes) },
+          account.timeZone,
+        ),
+        ...(from.customerName ? { customerName: from.customerName } : {}),
+        idempotencyKey: `calendar:${from.service.trim().toLowerCase()}:${slot.start.toISOString()}`,
+      };
+
+      effects.reschedules.push({ from, to });
+
+      return JSON.stringify({
+        status: AWAITING_APPROVAL,
+        from: from.says,
+        to: to.says,
+        note: "Tell the customer the change has been sent to the business to confirm. Do not say it is moved.",
+      });
+    },
+  };
+
+  return [
+    checkAvailability,
+    proposeBooking,
+    cancelBookingTool,
+    rescheduleBookingTool,
+  ];
 }

@@ -69,7 +69,13 @@ const tools = (adapter: CalendarAdapter, effects: CalendarTurnEffects) =>
     ]),
   );
 
-const noEffects = (): CalendarTurnEffects => ({ proposals: [], offered: [], booked: [], cancellations: [] });
+const noEffects = (): CalendarTurnEffects => ({
+  proposals: [],
+  offered: [],
+  booked: [],
+  cancellations: [],
+  reschedules: [],
+});
 
 describe("calendar tool contracts", () => {
   it("declares sound contracts", () => {
@@ -674,5 +680,103 @@ describe("cancelling an appointment", () => {
     const adapter = adapterWith([]);
     await cancelTool(adapter, effects).run({ booking: 1 }, context());
     expect(adapter.createEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("asking to move an appointment", () => {
+  const existing = (): BookingProposal => ({
+    id: "b1",
+    service: "Haircut",
+    start: new Date("2026-01-05T12:00:00Z"),
+    end: new Date("2026-01-05T13:00:00Z"),
+    says: "Monday 5 January at 12:00",
+    idempotencyKey: "calendar:haircut:2026-01-05T12:00:00.000Z",
+  });
+  const move = (adapter: CalendarAdapter, effects: CalendarTurnEffects) =>
+    tools(adapter, effects).get("reschedule_booking")!;
+
+  it("records the move and never claims it has happened", async () => {
+    const effects = { ...noEffects(), booked: [existing()] };
+    const adapter = adapterWith([]);
+    const out = String(
+      await move(adapter, effects).run({ booking: 1, option: 1 }, context()),
+    );
+
+    expect(effects.reschedules).toHaveLength(1);
+    expect(out).toMatch(/awaiting_owner_approval/);
+    expect(out).toMatch(/do not say it is moved/i);
+    expect(adapter.createEvent).not.toHaveBeenCalled();
+    expect(adapter.cancelEvent).toBeUndefined();
+  });
+
+  it("keeps the service and length of the appointment it moves", async () => {
+    const effects = { ...noEffects(), booked: [existing()] };
+    await move(adapterWith([]), effects).run(
+      { booking: 1, option: 1 },
+      context(),
+    );
+    const { from, to } = effects.reschedules[0];
+
+    expect(to.service).toBe(from.service);
+    expect(to.end.getTime() - to.start.getTime()).toBe(
+      from.end.getTime() - from.start.getTime(),
+    );
+    // The new time comes from the calendar's own list, never from the move.
+    expect(to.start.toISOString()).toBe("2026-01-05T09:00:00.000Z");
+  });
+
+  it("refuses to move a time to itself", async () => {
+    const effects = {
+      ...noEffects(),
+      booked: [
+        { ...existing(), start: new Date("2026-01-05T09:00:00Z"), end: new Date("2026-01-05T10:00:00Z") },
+      ],
+    };
+    const out = String(
+      await move(adapterWith([]), effects).run(
+        { booking: 1, option: 1 },
+        context(),
+      ),
+    );
+
+    expect(out).toMatch(/already have/i);
+    expect(effects.reschedules).toEqual([]);
+  });
+
+  it("refuses when the customer has nothing to move", async () => {
+    const effects = noEffects();
+    const out = String(
+      await move(adapterWith([]), effects).run(
+        { booking: 1, option: 1 },
+        context(),
+      ),
+    );
+    expect(out).toMatch(/no appointments booked through us/i);
+    expect(effects.reschedules).toEqual([]);
+  });
+
+  it("asks once, however many times the customer repeats it", async () => {
+    const effects = { ...noEffects(), booked: [existing()] };
+    const adapter = adapterWith([]);
+    await move(adapter, effects).run({ booking: 1, option: 1 }, context());
+    const second = String(
+      await move(adapter, effects).run({ booking: 1, option: 2 }, context()),
+    );
+
+    expect(second).toMatch(/already waiting/i);
+    expect(effects.reschedules).toHaveLength(1);
+  });
+
+  it("works without a separate availability check first", async () => {
+    // Same lesson as booking: being told to look first costs a round, and
+    // the turn can run out before it ever asks.
+    const effects = { ...noEffects(), booked: [existing()] };
+    const out = String(
+      await move(adapterWith([]), effects).run(
+        { booking: 1, option: 2 },
+        context(),
+      ),
+    );
+    expect(out).toMatch(/awaiting_owner_approval/);
   });
 });

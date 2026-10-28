@@ -25,14 +25,21 @@ import { getWorkspaceContext, type WorkspaceContext } from "@/lib/data/workspace
 import { deliverToCustomer } from "@/lib/server/deliver";
 import {
   calendarApprovalAction,
+  calendarApprovalReplaces,
   calendarProposalFromApproval,
   customerCancelReplyFor,
   customerReplyFor,
+  customerRescheduleReplyFor,
   ownerCancelNoteFor,
   ownerNoteFor,
+  ownerRescheduleNoteFor,
 } from "@/lib/calendar/approval";
 import { cancelBooking, type CancelOutcome } from "@/lib/calendar/cancel";
 import { confirmBooking, type ConfirmOutcome } from "@/lib/calendar/confirm";
+import {
+  rescheduleBooking,
+  type RescheduleOutcome,
+} from "@/lib/calendar/reschedule";
 import { calendarForTenant } from "@/lib/calendar/for-turn";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -193,6 +200,10 @@ export async function decideApproval(input: {
 
     let outcome: ConfirmOutcome | null = null;
     let cancelled: CancelOutcome | null = null;
+    let moved: RescheduleOutcome | null = null;
+    const replaces = proposal
+      ? calendarApprovalReplaces(approval!.details)
+      : null;
     if (proposal) {
       const calendar = admin
         ? await calendarForTenant(admin, ws.tenantId)
@@ -200,7 +211,16 @@ export async function decideApproval(input: {
       if (!calendar) {
         const reason = "No calendar is connected to change.";
         if (action === "cancel") cancelled = { status: "failed", reason };
+        else if (action === "reschedule") moved = { status: "failed", reason };
         else outcome = { status: "failed", reason };
+      } else if (action === "reschedule" && replaces) {
+        // The new time is booked before the old one is released, so a half
+        // that fails never leaves the customer with no appointment at all.
+        moved = await rescheduleBooking({
+          ...calendar,
+          from: { ...proposal, ...replaces },
+          to: proposal,
+        });
       } else if (action === "cancel") {
         // Cancelling twice is one cancellation: the second pass finds
         // nothing there and reports the slot free, not an error.
@@ -220,11 +240,13 @@ export async function decideApproval(input: {
       p_approval_id: approvalId,
       p_decision: decision,
       p_reply: proposal
-        ? cancelled
-          ? customerCancelReplyFor(cancelled, proposal)
-          : outcome
-            ? customerReplyFor(outcome, proposal)
-            : decisionReply[decision]
+        ? moved && replaces
+          ? customerRescheduleReplyFor(moved, proposal, replaces)
+          : cancelled
+            ? customerCancelReplyFor(cancelled, proposal)
+            : outcome
+              ? customerReplyFor(outcome, proposal)
+              : decisionReply[decision]
         : decisionReply[decision],
     });
     if (error) return failure(error.code === "P0002" ? "not_found" : "error", "That approval couldn’t be updated.");
@@ -236,11 +258,13 @@ export async function decideApproval(input: {
       const result = await deliverToCustomer(admin, ws.tenantId, approval.conversation_id as string, row.body);
       if (result.delivered === false) deliveryError = result.reason;
     }
-    const bookingNote = cancelled
-      ? ownerCancelNoteFor(cancelled)
-      : outcome
-        ? ownerNoteFor(outcome)
-        : undefined;
+    const bookingNote = moved
+      ? ownerRescheduleNoteFor(moved)
+      : cancelled
+        ? ownerCancelNoteFor(cancelled)
+        : outcome
+          ? ownerNoteFor(outcome)
+          : undefined;
     return {
       ok: true,
       ...(deliveryError ? { deliveryError } : {}),
