@@ -73,6 +73,28 @@ export type CalendarTurnEffects = {
  * write API at all — the owner approves, and either HelloCrew writes it or
  * the owner books it in their own system.
  */
+/**
+ * How long a named service takes.
+ *
+ * Looked up from approved knowledge rather than taken as an argument. A
+ * model handed a durationMinutes field will fill it in — and a colour
+ * booked into a trim's half hour is a customer sitting in a chair that is
+ * promised to somebody else. The owner sets the length once, with the
+ * price; a service with none set keeps the workspace default.
+ */
+function serviceMinutes(
+  context: AgentContext,
+  account: CalendarAccount,
+  service?: string,
+): number {
+  const wanted = service?.trim().toLowerCase();
+  if (!wanted) return account.defaultDurationMinutes;
+  const match = context.business.services.find(
+    (candidate) => candidate.name.trim().toLowerCase() === wanted,
+  );
+  return match?.minutes ?? account.defaultDurationMinutes;
+}
+
 export function calendarContracts(options: {
   account: CalendarAccount;
   adapter: CalendarAdapter;
@@ -117,13 +139,20 @@ export function calendarContracts(options: {
   };
 
   const checkAvailability: ToolContract<
-    z.ZodObject<{ durationMinutes: z.ZodOptional<z.ZodNumber> }>
+    z.ZodObject<{ service: z.ZodOptional<z.ZodString> }>
   > = {
     name: "check_availability",
     description:
       "Find times the business is actually free, from its real calendar. Use before suggesting any time to a customer.",
     schema: z.object({
-      durationMinutes: z.number().int().min(5).max(480).optional(),
+      service: z
+        .string()
+        .trim()
+        .max(120)
+        .optional()
+        .describe(
+          "The service the customer asked about, named as the business names it. Its length decides how long a slot has to be.",
+        ),
     }),
     effect: "read_only",
     scope: "tenant",
@@ -131,10 +160,8 @@ export function calendarContracts(options: {
     requires: "google_calendar",
     audit: { action: "calendar.availability", recordsPii: false },
     isEnabled: (context: AgentContext) => context.skills.booking !== "off",
-    run: async ({ durationMinutes }) => {
-      const slots = await optionsNow(
-        durationMinutes ?? account.defaultDurationMinutes,
-      );
+    run: async ({ service }, context) => {
+      const slots = await optionsNow(serviceMinutes(context, account, service));
 
       if (slots.length === 0)
         return "Nothing is free in the next two weeks. Offer to take their details so the business can come back with a time.";
@@ -156,7 +183,6 @@ export function calendarContracts(options: {
     z.ZodObject<{
       service: z.ZodString;
       option: z.ZodNumber;
-      durationMinutes: z.ZodOptional<z.ZodNumber>;
       customerName: z.ZodOptional<z.ZodString>;
     }>
   > = {
@@ -173,7 +199,6 @@ export function calendarContracts(options: {
         .describe(
           "The `option` number of the time the customer chose, as check_availability numbered it",
         ),
-      durationMinutes: z.number().int().min(5).max(480).optional(),
       customerName: z.string().trim().max(80).optional(),
     }),
     effect: "needs_approval",
@@ -190,8 +215,8 @@ export function calendarContracts(options: {
       }`,
     audit: { action: "calendar.booking_proposed", recordsPii: true },
     isEnabled: (context: AgentContext) => context.skills.booking === "ask",
-    run: async ({ service, option, durationMinutes, customerName }) => {
-      const minutes = durationMinutes ?? account.defaultDurationMinutes;
+    run: async ({ service, option, customerName }, context) => {
+      const minutes = serviceMinutes(context, account, service);
       // Works whether or not check_availability ran first in this turn, so a
       // model that books straight away does not have to spend a round being
       // told to look. The list is the same either way: it comes from the
@@ -220,6 +245,23 @@ export function calendarContracts(options: {
       const busy = mergeBusy(await adapter.readBusy(account, { start, end }));
       if (busy.some((taken) => start < taken.end && taken.start < end))
         return "That time has just been taken. Call check_availability again and offer a different one.";
+
+      // The times on offer may have been worked out for a different service:
+      // a half-hour trim's slot is not a two-hour colour's slot, and nothing
+      // above would notice the colour running an hour past closing, because
+      // time after closing is not busy — it simply is not offered.
+      const [fits] = proposeSlots({
+        window: { start, end },
+        busy,
+        openingHours: account.openingHours,
+        timeZone: account.timeZone,
+        durationMinutes: minutes,
+        leadTimeMinutes: account.leadTimeMinutes,
+        now: now(),
+        maxSlots: 1,
+      });
+      if (!fits || fits.start.getTime() !== start.getTime())
+        return `${service} takes ${minutes} minutes, which does not fit that time. Call check_availability naming the service, and offer one of the times it returns.`;
 
       if (effects.proposals.length >= 1)
         return "A time is already waiting for the owner on this conversation.";

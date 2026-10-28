@@ -28,7 +28,17 @@ export const businessSchema = z
     hours: text(200),
     bookingUrl: bookingLinkSchema,
     services: z
-      .array(z.object({ name: matchableText(80), price: text(80) }).strict())
+      .array(
+        z
+          .object({
+            name: matchableText(80),
+            price: text(80),
+            // Optional: a business that has not set one books at the
+            // workspace's default length, exactly as before.
+            minutes: z.number().int().min(5).max(480).optional(),
+          })
+          .strict(),
+      )
       .min(1)
       .max(8),
     faqs: z

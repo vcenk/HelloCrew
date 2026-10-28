@@ -27,6 +27,14 @@ export type KnowledgeSource = {
   title: string;
   content: string;
   price?: string;
+  /**
+   * How long this service takes, in minutes.
+   *
+   * On the source rather than anywhere else because the owner is already
+   * here approving what the crew may say: a service's length is a fact
+   * about the business, like its price.
+   */
+  minutes?: number;
   fileName?: string;
   mimeType?: string;
   sizeBytes?: number;
@@ -96,6 +104,7 @@ const sourceSchema = z
     title: z.string().trim().min(1).max(180),
     content: z.string().trim().min(1).max(12_000),
     price: z.string().max(100).optional(),
+    minutes: z.number().int().min(5).max(480).optional(),
     fileName: z.string().max(240).optional(),
     mimeType: z.string().max(120).optional(),
     sizeBytes: z.number().int().min(0).max(10_485_760).optional(),
@@ -246,6 +255,7 @@ export function businessFromKnowledge(store: KnowledgeStore): BusinessProfile {
     .map((source) => ({
       name: source.title.slice(0, 80),
       price: source.price!.slice(0, 80),
+      ...(source.minutes ? { minutes: source.minutes } : {}),
     }));
   const faqs = approved
     .filter((source) => source.kind === "faq")

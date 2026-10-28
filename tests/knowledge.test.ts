@@ -87,3 +87,54 @@ describe("knowledge library", () => {
     expect(searchApprovedKnowledge(store, "营业时间", "zh")[0].score).toBe(0.9);
   });
 });
+
+describe("a service's length travels with it", () => {
+  it("survives the knowledge store round trip", () => {
+    const store = createKnowledgeStoreFromBusiness(sampleBusiness);
+    const services = store.sources.filter((s) => s.kind === "service");
+    expect(services.length).toBeGreaterThan(0);
+    const withMinutes = {
+      ...store,
+      sources: store.sources.map((s) =>
+        s.kind === "service" ? { ...s, minutes: 90 } : s,
+      ),
+    };
+    const parsed = parseKnowledgeStore(withMinutes);
+    expect(parsed.success).toBe(true);
+    if (parsed.success)
+      expect(
+        parsed.data.sources.find((s) => s.kind === "service")?.minutes,
+      ).toBe(90);
+  });
+
+  it("reaches the crew through the business profile", () => {
+    const store = createKnowledgeStoreFromBusiness(sampleBusiness);
+    const business = businessFromKnowledge({
+      ...store,
+      sources: store.sources.map((s) =>
+        s.kind === "service" ? { ...s, minutes: 45 } : s,
+      ),
+    });
+    expect(business.services[0].minutes).toBe(45);
+  });
+
+  it("is simply absent for a service nobody timed", () => {
+    // Setting one must never be a step between connecting and booking.
+    const store = createKnowledgeStoreFromBusiness(sampleBusiness);
+    expect(businessFromKnowledge(store).services[0].minutes).toBeUndefined();
+  });
+
+  it("refuses a length no appointment could be", () => {
+    const store = createKnowledgeStoreFromBusiness(sampleBusiness);
+    for (const minutes of [0, 4, 481, 1.5])
+      expect(
+        parseKnowledgeStore({
+          ...store,
+          sources: store.sources.map((s) =>
+            s.kind === "service" ? { ...s, minutes } : s,
+          ),
+        }).success,
+        String(minutes),
+      ).toBe(false);
+  });
+});

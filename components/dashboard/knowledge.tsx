@@ -94,6 +94,8 @@ type Draft = {
   title: string;
   content: string;
   price: string;
+  /** Minutes, as typed. Empty means the workspace's default length. */
+  minutes: string;
   approved: boolean;
   byOption: boolean;
   rows: OptionRow[];
@@ -105,6 +107,7 @@ const emptyDraft = (kind: KnowledgeKind = "faq"): Draft => ({
   title: "",
   content: "",
   price: "",
+  minutes: "",
   approved: true,
   byOption: false,
   rows: [],
@@ -208,6 +211,7 @@ export function KnowledgeView() {
       title: source.title,
       content: source.content,
       price: source.price ?? "",
+      minutes: source.minutes ? String(source.minutes) : "",
       approved: source.status === "approved",
       byOption: Boolean(source.options?.length),
       rows: rowsFrom(source.options),
@@ -249,6 +253,15 @@ export function KnowledgeView() {
       setError("Add a price so your crew can quote it.");
       return;
     }
+    const minutes = draft.minutes.trim() ? Number(draft.minutes) : undefined;
+    if (
+      draft.kind === "service" &&
+      minutes !== undefined &&
+      (!Number.isInteger(minutes) || minutes < 5 || minutes > 480)
+    ) {
+      setError("How long it takes must be between 5 and 480 minutes.");
+      return;
+    }
     const now = new Date().toISOString();
     const existing = knowledge.sources.find((s) => s.id === draft.id);
     const source: KnowledgeSource = {
@@ -263,12 +276,17 @@ export function KnowledgeView() {
       status: draft.approved ? "approved" : "draft",
       updatedAt: now,
       ...(draft.kind === "service" ? { price } : {}),
+      ...(draft.kind === "service" && minutes !== undefined
+        ? { minutes }
+        : {}),
       ...(options ? { options } : {}),
       ...(draft.staffIds.length && !options
         ? { staffIds: draft.staffIds }
         : {}),
     } as KnowledgeSource;
     if (draft.kind !== "service") delete source.price;
+    if (draft.kind !== "service" || minutes === undefined)
+      delete source.minutes;
     if (!options) delete source.options;
     if (!draft.staffIds.length || options) delete source.staffIds;
     const sources = existing
@@ -772,6 +790,33 @@ export function KnowledgeView() {
                       }
                     />
                   )}
+                  {/*
+                    Beside the price, because a service's length is a fact
+                    about the business in the same way. Blank keeps the
+                    workspace default, so nobody has to fill this in to
+                    start booking.
+                  */}
+                  <div className="field">
+                    <label htmlFor="d-minutes">How long it takes</label>
+                    <select
+                      id="d-minutes"
+                      value={draft.minutes}
+                      onChange={(e) =>
+                        setDraft({ ...draft, minutes: e.target.value })
+                      }
+                    >
+                      <option value="">Use the usual appointment length</option>
+                      {[15, 30, 45, 60, 90, 120, 150, 180, 240].map((m) => (
+                        <option key={m} value={String(m)}>
+                          {m < 60
+                            ? `${m} minutes`
+                            : m % 60 === 0
+                              ? `${m / 60} hour${m === 60 ? "" : "s"}`
+                              : `${Math.floor(m / 60)}h ${m % 60}m`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               )}
               <div className="field">

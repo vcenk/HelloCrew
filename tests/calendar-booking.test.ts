@@ -780,3 +780,125 @@ describe("asking to move an appointment", () => {
     expect(out).toMatch(/awaiting_owner_approval/);
   });
 });
+
+/**
+ * Every appointment used to be the workspace default, whatever the service.
+ * A trim and a full colour got the same slot, and the crew would confidently
+ * offer a customer an hour for something that takes three.
+ */
+describe("how long a service takes", () => {
+  /** A context whose approved services carry their own lengths. */
+  const withServices = (
+    services: { name: string; price: string; minutes?: number }[],
+  ) => {
+    const base = context();
+    return {
+      ...base,
+      business: { ...base.business, services },
+    } as ReturnType<typeof context>;
+  };
+
+  const availability = (adapter: CalendarAdapter, effects: CalendarTurnEffects) =>
+    tools(adapter, effects).get("check_availability")!;
+  const propose = (adapter: CalendarAdapter, effects: CalendarTurnEffects) =>
+    tools(adapter, effects).get("propose_booking")!;
+
+  it("offers slots long enough for the service that was named", async () => {
+    const ctx = withServices([
+      { name: "Colour", price: "$120", minutes: 120 },
+    ]);
+    const effects = noEffects();
+    // Busy from 10:00, so a two-hour colour cannot start at 09:00 but a
+    // one-hour cut could.
+    const adapter = adapterWith([
+      {
+        start: new Date("2026-01-05T10:00:00Z"),
+        end: new Date("2026-01-05T11:00:00Z"),
+      },
+    ]);
+    await availability(adapter, effects).run({ service: "Colour" }, ctx);
+
+    for (const slot of effects.offered)
+      expect(slot.end.getTime() - slot.start.getTime()).toBe(120 * 60_000);
+    expect(
+      effects.offered.some(
+        (slot) => slot.start.toISOString() === "2026-01-05T09:00:00.000Z",
+      ),
+      "09:00 would run into the 10:00 appointment",
+    ).toBe(false);
+  });
+
+  it("books the service's own length, not the default", async () => {
+    const ctx = withServices([{ name: "Colour", price: "$120", minutes: 120 }]);
+    const effects = noEffects();
+    const adapter = adapterWith([]);
+    await availability(adapter, effects).run({ service: "Colour" }, ctx);
+    await propose(adapter, effects).run(
+      { service: "Colour", option: 1 },
+      ctx,
+    );
+
+    const [proposal] = effects.proposals;
+    expect(proposal.end.getTime() - proposal.start.getTime()).toBe(
+      120 * 60_000,
+    );
+  });
+
+  it("falls back to the usual length when a service has none set", async () => {
+    // Nobody has to fill this in before they can take a booking.
+    const ctx = withServices([{ name: "Trim", price: "$20" }]);
+    const effects = noEffects();
+    const adapter = adapterWith([]);
+    await availability(adapter, effects).run({ service: "Trim" }, ctx);
+    expect(effects.offered[0].end.getTime() - effects.offered[0].start.getTime()).toBe(
+      60 * 60_000,
+    );
+  });
+
+  it("matches the service however the model capitalises it", async () => {
+    const ctx = withServices([{ name: "Colour", price: "$120", minutes: 90 }]);
+    const effects = noEffects();
+    await availability(adapterWith([]), effects).run({ service: " cOLOUR " }, ctx);
+    expect(effects.offered[0].end.getTime() - effects.offered[0].start.getTime()).toBe(
+      90 * 60_000,
+    );
+  });
+
+  it("gives the model no way to pick a length itself", () => {
+    // The same lesson as times: a field it can fill in, it will fill in.
+    const effects = noEffects();
+    const shapes = [
+      availability(adapterWith([]), effects).schema,
+      propose(adapterWith([]), effects).schema,
+    ] as unknown as { shape: Record<string, unknown> }[];
+    for (const schema of shapes)
+      expect(Object.keys(schema.shape)).not.toContain("durationMinutes");
+  });
+
+  it("refuses a time that cannot fit the service after all", async () => {
+    // Times were offered for a short service, then a long one was booked
+    // into one: without this the colour quietly runs past closing.
+    const ctx = withServices([
+      { name: "Trim", price: "$20", minutes: 30 },
+      { name: "Colour", price: "$120", minutes: 120 },
+    ]);
+    const effects = noEffects();
+    const adapter = adapterWith([]);
+    // Offer the last half hour of the day for a trim: 16:30–17:00.
+    effects.offered = [
+      {
+        start: new Date("2026-01-05T16:30:00Z"),
+        end: new Date("2026-01-05T17:00:00Z"),
+      },
+    ];
+    const out = String(
+      await propose(adapter, effects).run(
+        { service: "Colour", option: 1 },
+        ctx,
+      ),
+    );
+
+    expect(out).toMatch(/does not fit that time/i);
+    expect(effects.proposals).toEqual([]);
+  });
+});
