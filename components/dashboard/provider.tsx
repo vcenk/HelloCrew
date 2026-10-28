@@ -33,6 +33,8 @@ import { readKnowledgeStore } from "@/lib/knowledge-storage";
 import { sampleBusiness, type BusinessProfile } from "@/lib/business";
 import type { Scenario } from "@/lib/demo";
 import type { NeedsYou, ThreadSummary } from "@/lib/conversations";
+import { getCalendarSetup } from "@/app/app/calendar-actions";
+import { launchSteps, type LaunchInput } from "./launch-steps";
 import { useConversations, type Conversation, type Engine } from "./use-conversations";
 import { persistLocal } from "@/lib/workspace-documents";
 import {
@@ -417,55 +419,36 @@ export function useDashboard() {
 export function useLaunchChecklist() {
   const { business, identity, workflowReadiness, conversation } =
     useDashboard();
-  const facts =
-    (business.hours ? 1 : 0) + business.services.length + business.faqs.length;
-  const tested = conversation.messages.some((m) => m.role === "assistant");
-  const steps = [
-    {
-      id: "assistant",
-      title: "Meet your receptionist",
-      detail: `${identity.name} has a name, a greeting and a safe fallback.`,
-      done: Boolean(identity.name && identity.greeting),
-      href: "/app/crew/receptionist/personality",
-      action: "Edit personality",
-    },
-    {
-      id: "knowledge",
-      title: "Approve what your crew may say",
-      detail:
-        facts > 0
-          ? `${facts} approved fact${facts === 1 ? "" : "s"}: hours, services and FAQs.`
-          : "Add hours, services and FAQs, then approve them.",
-      done: facts > 0,
-      href: "/app/knowledge",
-      action: "Review knowledge",
-    },
-    {
-      id: "workflow",
-      title: "Publish a workflow",
-      detail:
-        workflowReadiness.status === "published"
-          ? `${workflowReadiness.name} v${workflowReadiness.version} is published.`
-          : workflowReadiness.status === "draft"
-            ? `${workflowReadiness.name} is still a draft.`
-            : "Pick a template for bookings, questions or reviews.",
-      done: workflowReadiness.status === "published",
-      href: "/app/workflows",
-      action:
-        workflowReadiness.status === "missing"
-          ? "Choose a template"
-          : "Open workflow",
-    },
-    {
-      id: "test",
-      title: "Test a conversation",
-      detail: tested
-        ? "You’ve reviewed at least one reply."
-        : "Ask a few customer questions and check the answers.",
-      done: tested,
-      href: "/app/conversations",
-      action: "Start a test chat",
-    },
-  ];
+  // Loaded here rather than in the provider: the checklist is the only thing
+  // that needs it, and the dashboard's own state stays as it was.
+  const [calendar, setCalendar] = useState<LaunchInput["calendar"]>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getCalendarSetup()
+      .then((result) => {
+        if (cancelled || !result.ok || !result.setup) return;
+        setCalendar({
+          name: result.setup.calendarName,
+          timeZone: result.setup.settings.timeZone,
+          reviewed: result.setup.reviewed,
+        });
+      })
+      .catch(() => {
+        // A calendar that cannot be read is not a setup step: the rest of
+        // the checklist still works.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const steps = launchSteps({
+    identity,
+    business,
+    workflowReadiness,
+    tested: conversation.messages.some((m) => m.role === "assistant"),
+    calendar,
+  });
   return { steps, done: steps.filter((s) => s.done).length };
 }
