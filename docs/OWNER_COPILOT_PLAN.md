@@ -254,7 +254,10 @@ invented here. Selection is deterministic:
 1. published lifecycle, `compatibility === "current"`, at least one published
    version, newest version validates clean;
 2. its trigger matches the conversation's channel;
-3. ties break on `updatedAt`, then workflow id — never array order;
+3. ties break on when a version was last **published**, then workflow id —
+   never array order, and deliberately not `updatedAt`: that moves every time
+   a draft is saved, so selection would follow whoever last opened a workflow
+   in the builder rather than whoever last published one;
 4. more than one match raises a warning rather than passing silently.
 
 No match, or no `workflows` document at all, means **no policy** and the agent

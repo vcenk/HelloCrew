@@ -19,6 +19,15 @@ export type WorkflowRecord = {
   publishedVersions: WorkflowDefinition[];
   createdAt: string;
   updatedAt: string;
+  /**
+   * When a version was last published.
+   *
+   * Separate from updatedAt, which moves every time a draft is saved. Which
+   * workflow serves live customers must not change because somebody opened an
+   * old one in the builder and typed a character. Optional so records written
+   * before this existed still load.
+   */
+  lastPublishedAt?: string;
 };
 
 type LegacyWorkflowRecord = {
@@ -94,6 +103,7 @@ export function publishWorkflowVersion(
     version: nextVersion,
     status: "published",
   };
+  const at = isoNow(now);
   return {
     ...record,
     workflow: {
@@ -103,7 +113,8 @@ export function publishWorkflowVersion(
     },
     lifecycle: "published",
     publishedVersions: [...record.publishedVersions, published],
-    updatedAt: isoNow(now),
+    updatedAt: at,
+    lastPublishedAt: at,
   };
 }
 
@@ -196,6 +207,9 @@ function parseRecord(input: unknown): WorkflowRecord | null {
     createdAt:
       typeof candidate.createdAt === "string" ? candidate.createdAt : timestamp,
     updatedAt: timestamp,
+    ...(typeof candidate.lastPublishedAt === "string"
+      ? { lastPublishedAt: candidate.lastPublishedAt }
+      : {}),
   };
 }
 

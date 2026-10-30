@@ -192,12 +192,17 @@ export function selectWorkflowPolicy(
 
   if (matches.length === 0) return { policy: null, warnings };
 
-  // Deterministic, never array order: newest change wins, and the id settles
-  // a tie so the same data always picks the same workflow.
+  // Deterministic, and never array order: the most recently *published* one
+  // wins, with the id settling a tie. Deliberately not updatedAt — that moves
+  // whenever a draft is saved, so selection would follow whoever last opened
+  // a workflow in the builder rather than whoever last published one. Records
+  // written before publishing was timestamped fall back to updatedAt.
+  const publishedAt = (entry: (typeof matches)[number]) =>
+    entry.record.lastPublishedAt ?? entry.record.updatedAt;
   const sorted = [...matches].sort((a, b) => {
-    const byUpdated = b.record.updatedAt.localeCompare(a.record.updatedAt);
-    return byUpdated !== 0
-      ? byUpdated
+    const byPublished = publishedAt(b).localeCompare(publishedAt(a));
+    return byPublished !== 0
+      ? byPublished
       : a.compiled.policy.workflowId.localeCompare(b.compiled.policy.workflowId);
   });
 

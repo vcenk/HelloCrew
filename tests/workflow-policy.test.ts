@@ -15,6 +15,7 @@ import { createKnowledgeStoreFromBusiness } from "../lib/knowledge";
 import {
   createWorkflowRecord,
   publishWorkflowVersion,
+  saveWorkflowDraft,
   setWorkflowArchived,
   type WorkflowRecord,
 } from "../lib/workflow-lifecycle";
@@ -305,14 +306,16 @@ describe("choosing which workflow governs a conversation", () => {
   });
 
   it("is deterministic when two workflows match", () => {
-    const older: WorkflowRecord = {
-      ...published(),
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    const newer: WorkflowRecord = {
-      ...published(without("handoff.inbox")),
-      updatedAt: "2026-06-01T00:00:00.000Z",
-    };
+    const older = publishWorkflowVersion(
+      createWorkflowRecord(structuredClone(salonReceptionWorkflow)),
+      undefined,
+      "2026-01-01T00:00:00.000Z",
+    );
+    const newer = publishWorkflowVersion(
+      createWorkflowRecord(without("handoff.inbox")(salonReceptionWorkflow)),
+      undefined,
+      "2026-06-01T00:00:00.000Z",
+    );
 
     const forwards = selectWorkflowPolicy([older, newer], "website");
     const backwards = selectWorkflowPolicy([newer, older], "website");
@@ -322,6 +325,32 @@ describe("choosing which workflow governs a conversation", () => {
     );
     expect(forwards.policy?.allowedTools.has("handoff_to_human")).toBe(false);
     expect(forwards.warnings.join(" ")).toMatch(/2 published workflows/);
+  });
+
+  it("editing an unpublished draft does not change who serves customers", () => {
+    // saveWorkflowDraft bumps updatedAt. If selection leaned on that, opening
+    // an old workflow in the builder and typing one character would quietly
+    // hand live traffic to it, ahead of the one actually published later.
+    const older = publishWorkflowVersion(
+      createWorkflowRecord(structuredClone(salonReceptionWorkflow)),
+      undefined,
+      "2026-01-01T00:00:00.000Z",
+    );
+    const newer = publishWorkflowVersion(
+      createWorkflowRecord(without("handoff.inbox")(salonReceptionWorkflow)),
+      undefined,
+      "2026-06-01T00:00:00.000Z",
+    );
+    // Somebody opens the older one and edits its draft today.
+    const touched = saveWorkflowDraft(
+      older,
+      older.workflow,
+      "2026-10-29T00:00:00.000Z",
+    );
+
+    const chosen = selectWorkflowPolicy([touched, newer], "website").policy;
+    // The one published most recently still governs.
+    expect(chosen?.allowedTools.has("handoff_to_human")).toBe(false);
   });
 
   it("skips drafts and archives when picking", () => {

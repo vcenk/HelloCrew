@@ -73,3 +73,45 @@ describe("workflow lifecycle", () => {
     );
   });
 });
+
+describe("when a version was published", () => {
+  it("is recorded separately from when the record was touched", () => {
+    const record = publishWorkflowVersion(
+      createWorkflowRecord(structuredClone(salonReceptionWorkflow)),
+      undefined,
+      "2026-01-01T00:00:00.000Z",
+    );
+    expect(record.lastPublishedAt).toBe("2026-01-01T00:00:00.000Z");
+
+    const edited = saveWorkflowDraft(
+      record,
+      record.workflow,
+      "2026-10-29T00:00:00.000Z",
+    );
+    // Saving a draft is not publishing, and must not look like it.
+    expect(edited.updatedAt).toBe("2026-10-29T00:00:00.000Z");
+    expect(edited.lastPublishedAt).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("survives a reload", () => {
+    const record = publishWorkflowVersion(
+      createWorkflowRecord(structuredClone(salonReceptionWorkflow)),
+      undefined,
+      "2026-01-01T00:00:00.000Z",
+    );
+    const reloaded = parseWorkflowStore(
+      JSON.parse(JSON.stringify({ formatVersion: 2, workflows: [record] })),
+    ).workflows[0];
+    expect(reloaded.lastPublishedAt).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("is simply absent on a record written before it existed", () => {
+    const record = createWorkflowRecord(structuredClone(salonReceptionWorkflow));
+    const legacy = { ...record, lastPublishedAt: undefined };
+    const reloaded = parseWorkflowStore({
+      formatVersion: 2,
+      workflows: [legacy],
+    }).workflows[0];
+    expect(reloaded.lastPublishedAt).toBeUndefined();
+  });
+});
