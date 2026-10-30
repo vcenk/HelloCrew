@@ -32,6 +32,7 @@ import {
   leftAnApproval,
   type IntegrationId,
   type ToolContract,
+  type ToolNarrowing,
 } from "./tool-contract";
 
 /** What the model is told about a rejected tool call, in its own terms. */
@@ -87,6 +88,11 @@ function toolLabel(name: string) {
 export type AgentTurnOptions = {
   /** Integrations the business has actually connected. */
   connected?: ReadonlySet<IntegrationId>;
+  /**
+   * What a published workflow narrows this turn to. Absent means no workflow
+   * governs this conversation, and the agent behaves exactly as before.
+   */
+  narrowing?: ToolNarrowing;
   /** Contracts those integrations bring, e.g. the calendar tools. */
   extraContracts?: ToolContract[];
 };
@@ -97,14 +103,20 @@ export function buildAgentGraph(
   effects: TurnEffects,
   options: AgentTurnOptions = {},
 ) {
-  const { connected, extraContracts = [] } = options;
-  const tools = buildTools(context, effects, connected, extraContracts);
+  const { connected, extraContracts = [], narrowing } = options;
+  const tools = buildTools(context, effects, connected, extraContracts, narrowing);
   const byName = new Map<string, StructuredToolInterface>(
     tools.map((t) => [t.name, t]),
   );
   // Effects come from the contracts offered this turn, so a tool can never be
   // runnable without a declared effect.
-  const effectOf = effectsByName(context, effects, connected, extraContracts);
+  const effectOf = effectsByName(
+    context,
+    effects,
+    connected,
+    extraContracts,
+    narrowing,
+  );
   if (!model.bindTools) throw new Error("Model does not support tools.");
   const withTools = model.bindTools(tools);
   const system = new SystemMessage(buildSystemPrompt(context, connected));

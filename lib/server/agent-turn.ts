@@ -18,6 +18,7 @@ import { readLiveConfig, type LiveConfig } from "@/lib/server/live-config";
 import { withModelFallback } from "@/lib/server/model-router";
 import { calendarApprovalDetails } from "@/lib/calendar/approval";
 import { calendarForTurn } from "@/lib/calendar/for-turn";
+import { workflowPolicyFor } from "@/lib/server/workflow-runtime";
 import type { CalendarTurnEffects } from "@/lib/calendar/tools";
 import { costMicroUsd, worstCaseMicroUsd } from "@/lib/usage/cost";
 import { getTenantLimits, monthSpendMicroUsd, reserveUsage, settleUsage } from "@/lib/usage/ledger";
@@ -59,6 +60,20 @@ export async function runLiveTurn(
   const tenant = { tenantId: target.tenantId };
   const history = await historyForModel(admin, tenant, target.conversationId, MAX_HISTORY_MESSAGES);
   const context = await loadAgentContext(admin, tenant);
+  // Read once, up front: the channel decides which published workflow governs
+  // this conversation, and the same row answers the notification question
+  // later — so this replaces a second query rather than adding one.
+  const { data: conversation } = await admin
+    .from("hc_conversations")
+    .select("channel, status, title")
+    .eq("tenant_id", target.tenantId)
+    .eq("id", target.conversationId)
+    .maybeSingle();
+  const workflow = await workflowPolicyFor(
+    admin,
+    tenant,
+    String(conversation?.channel ?? ""),
+  );
   // Calendar tools are offered only when a calendar is connected and its
   // working hours are readable; otherwise the model is never shown them.
   const calendarEffects: CalendarTurnEffects = {
@@ -97,6 +112,9 @@ export async function runLiveTurn(
       runAgentTurn(createOpenAIChatModel(config, { model }), context, history, {
         connected: calendar.connected,
         extraContracts: calendar.contracts,
+        // Narrows what the layers before it already allowed; it can never
+        // reach a tool they withheld.
+        ...(workflow ? { narrowing: workflow } : {}),
       }),
     );
     const result = attempt.value;
@@ -185,12 +203,7 @@ export async function runLiveTurn(
       if (error) throw new Error("Could not store the approval.");
     }
     if (result.leads.length > 0) await storeLeads(admin, target.tenantId, target.conversationId, result.leads);
-    const { data: before } = await admin
-      .from("hc_conversations")
-      .select("channel, status, title")
-      .eq("tenant_id", target.tenantId)
-      .eq("id", target.conversationId)
-      .maybeSingle();
+    const before = conversation;
     const status = await updateStatus(admin, target.tenantId, target.conversationId, handoff);
     // Alerts are for real customers; the owner's own test chats stay quiet.
     if (before && before.channel !== "test") {

@@ -169,6 +169,106 @@ Known limits, stated rather than implied:
 - **One action per turn.** The Copilot does not chain actions.
 - **No workflow actions exist**, deliberately: see the risk below.
 
+
+## Phase 3 design — settled against the code
+
+### What a workflow is here
+
+`WorkflowStore` lives in the `workflows` workspace document:
+`{ formatVersion, workflows: WorkflowRecord[] }`. A `WorkflowRecord` carries a
+`lifecycle` ("draft" | "published" | "archived"), a `compatibility`
+("current" | "incompatible"), the editable `workflow`, and
+`publishedVersions: WorkflowDefinition[]`. `publishWorkflowVersion` validates
+first and appends a frozen copy with the next version number.
+
+Two facts settle most of the design:
+
+- **`validateWorkflow` already refuses a booking or review-reply node with no
+  `approval.owner` upstream** (`approval_required`). The rule the brief asks
+  for exists; the compiler leans on it rather than re-implementing it.
+- **`booking` allows only `off` or `ask`** (`lib/crew.ts`). There is no
+  approval-free booking mode to grant. A workflow can turn booking off; it has
+  no way to turn approval off, by construction.
+
+### The compiler narrows; it never grants
+
+`compileWorkflowPolicy(record)` reads only the newest entry in
+`publishedVersions`, and only when the record is published, compatible and
+validates clean. It produces a `WorkflowRuntimePolicy` of restrictions.
+
+The policy carries **two** sets rather than one allow-list:
+
+- `governedTools` — the names this workflow has an opinion about
+- `allowedTools` — of those, the ones it permits
+
+A single allow-list derived from an incomplete node→tool mapping would
+silently switch off capabilities the workflow never mentioned — `capture_lead`
+has no node kind, so a whitelist would disable leads for every workflow ever
+drawn. Enforcement is therefore: *a governed tool must be allowed; an
+ungoverned tool is untouched.*
+
+### Safety precedence falls out of where it is applied
+
+The policy is applied as the **last** filter inside `contractsForTurn`, which
+is the single place both `buildTools` and `effectsByName` get their contracts —
+so the bound tools and the effect map can never disagree.
+
+| Layer | Where |
+|---|---|
+| 1. Server authorization, tenant | server actions / `runLiveTurn` |
+| 2. Tool registry, hard safety | contracts exist at all |
+| 3. Connected integrations | `contract.requires` |
+| 4. Crew permissions | `contract.isEnabled(skills)` |
+| 5. Published workflow | the new filter, intersecting what survived |
+| 6. Model | picks from what it is offered |
+
+Because layer 5 only removes from the output of layer 4, a workflow cannot
+reach a tool the server never offered. That is the property, and it is
+structural rather than a rule anyone has to remember.
+
+### Node kinds that reach the runtime
+
+| Kind | Effect on policy |
+|---|---|
+| `trigger.website` | channel match: website conversations |
+| `knowledge.search` | governs `search_knowledge` |
+| `action.booking` | governs the booking tools |
+| `handoff.inbox` | governs `handoff_to_human` |
+| `approval.owner` | required upstream of booking; already enforced by validation |
+
+**Kinds that cannot, and say so:** `trigger.google_review`,
+`action.google_review_reply`, `logic.review_risk`, `handoff.review_follow_up`,
+`output.review_complete` belong to the reviews path, which is a scheduled sync
+and not the live conversation agent. `logic.confidence` has no deterministic
+equivalent in the runtime. `ai.respond` and `output.reply` are structural.
+Each produces a compiler warning; none silently does nothing.
+
+A workflow whose trigger is `trigger.google_review` is **not** compiled for
+conversations at all — it cannot govern live chat.
+
+### Selection
+
+There is no active-workflow pointer in `WorkflowRecord`, so one is not
+invented here. Selection is deterministic:
+
+1. published lifecycle, `compatibility === "current"`, at least one published
+   version, newest version validates clean;
+2. its trigger matches the conversation's channel;
+3. ties break on `updatedAt`, then workflow id — never array order;
+4. more than one match raises a warning rather than passing silently.
+
+No match, or no `workflows` document at all, means **no policy** and the agent
+behaves exactly as it does today.
+
+The channel is read once at the start of `runLiveTurn` and reused for the
+notification decision later, which removes a query rather than adding one.
+
+Only the **live** path is governed: `runPracticeTurn` is rule-based, calls no
+model and offers no tools, so there is nothing for a policy to narrow.
+
+Cache Components is off and the turn reads the database directly, so a publish
+takes effect on the next message with no revalidation.
+
 ## Phases
 
 **Phase 1 — foundation.** Contracts, registry, safety and permission policy,

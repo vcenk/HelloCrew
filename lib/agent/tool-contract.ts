@@ -127,10 +127,28 @@ export function leftAnApproval(output: string): boolean {
   }
 }
 
+/**
+ * What a published workflow says about the tools on offer.
+ *
+ * Only the two sets are needed here, so the agent does not depend on the
+ * workflow module: a tool the workflow governs must also be allowed, and a
+ * tool it says nothing about is left exactly as the layers above decided.
+ */
+export type ToolNarrowing = {
+  governedTools: ReadonlySet<string>;
+  allowedTools: ReadonlySet<string>;
+};
+
 export function availableContracts(
   contracts: ToolContract[],
   context: AgentContext,
   connectedIntegrations: ReadonlySet<IntegrationId> = new Set(),
+  /**
+   * Applied last, to what everything else already allowed. Narrowing an
+   * already-filtered list is what makes "a workflow may remove but never
+   * grant" structural rather than a rule somebody has to remember.
+   */
+  narrowing?: ToolNarrowing,
 ): ToolContract[] {
   const usable = contracts.filter((contract) => {
     if (!contract.isEnabled(context)) return false;
@@ -141,10 +159,18 @@ export function availableContracts(
     return true;
   });
 
-  // Resolved against what survived the first pass, so a tool is only withheld
-  // for a replacement that is genuinely on offer this turn.
-  const offered = new Set(usable.map((contract) => contract.name));
-  return usable.filter(
+  const governed = narrowing
+    ? usable.filter(
+        (contract) =>
+          !narrowing.governedTools.has(contract.name) ||
+          narrowing.allowedTools.has(contract.name),
+      )
+    : usable;
+
+  // Resolved against what survived every pass, so a tool is only withheld for
+  // a replacement that is genuinely on offer this turn.
+  const offered = new Set(governed.map((contract) => contract.name));
+  return governed.filter(
     (contract) =>
       !contract.supersededBy?.some((name) => offered.has(name)),
   );

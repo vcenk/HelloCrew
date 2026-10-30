@@ -7,6 +7,7 @@ import {
   assertContractIsSound,
   availableContracts,
   AWAITING_APPROVAL,
+  type ToolNarrowing,
   type IntegrationId,
   type ToolContract,
   type ToolEffect,
@@ -229,11 +230,14 @@ export function contractsForTurn(
   connectedIntegrations?: ReadonlySet<IntegrationId>,
   /** Contracts from a connected integration, e.g. the calendar tools. */
   extraContracts: ToolContract[] = [],
+  /** What a published workflow narrows this turn to, if one governs it. */
+  narrowing?: ToolNarrowing,
 ): Map<string, ToolContract> {
   const offered = availableContracts(
     [...buildContracts(effects), ...extraContracts],
     context,
     connectedIntegrations,
+    narrowing,
   );
   return new Map(offered.map((contract) => [contract.name, contract]));
 }
@@ -245,6 +249,7 @@ export function buildTools(
   effects: TurnEffects,
   connectedIntegrations?: ReadonlySet<IntegrationId>,
   extraContracts: ToolContract[] = [],
+  narrowing?: ToolNarrowing,
 ) {
   return [
     ...contractsForTurn(
@@ -252,6 +257,7 @@ export function buildTools(
       effects,
       connectedIntegrations,
       extraContracts,
+      narrowing,
     ).values(),
   ].map(
     (contract) =>
@@ -269,13 +275,17 @@ export function effectsByName(
   effects: TurnEffects,
   connectedIntegrations?: ReadonlySet<IntegrationId>,
   extraContracts: ToolContract[] = [],
+  narrowing?: ToolNarrowing,
 ): Record<string, ToolEffect> {
   const out: Record<string, ToolEffect> = {};
+  // Same call as buildTools, so the bound tools and the effect map cannot
+  // disagree about what this turn is allowed to do.
   for (const [name, contract] of contractsForTurn(
     context,
     effects,
     connectedIntegrations,
     extraContracts,
+    narrowing,
   ))
     out[name] = contract.effect;
   return out;
