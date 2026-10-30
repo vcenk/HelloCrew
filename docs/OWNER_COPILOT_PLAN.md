@@ -282,7 +282,26 @@ reuse `processKnowledgeFile`, turn `Suggestion[]` into a `ChangeSet` with
 additions / updates / duplicates / conflicts against approved knowledge,
 review and edit and discard per item, apply, report exactly what changed, audit.
 
-**Phase 3 — workflow authoring.** Chat produces patches against the existing
+**Phase 3A — runtime compiler. Done.** A published workflow narrows what the
+live agent is offered. See the design section above.
+
+**Phase 3B — conversational authoring. Done for drafting, editing, testing
+and publishing**, through five registered actions. The model never submits a
+workflow: it names operations from a closed list, with config values checked
+against the builder's own field definitions, and deterministic code edits a
+copy. Every candidate is validated and run through the Phase 3A compiler
+before the owner is shown anything, and compare-and-swap on the shared
+workflows document means a chat edit and a canvas edit cannot overwrite each
+other.
+
+Taking a required approval off anything that acts on the owner's behalf is
+refused outright rather than written down to fail at publish time.
+
+Not done in 3B: restoring an older published version, deleting a workflow
+through chat, and refreshing the canvas automatically after a chat edit —
+the library shows the change on its next load.
+
+**Phase 3 — workflow authoring (original sketch).** Chat produces patches against the existing
 `WorkflowDefinition`; `validateWorkflow` is the deterministic gate; canvas and
 chat read one canonical spec. **Blocked on a runtime compiler**: until a
 published workflow actually configures the agent, every workflow surface is

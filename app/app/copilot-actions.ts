@@ -10,6 +10,7 @@ import {
   type CopilotContext,
 } from "@/lib/copilot/contracts";
 import { findCopilotAction } from "@/lib/copilot/registry";
+import type { WorkflowOperation } from "@/lib/copilot/workflow-ops";
 import { getWorkspaceContext, type WorkspaceContext } from "@/lib/data/workspace";
 import { knowledgeKinds } from "@/lib/knowledge";
 import { recordCopilotAudit } from "@/lib/server/copilot/audit";
@@ -20,6 +21,14 @@ import {
   planKnowledgeFromDocument,
   undoKnowledgeChange,
 } from "@/lib/server/copilot/knowledge";
+import {
+  applyWorkflowEdit,
+  copilotCreateWorkflowDraft,
+  copilotInspectWorkflow,
+  copilotPublishWorkflow,
+  copilotTestWorkflow,
+  undoWorkflowChange,
+} from "@/lib/server/copilot/workflow";
 import { decideOwnerIntent } from "@/lib/server/copilot/run";
 import { readLiveConfig } from "@/lib/server/live-config";
 import { listConnectionsFor } from "@/lib/server/connections";
@@ -134,6 +143,20 @@ const turnSchema = z.object({
   /** The file the owner attached to this message, if any. */
   fileId: z.string().uuid().optional(),
   fileName: z.string().max(240).optional(),
+  /**
+   * Recent turns from the panel. The owner's own words and this Copilot's own
+   * replies, so nothing here grants anything — every action is still checked
+   * against the session and the registry.
+   */
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["owner", "copilot"]),
+        text: z.string().max(2_000),
+      }),
+    )
+    .max(12)
+    .default([]),
 });
 
 export type CopilotTurnResult = {
@@ -170,6 +193,7 @@ export async function copilotTurn(input: unknown): Promise<Result<CopilotTurnRes
     context: parsed.data.context as CopilotContext,
     role: s.workspace.role,
     connected,
+    history: parsed.data.history,
     attachment: parsed.data.fileId
       ? {
           fileId: parsed.data.fileId,
@@ -241,7 +265,88 @@ export async function copilotTurn(input: unknown): Promise<Result<CopilotTurnRes
     });
   }
 
+  if (intent.action === "workflow_inspect") {
+    const { workflowId } = intent.input as { workflowId?: string };
+    return authorized(intent.action, async (auth, action) => {
+      const result = await copilotInspectWorkflow(auth.db, auth.workspace, workflowId);
+      recordCopilotAudit(auth.workspace, action, "applied");
+      return { ok: true, reply: result.summary, result };
+    });
+  }
+
+  if (intent.action === "workflow_test_draft") {
+    const { workflowId } = intent.input as { workflowId: string };
+    return authorized(intent.action, async (auth, action) => {
+      const result = await copilotTestWorkflow(auth.db, auth.workspace, workflowId);
+      recordCopilotAudit(auth.workspace, action, "applied");
+      return { ok: true, reply: result.summary, result };
+    });
+  }
+
+  if (intent.action === "workflow_create_draft") {
+    const create = intent.input as { templateId?: string; name?: string };
+    return authorized(intent.action, async (auth, action) => {
+      const result = await copilotCreateWorkflowDraft(auth.db, auth.workspace, create);
+      recordCopilotAudit(
+        auth.workspace,
+        action,
+        result.status === "failed" ? "failed" : "draft",
+        { applied: result.applied },
+      );
+      return { ok: true, reply: result.summary, result };
+    });
+  }
+
+  if (intent.action === "workflow_update_draft") {
+    const edit = intent.input as {
+      workflowId: string;
+      expectedVersion: number;
+      operations: WorkflowOperation[];
+    };
+    return authorized(intent.action, async (auth, action) => {
+      const result = await applyWorkflowEdit(auth.db, auth.workspace, edit);
+      recordCopilotAudit(
+        auth.workspace,
+        action,
+        result.status === "failed" ? "failed" : "draft",
+        { applied: result.applied, skipped: result.skipped },
+      );
+      return { ok: true, reply: result.summary, result };
+    });
+  }
+
+  if (intent.action === "workflow_publish") {
+    const publish = intent.input as { workflowId: string; expectedVersion: number };
+    return authorized(intent.action, async (auth, action) => {
+      const result = await copilotPublishWorkflow(auth.db, auth.workspace, publish);
+      recordCopilotAudit(
+        auth.workspace,
+        action,
+        result.status === "applied" ? "applied" : "failed",
+        { applied: result.applied },
+      );
+      return { ok: true, reply: result.summary, result };
+    });
+  }
+
   return { ok: true, reply: "I can't do that one yet." };
+}
+
+/** Puts back what a workflow action did, where rollback is real. */
+export async function undoCopilotWorkflow(input: unknown): Promise<Result<{ result: ActionResult }>> {
+  const parsed = undoSchema.safeParse(input);
+  if (!parsed.success) return failure("invalid", "That undo is no longer valid.");
+
+  return authorized("workflow_create_draft", async (auth, action) => {
+    const result = await undoWorkflowChange(auth.db, auth.workspace, parsed.data.token);
+    recordCopilotAudit(
+      auth.workspace,
+      action,
+      result.status === "applied" ? "applied" : "failed",
+      { applied: result.applied },
+    );
+    return { ok: true, result };
+  });
 }
 
 const applySchema = z.object({

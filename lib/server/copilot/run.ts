@@ -1,7 +1,6 @@
 import "server-only";
 
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import type { AIMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 
 import { decideCopilotAction } from "@/lib/copilot/policy";
@@ -76,6 +75,14 @@ export async function decideOwnerIntent(options: {
   role: WorkspaceRole;
   connected: ReadonlySet<string>;
   attachment?: { fileId: string; name: string } | null;
+  /**
+   * Recent turns, oldest first.
+   *
+   * Without them each message starts from nothing, and anything that takes
+   * two steps — look at a workflow, then change it — cannot work: the model
+   * asks again for an id it was given a moment ago.
+   */
+  history?: readonly { role: "owner" | "copilot"; text: string }[];
 }): Promise<CopilotIntent> {
   const { config, text, context, role, connected } = options;
   const attachment = options.attachment ?? null;
@@ -105,6 +112,11 @@ export async function decideOwnerIntent(options: {
 
   const response = (await bound.invoke([
     new SystemMessage(systemPrompt(context, role, attachment)),
+    ...(options.history ?? []).map((turn) =>
+      turn.role === "owner"
+        ? new HumanMessage(turn.text)
+        : new AIMessage(turn.text),
+    ),
     new HumanMessage(text),
   ])) as AIMessage;
 

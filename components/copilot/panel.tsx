@@ -155,6 +155,11 @@ export function CopilotPanel({
     const answer = await copilotTurn({
       text: asked,
       context: contextFor(pathname),
+      // Enough for a follow-up to mean something, not the whole session.
+      history: messages.slice(-8).map((message) => ({
+        role: message.role,
+        text: message.text.slice(0, 2_000),
+      })),
       ...(attached ? { fileId: attached.id, fileName: attached.name } : {}),
     }).catch(() => null);
     setBusy(false);

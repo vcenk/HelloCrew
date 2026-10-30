@@ -1,5 +1,6 @@
 import type { CopilotActionMeta } from "./contracts";
 import { knowledgeActions } from "./actions/knowledge";
+import { workflowActions } from "./actions/workflow";
 
 /**
  * Every action the Copilot may take.
@@ -8,7 +9,10 @@ import { knowledgeActions } from "./actions/knowledge";
  * function, a table or a column: a tool call whose name is not here is
  * refused before anything runs, so a model that invents one achieves nothing.
  */
-const ALL: readonly CopilotActionMeta[] = [...knowledgeActions];
+const ALL: readonly CopilotActionMeta[] = [
+  ...knowledgeActions,
+  ...workflowActions,
+];
 
 const BY_NAME = new Map(ALL.map((action) => [action.name, action]));
 
