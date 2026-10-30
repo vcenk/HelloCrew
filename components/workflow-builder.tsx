@@ -1127,6 +1127,13 @@ export function WorkflowBuilder({
   const [editor, setEditor] = useState<EditorDraft | null>(null);
   /** A newer copy of the workflow that is open, waiting to be taken. */
   const [incoming, setIncoming] = useState<EditorDraft | null>(null);
+  /**
+   * Bumped only when a copy from elsewhere is taken, to remount the canvas.
+   * Not the draft's own updatedAt: that moves on the owner's every save, and
+   * remounting then would throw away what the canvas is holding — the
+   * selected node, and the fact that they had just saved.
+   */
+  const [adopted, setAdopted] = useState(0);
 
   // The Copilot writes workflows on the server, and the sync takes the new
   // copy into this browser. Without this the library keeps showing the one
@@ -1239,6 +1246,7 @@ export function WorkflowBuilder({
                 onClick={() => {
                   setEditor(incoming);
                   setIncoming(null);
+                  setAdopted((count) => count + 1);
                 }}
               >
                 Load that version
@@ -1255,7 +1263,7 @@ export function WorkflowBuilder({
           <BuilderCanvas
             // Remounted so the canvas seeds itself from the copy just taken;
             // its node and edge state is initialised from the draft once.
-            key={`${editor.workflow.id}:${editor.updatedAt}`}
+            key={`${editor.workflow.id}:${adopted}`}
             draft={editor}
             onBack={() => {
               setEditor(null);
