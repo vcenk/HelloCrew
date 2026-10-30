@@ -62,21 +62,18 @@ export const createWorkflowDraft: CopilotActionMeta<
 export const updateWorkflowDraft: CopilotActionMeta<
   z.ZodObject<{
     workflowId: z.ZodString;
-    expectedVersion: z.ZodNumber;
     operations: z.ZodArray<typeof workflowOperationSchema>;
   }>
 > = {
   name: "workflow_update_draft",
   description:
     "Change a workflow draft by naming specific operations. Only edits the draft; it does not publish.",
+  // No version argument. Which copy the owner is looking at is the browser's
+  // to report, not the model's to remember: a model-supplied number is a
+  // guess, and a guess either refuses edits nobody conflicted with or waves
+  // through ones that did.
   input: z.object({
     workflowId: z.string().min(1).max(80),
-    /**
-     * The version the owner was looking at. A draft that moved since then is
-     * refused rather than overwritten — somebody may be editing it on the
-     * canvas right now.
-     */
-    expectedVersion: z.number().int().min(0),
     operations: z.array(workflowOperationSchema).min(1).max(20),
   }),
   safety: "draft_write",
@@ -105,15 +102,12 @@ export const testWorkflowDraft: CopilotActionMeta<
 };
 
 export const publishWorkflow: CopilotActionMeta<
-  z.ZodObject<{ workflowId: z.ZodString; expectedVersion: z.ZodNumber }>
+  z.ZodObject<{ workflowId: z.ZodString }>
 > = {
   name: "workflow_publish",
   description:
     "Publish a workflow draft so it starts governing live conversations. Only ever at the owner's explicit instruction.",
-  input: z.object({
-    workflowId: z.string().min(1).max(80),
-    expectedVersion: z.number().int().min(0),
-  }),
+  input: z.object({ workflowId: z.string().min(1).max(80) }),
   safety: "live_configuration",
   requiredRole: "operator",
   resource: "workflow",

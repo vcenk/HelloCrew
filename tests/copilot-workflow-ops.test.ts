@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  publishWorkflow,
+  updateWorkflowDraft,
+} from "../lib/copilot/actions/workflow";
 import { buildWorkflowChangeSet } from "../lib/copilot/workflow-changes";
 import {
   applyWorkflowOperations,
@@ -52,6 +56,19 @@ describe("what the model is allowed to ask for", () => {
         JSON.stringify(operation),
       ).toBe(true);
   });
+});
+
+describe("what the model is never asked to keep track of", () => {
+  it.each([updateWorkflowDraft, publishWorkflow])(
+    "$name takes no version argument",
+    (action) => {
+      // A version the model supplies is a guessed one — it has no way to
+      // observe the document. Guessing refuses edits nobody conflicted with,
+      // which is what it did the first time an owner said "rename it".
+      // The browser reports the version it is holding instead.
+      expect(Object.keys(action.input.shape)).not.toContain("expectedVersion");
+    },
+  );
 });
 
 describe("changing a step's settings", () => {

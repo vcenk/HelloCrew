@@ -64,6 +64,19 @@ async function save(
 const staleMessage =
   "This workflow changed while you were looking at it — somebody may have it open on the canvas. Ask me to look again and I'll work from the latest.";
 
+/**
+ * Whether the copy the owner's browser is holding is still the current one.
+ *
+ * `seen` is the version that browser reported, or null when it had none to
+ * report. Null is not a bypass: `saveDocument` below still writes against the
+ * version this request just read, so a canvas save landing in between is
+ * refused by the database either way. This check is the wider guard — it
+ * catches a change made before the owner even asked.
+ */
+function movedOn(current: number, seen: number | null) {
+  return seen !== null && seen !== current;
+}
+
 const failed = (summary: string): ActionResult => ({
   status: "failed",
   summary,
@@ -97,10 +110,10 @@ export async function copilotInspectWorkflow(
 
   const lines = [
     `“${record.workflow.name}” is ${record.lifecycle}, with ${record.workflow.nodes.length} steps.`,
-    // The ids are in the reply because an edit has to name the workflow and
-    // the version it was looking at, and one action runs per turn — without
-    // these the next turn has nothing to address.
-    `workflowId ${record.workflow.id}, expectedVersion ${loaded.version}.`,
+    // The id is in the reply because an edit has to name the workflow and one
+    // action runs per turn — without it the next turn has nothing to address.
+    // No version here: that is the browser's to report, not the model's.
+    `workflowId ${record.workflow.id}.`,
     `Steps: ${record.workflow.nodes
       .map((node) => `${node.id} (${node.label})`)
       .join(", ")}.`,
@@ -204,14 +217,14 @@ export async function applyWorkflowEdit(
   workspace: WorkspaceContext,
   input: {
     workflowId: string;
-    expectedVersion: number;
+    expectedVersion: number | null;
     operations: readonly WorkflowOperation[];
   },
 ): Promise<ActionResult> {
   const loaded = await loadStore(db, workspace);
   // Checked before anything is computed: a draft that moved is one somebody
   // else is working on, and overwriting their edit is worse than refusing.
-  if (loaded.version !== input.expectedVersion) return failed(staleMessage);
+  if (movedOn(loaded.version, input.expectedVersion)) return failed(staleMessage);
 
   const record = loaded.store.workflows.find(
     (candidate) => candidate.workflow.id === input.workflowId,
@@ -303,10 +316,10 @@ export async function copilotTestWorkflow(
 export async function copilotPublishWorkflow(
   db: SupabaseClient,
   workspace: WorkspaceContext,
-  input: { workflowId: string; expectedVersion: number },
+  input: { workflowId: string; expectedVersion: number | null },
 ): Promise<ActionResult> {
   const loaded = await loadStore(db, workspace);
-  if (loaded.version !== input.expectedVersion) return failed(staleMessage);
+  if (movedOn(loaded.version, input.expectedVersion)) return failed(staleMessage);
 
   const record = loaded.store.workflows.find(
     (candidate) => candidate.workflow.id === input.workflowId,

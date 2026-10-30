@@ -157,6 +157,17 @@ const turnSchema = z.object({
     )
     .max(12)
     .default([]),
+  /**
+   * The workspace document versions this browser is holding.
+   *
+   * Reported by the page, because the page is the thing that has actually
+   * shown the owner a copy. It can only cause an edit to be refused, never to
+   * be allowed: the compare-and-swap in the store is what makes a write safe,
+   * and it runs whatever arrives here.
+   */
+  seen: z
+    .object({ workflows: z.number().int().min(0).optional() })
+    .default({}),
 });
 
 export type CopilotTurnResult = {
@@ -300,11 +311,13 @@ export async function copilotTurn(input: unknown): Promise<Result<CopilotTurnRes
   if (intent.action === "workflow_update_draft") {
     const edit = intent.input as {
       workflowId: string;
-      expectedVersion: number;
       operations: WorkflowOperation[];
     };
     return authorized(intent.action, async (auth, action) => {
-      const result = await applyWorkflowEdit(auth.db, auth.workspace, edit);
+      const result = await applyWorkflowEdit(auth.db, auth.workspace, {
+        ...edit,
+        expectedVersion: parsed.data.seen.workflows ?? null,
+      });
       recordCopilotAudit(
         auth.workspace,
         action,
@@ -316,9 +329,12 @@ export async function copilotTurn(input: unknown): Promise<Result<CopilotTurnRes
   }
 
   if (intent.action === "workflow_publish") {
-    const publish = intent.input as { workflowId: string; expectedVersion: number };
+    const publish = intent.input as { workflowId: string };
     return authorized(intent.action, async (auth, action) => {
-      const result = await copilotPublishWorkflow(auth.db, auth.workspace, publish);
+      const result = await copilotPublishWorkflow(auth.db, auth.workspace, {
+        ...publish,
+        expectedVersion: parsed.data.seen.workflows ?? null,
+      });
       recordCopilotAudit(
         auth.workspace,
         action,

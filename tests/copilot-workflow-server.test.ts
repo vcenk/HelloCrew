@@ -90,6 +90,35 @@ describe("two people editing the same workflow", () => {
     expect(saveDocument.mock.calls[0][3]).toBe(6);
   });
 
+  it("still saves when the browser had no version to report", async () => {
+    // Null is "this page never loaded the document", not "skip the checks":
+    // the compare-and-swap below still runs against the version just read.
+    storeAt(6, [record()]);
+    const result = await applyWorkflowEdit(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      expectedVersion: null,
+      operations: [{ op: "set_name", name: "Front desk" }],
+    });
+
+    expect(result.status).toBe("draft");
+    expect(saveDocument.mock.calls[0][3]).toBe(6);
+  });
+
+  it("lets the database refuse an edit the browser could not know about", async () => {
+    // The canvas saved between our read and our write. Nothing the page
+    // reported could have caught this one — only the compare-and-swap does.
+    storeAt(6, [record()]);
+    saveDocument.mockResolvedValue({ ok: false, reason: "conflict" });
+    const result = await applyWorkflowEdit(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      expectedVersion: null,
+      operations: [{ op: "set_name", name: "Front desk" }],
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.summary).toMatch(/changed while you were looking/i);
+  });
+
   it("reports a conflict the database caught rather than claiming success", async () => {
     storeAt(6, [record()]);
     saveDocument.mockResolvedValue({ ok: false, reason: "conflict" });

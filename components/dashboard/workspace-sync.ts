@@ -8,6 +8,7 @@ import {
   type WorkspaceSnapshot,
 } from "@/app/app/actions";
 import {
+  announcePulled,
   LOCAL_WRITE_EVENT,
   localStorageKeyFor,
   workspaceDocumentKeys,
@@ -202,6 +203,47 @@ export function useWorkspaceSync(
     return () => window.removeEventListener(LOCAL_WRITE_EVENT, onWrite);
   }, [schedule]);
 
+  /**
+   * Takes the server's current copy of one document.
+   *
+   * Needed because the Copilot writes workspace documents on the server,
+   * which leaves this browser holding an older version number. Without
+   * adopting it, the next local edit would be refused as a conflict and the
+   * owner would be told to reload for a change they just made themselves.
+   */
+  const adopt = useCallback(async (key: WorkspaceDocumentKey) => {
+    // Unsaved edits on the canvas are not ours to throw away. Taking the
+    // server's copy here would discard them silently; leaving them queued
+    // means the save is refused and the owner is told, which is recoverable.
+    if (dirty.current.has(key)) return;
+    const snapshot = await loadWorkspace().catch(() => null);
+    if (!snapshot || snapshot.status !== "signed_in") return;
+    const stored = snapshot.documents[key];
+    if (!stored) return;
+
+    writeLocal(key, stored.document);
+    versions.current[key] = stored.version;
+    synced.current[key] = canonical(readLocal(key));
+    // No longer behind, so a key blocked by an earlier conflict is usable.
+    blocked.current.delete(key);
+    dirty.current.delete(key);
+    setSaveStatus("saved");
+    announcePulled(key);
+  }, []);
+
+  /**
+   * The version of a document this browser is actually holding.
+   *
+   * The Copilot needs it to refuse an edit built on a copy somebody has since
+   * changed. The browser is the only party that genuinely knows this: the
+   * model can only guess a number, and a guessed one either refuses edits
+   * nobody conflicted with or waves through ones that did.
+   */
+  const seenVersion = useCallback(
+    (key: WorkspaceDocumentKey) => versions.current[key] ?? null,
+    [],
+  );
+
   const retry = useCallback(() => {
     if (saveStatus === "conflict") {
       window.location.reload();
@@ -210,5 +252,5 @@ export function useWorkspaceSync(
     void flush();
   }, [flush, saveStatus]);
 
-  return { account, saveStatus, ready, retry };
+  return { account, saveStatus, ready, retry, adopt, seenVersion };
 }

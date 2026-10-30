@@ -66,6 +66,23 @@ export function validateWorkspaceDocument(
 
 export const LOCAL_WRITE_EVENT = "hellocrew:local-write";
 
+/**
+ * A workspace document changed on the server and this browser has taken the
+ * new copy.
+ *
+ * Deliberately not LOCAL_WRITE_EVENT: that one means "this browser edited
+ * something, push it up". Announcing a pull with it would send the server's
+ * own copy straight back, and anything listening would have to guess which
+ * direction the change came from.
+ */
+export const WORKSPACE_PULLED_EVENT = "hellocrew:workspace-pulled";
+
+export function announcePulled(key: WorkspaceDocumentKey) {
+  window.dispatchEvent(
+    new CustomEvent(WORKSPACE_PULLED_EVENT, { detail: { key } }),
+  );
+}
+
 // Editors call this instead of localStorage.setItem so the dashboard can sync
 // the change to the signed-in workspace.
 export function persistLocal(key: WorkspaceDocumentKey, value: unknown) {

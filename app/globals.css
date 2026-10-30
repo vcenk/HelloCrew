@@ -2200,6 +2200,24 @@ p {
   white-space: nowrap;
   backdrop-filter: blur(8px);
 }
+/* A newer copy of the open workflow arrived; taking it is the owner's call. */
+.workflow-pulled-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  border: 1px solid rgba(49, 91, 72, 0.2);
+  border-radius: 12px;
+  background: rgba(49, 91, 72, 0.06);
+  padding: 10px 14px;
+  color: var(--fg-315b48, #315b48);
+  font-size: 13px;
+}
+.workflow-pulled-notice span {
+  flex: 1;
+  min-width: 200px;
+}
 .node-inspector label {
   display: flex;
   flex-direction: column;

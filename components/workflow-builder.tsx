@@ -1,7 +1,10 @@
 "use client";
 
-import { persistLocal } from "@/lib/workspace-documents";
-import { useCallback, useMemo, useState } from "react";
+import {
+  persistLocal,
+  WORKSPACE_PULLED_EVENT,
+} from "@/lib/workspace-documents";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addEdge,
   Background,
@@ -42,6 +45,7 @@ import {
   Pencil,
   Play,
   Plus,
+  RefreshCw,
   RotateCcw,
   Rocket,
   Save,
@@ -1121,6 +1125,38 @@ export function WorkflowBuilder({
   const [workflows, setWorkflows] =
     useState<SavedWorkflow[]>(readSavedWorkflows);
   const [editor, setEditor] = useState<EditorDraft | null>(null);
+  /** A newer copy of the workflow that is open, waiting to be taken. */
+  const [incoming, setIncoming] = useState<EditorDraft | null>(null);
+
+  // The Copilot writes workflows on the server, and the sync takes the new
+  // copy into this browser. Without this the library keeps showing the one
+  // it read when the page opened, and an owner who just asked for a change
+  // is looking at the version before it.
+  useEffect(() => {
+    const onPulled = (event: Event) => {
+      const key = (event as CustomEvent<{ key?: string }>).detail?.key;
+      if (key !== "workflows") return;
+      const latest = readSavedWorkflows();
+      setWorkflows(latest);
+      onReadinessChange(summarizeWorkflowReadiness(latest));
+
+      // The open editor is not replaced outright: doing that underneath
+      // somebody mid-edit would throw away what they are typing. It is
+      // offered instead, so taking it is their decision.
+      if (!editor) return;
+      const fresh = latest.find(
+        (item) => item.workflow.id === editor.workflow.id,
+      );
+      setIncoming(
+        fresh &&
+          JSON.stringify(fresh.workflow) !== JSON.stringify(editor.workflow)
+          ? fresh
+          : null,
+      );
+    };
+    window.addEventListener(WORKSPACE_PULLED_EVENT, onPulled);
+    return () => window.removeEventListener(WORKSPACE_PULLED_EVENT, onPulled);
+  }, [editor, onReadinessChange]);
 
   function persist(next: SavedWorkflow[]) {
     setWorkflows(next);
@@ -1189,12 +1225,46 @@ export function WorkflowBuilder({
   return (
     <ReactFlowProvider>
       {editor ? (
-        <BuilderCanvas
-          draft={editor}
-          onBack={() => setEditor(null)}
-          onSave={saveWorkflow}
-          onPublish={publishWorkflow}
-        />
+        <>
+          {incoming && (
+            <p className="workflow-pulled-notice" role="status">
+              <RefreshCw size={14} aria-hidden="true" />
+              <span>
+                “{incoming.workflow.name}” was changed somewhere else — in the
+                Copilot, or in another tab.
+              </span>
+              <button
+                type="button"
+                className="button dark compact"
+                onClick={() => {
+                  setEditor(incoming);
+                  setIncoming(null);
+                }}
+              >
+                Load that version
+              </button>
+              <button
+                type="button"
+                className="button outline compact"
+                onClick={() => setIncoming(null)}
+              >
+                Keep editing
+              </button>
+            </p>
+          )}
+          <BuilderCanvas
+            // Remounted so the canvas seeds itself from the copy just taken;
+            // its node and edge state is initialised from the draft once.
+            key={`${editor.workflow.id}:${editor.updatedAt}`}
+            draft={editor}
+            onBack={() => {
+              setEditor(null);
+              setIncoming(null);
+            }}
+            onSave={saveWorkflow}
+            onPublish={publishWorkflow}
+          />
+        </>
       ) : (
         <WorkflowLibrary
           assistantPurpose={assistantPurpose}

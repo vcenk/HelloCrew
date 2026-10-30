@@ -36,7 +36,10 @@ import type { NeedsYou, ThreadSummary } from "@/lib/conversations";
 import { getCalendarSetup } from "@/app/app/calendar-actions";
 import { launchSteps, type LaunchInput } from "./launch-steps";
 import { useConversations, type Conversation, type Engine } from "./use-conversations";
-import { persistLocal } from "@/lib/workspace-documents";
+import {
+  persistLocal,
+  type WorkspaceDocumentKey,
+} from "@/lib/workspace-documents";
 import {
   getLiveAiStatus,
   updateLiveAi,
@@ -74,6 +77,17 @@ type DashboardState = {
   account: Account;
   saveStatus: SaveStatus;
   retrySave: () => void;
+  /**
+   * Takes the server's copy of a document this browser did not write — the
+   * Copilot writes them server side, so without this the canvas keeps showing
+   * the old one and the next local edit is refused as a conflict.
+   */
+  adoptWorkspaceDocument: (key: WorkspaceDocumentKey) => Promise<void>;
+  /**
+   * The version of a document this browser is holding, so a server-side edit
+   * can be refused when it would overwrite a change nobody here has seen.
+   */
+  seenDocumentVersion: (key: WorkspaceDocumentKey) => number | null;
   business: BusinessProfile;
   setBusiness: (business: BusinessProfile) => void;
   identity: AssistantIdentity;
@@ -322,6 +336,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       account: sync.account,
       saveStatus: sync.saveStatus,
       retrySave: sync.retry,
+      adoptWorkspaceDocument: sync.adopt,
+      seenDocumentVersion: sync.seenVersion,
       business,
       setBusiness,
       identity,
@@ -365,6 +381,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       saveCrew,
       sync.account,
       sync.saveStatus,
+      sync.adopt,
+      sync.seenVersion,
       sync.retry,
       business,
       setBusiness,

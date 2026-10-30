@@ -26,6 +26,7 @@ import type {
 } from "@/lib/copilot/contracts";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/dashboard/ui";
+import { useDashboard } from "@/components/dashboard/provider";
 import { ProposalCard, ResultCard } from "./cards";
 
 /**
@@ -73,6 +74,7 @@ export function CopilotPanel({
   onClose: () => void;
 }) {
   const pathname = usePathname();
+  const { adoptWorkspaceDocument, seenDocumentVersion } = useDashboard();
   const titleId = useId();
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [text, setText] = useState("");
@@ -160,6 +162,12 @@ export function CopilotPanel({
         role: message.role,
         text: message.text.slice(0, 2_000),
       })),
+      // Which copy of the workflows this page is holding. The server refuses
+      // an edit built on a copy somebody has since changed on the canvas.
+      seen: (() => {
+        const workflows = seenDocumentVersion("workflows");
+        return workflows === null ? {} : { workflows };
+      })(),
       ...(attached ? { fileId: attached.id, fileName: attached.name } : {}),
     }).catch(() => null);
     setBusy(false);
@@ -172,7 +180,28 @@ export function CopilotPanel({
     say("copilot", answer.reply);
     if (answer.proposal && answer.source)
       setPending({ proposal: answer.proposal, source: answer.source });
-    if (answer.result) setResult(answer.result);
+    if (answer.result) {
+      setResult(answer.result);
+      await adoptAfter(answer.result);
+    }
+  }
+
+  /**
+   * Brings this browser up to date with what the Copilot just wrote.
+   *
+   * It writes workspace documents on the server, so the page is left holding
+   * an older copy — and an older version number, which would turn the next
+   * edit on the canvas into a conflict about a change the owner just asked
+   * for themselves.
+   */
+  async function adoptAfter(outcome: ActionResult) {
+    if (outcome.status === "failed" || outcome.status === "rejected") return;
+    const where = outcome.links.some((link) => link.href.includes("workflows"))
+      ? "workflows"
+      : "knowledge";
+    await adoptWorkspaceDocument(where).catch(() => {
+      // Worth nothing more than a stale panel until the next load.
+    });
   }
 
   async function apply(
@@ -196,6 +225,7 @@ export function CopilotPanel({
     setPending(null);
     setResult(applied.result);
     say("copilot", applied.result.summary);
+    await adoptAfter(applied.result);
   }
 
   async function approve() {
@@ -213,6 +243,7 @@ export function CopilotPanel({
     }
     setResult(approved.result);
     say("copilot", approved.result.summary);
+    await adoptAfter(approved.result);
   }
 
   async function undo() {
@@ -228,6 +259,7 @@ export function CopilotPanel({
     }
     setResult(undone.result);
     say("copilot", undone.result.summary);
+    await adoptAfter(undone.result);
   }
 
   return (
