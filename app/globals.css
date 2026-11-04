@@ -2200,6 +2200,35 @@ p {
   white-space: nowrap;
   backdrop-filter: blur(8px);
 }
+/* What publishing would change, and what it would not. */
+.workflow-governs {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+  border: 1px solid rgba(49, 91, 72, 0.15);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.workflow-governs-group strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-315b48, #315b48);
+  font-size: 13px;
+}
+.workflow-governs-group[data-tone="muted"] strong {
+  color: var(--fg-657068, #657068);
+}
+.workflow-governs-group ul {
+  margin: 8px 0 0;
+  padding-left: 26px;
+  display: grid;
+  gap: 5px;
+  color: var(--fg-657068, #657068);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 /* A newer copy of the open workflow arrived; taking it is the owner's call. */
 .workflow-pulled-notice {
   display: flex;

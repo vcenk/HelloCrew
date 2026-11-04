@@ -5,7 +5,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ToolNarrowing } from "@/lib/agent/tool-contract";
 import { loadDocuments, type WorkspaceContext } from "@/lib/data/workspace";
 import { parseWorkflowStore } from "@/lib/workflow-lifecycle";
-import { selectWorkflowPolicy } from "@/lib/workflow-policy";
+import {
+  selectWorkflowPolicy,
+  type WorkflowConversationPolicy,
+} from "@/lib/workflow-policy";
+
+/** What a governing workflow changes about one conversation. */
+export type WorkflowTurnPolicy = ToolNarrowing & {
+  conversation: WorkflowConversationPolicy;
+};
 
 /**
  * The published workflow governing one conversation, if there is one.
@@ -22,7 +30,7 @@ export async function workflowPolicyFor(
   admin: SupabaseClient,
   workspace: Pick<WorkspaceContext, "tenantId">,
   channel: string,
-): Promise<ToolNarrowing | null> {
+): Promise<WorkflowTurnPolicy | null> {
   if (!channel) return null;
 
   try {
@@ -42,16 +50,24 @@ export async function workflowPolicyFor(
     const withheld = [...policy.governedTools].filter(
       (tool) => !policy.allowedTools.has(tool),
     );
+    const settings = [
+      policy.conversation.tone ? `voice "${policy.conversation.tone}"` : "",
+      policy.conversation.knowledgeKinds
+        ? `knowledge ${[...policy.conversation.knowledgeKinds].join("/")}`
+        : "",
+    ].filter(Boolean);
     console.info(
       `[workflow] ${policy.workflowName} v${policy.version} governs ${channel}; ` +
         `allows ${[...policy.allowedTools].join(", ") || "nothing"}; ` +
-        `withholds ${withheld.join(", ") || "nothing"}` +
+        `withholds ${withheld.join(", ") || "nothing"}; ` +
+        `sets ${settings.join(", ") || "nothing"}` +
         (warnings.length > 0 ? ` — ${warnings.join(" ")}` : ""),
     );
 
     return {
       governedTools: policy.governedTools,
       allowedTools: policy.allowedTools,
+      conversation: policy.conversation,
     };
   } catch (error) {
     // A workflow that cannot be read must not take the conversation down with

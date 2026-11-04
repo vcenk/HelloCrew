@@ -56,12 +56,18 @@ export function buildContracts(effects: TurnEffects): ToolContract[] {
     audit: { action: "knowledge.search", recordsPii: false },
     isEnabled: () => true,
     run: async ({ query }, context) => {
-      const matches = searchApprovedKnowledge(context.knowledge, query);
+      // Filtered the same way the prompt's digest is. A workflow that
+      // restricts which knowledge may be used has to hold here too, or the
+      // model simply searches its way back to what was withheld.
+      const kinds = context.knowledgeKinds;
+      const matches = searchApprovedKnowledge(context.knowledge, query).filter(
+        (m) => !kinds || kinds.has(m.source.kind),
+      );
       const lines = matches.map((m) =>
         describeSource(m.source, context.knowledge.team ?? []),
       );
       // Uploaded files the owner allowed, when the items don't cover it.
-      if (matches.length < 2 && context.searchFiles) {
+      if (matches.length < 2 && context.searchFiles && (!kinds || kinds.has("document"))) {
         const passages = await context.searchFiles(query).catch(() => []);
         for (const p of passages)
           lines.push(`From the document "${p.title}": ${p.content}`);
@@ -82,13 +88,20 @@ export function buildContracts(effects: TurnEffects): ToolContract[] {
     requires: null,
     audit: { action: "business.read", recordsPii: false },
     isEnabled: () => true,
-    run: (_args, context) =>
-      JSON.stringify({
+    // Hours and services are knowledge too, reshaped. A workflow that
+    // withheld those kinds from search would be pointless if the model could
+    // ask for them here instead.
+    run: (_args, context) => {
+      const kinds = context.knowledgeKinds;
+      return JSON.stringify({
         name: context.business.name,
-        hours: context.business.hours,
-        services: context.business.services,
+        ...(!kinds || kinds.has("hours") ? { hours: context.business.hours } : {}),
+        ...(!kinds || kinds.has("service")
+          ? { services: context.business.services }
+          : {}),
         bookingUrl: context.business.bookingUrl || null,
-      }),
+      });
+    },
   };
 
   const requestBooking: ToolContract<

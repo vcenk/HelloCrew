@@ -2,6 +2,19 @@ import { activeTeam, describeSource } from "@/lib/knowledge";
 import type { AgentContext } from "./context";
 import type { IntegrationId } from "./tool-contract";
 
+/**
+ * The approved knowledge this turn may use.
+ *
+ * A governing workflow can restrict which kinds the agent sees. It filters
+ * what was already approved, so the narrowest of the two always wins and a
+ * workflow can never surface something the owner has not approved.
+ */
+export function permittedSources(context: AgentContext) {
+  const kinds = context.knowledgeKinds;
+  if (!kinds) return context.approvedSources;
+  return context.approvedSources.filter((source) => kinds.has(source.kind));
+}
+
 // Approved knowledge is small for most businesses, so it goes straight into the
 // prompt (most reliable grounding). Beyond this budget the model uses search.
 export const INLINE_KNOWLEDGE_CHARS = 14_000;
@@ -10,7 +23,7 @@ export function knowledgeDigest(context: AgentContext) {
   const lines: string[] = [];
   let used = 0;
   let omitted = 0;
-  for (const source of context.approvedSources) {
+  for (const source of permittedSources(context)) {
     const line = `- [${source.kind}${source.language !== "en" ? `/${source.language}` : ""}] ${describeSource(source, context.knowledge.team ?? [])}`;
     if (used + line.length > INLINE_KNOWLEDGE_CHARS) {
       omitted++;
@@ -38,7 +51,9 @@ export function buildSystemPrompt(
   return [
     `You are ${identity.name}, the ${identity.role} for ${business.name}.`,
     `Business description: ${business.description}`,
-    `Voice: ${identity.tone}. Keep replies short (1-4 sentences) and friendly. Reply in the customer's language.`,
+    // A governing workflow may set the voice; the assistant's own setting is
+    // the default. Style only — it changes no rule below it.
+    `Voice: ${context.tone ?? identity.tone}. Keep replies short (1-4 sentences) and friendly. Reply in the customer's language.`,
     `Today is ${context.now.toISOString().slice(0, 10)}.`,
     "",
     "Rules:",

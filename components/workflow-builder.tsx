@@ -56,6 +56,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { nodeJobDefinitions, type JobField } from "@/lib/workflow-jobs";
+import { previewWorkflowSettings } from "@/lib/workflow-policy";
 import {
   WORKFLOW_STORAGE_VERSION,
   createWorkflowRecord,
@@ -271,6 +272,63 @@ function WorkflowCard({ data, selected }: NodeProps<CanvasNode>) {
 }
 
 const nodeTypes = { workflow: WorkflowCard };
+
+/**
+ * What publishing these steps would actually change, and what it would not.
+ *
+ * Several settings on this canvas look like they govern and do not. Leaving
+ * that unsaid is how an owner comes to believe a confidence threshold is
+ * protecting them. The list comes from the runtime's own compiler, so it
+ * cannot drift away from what the receptionist really does.
+ */
+function WhatPublishingChanges({
+  definition,
+}: {
+  definition: WorkflowDefinition;
+}) {
+  const { conversation, warnings } = useMemo(
+    () => previewWorkflowSettings(definition),
+    [definition],
+  );
+  const governs = [
+    conversation.tone ? `Replies in a ${conversation.tone.toLowerCase()} voice.` : "",
+    conversation.knowledgeKinds
+      ? `Answers only from: ${[...conversation.knowledgeKinds].join(", ")}.`
+      : "",
+  ].filter(Boolean);
+
+  if (governs.length === 0 && warnings.length === 0) return null;
+  return (
+    <section className="workflow-governs" aria-label="What publishing changes">
+      {governs.length > 0 && (
+        <div className="workflow-governs-group">
+          <strong>
+            <ShieldCheck size={15} aria-hidden="true" /> Once published, this
+            changes live chats
+          </strong>
+          <ul>
+            {governs.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <div className="workflow-governs-group" data-tone="muted">
+          <strong>
+            <CircleAlert size={15} aria-hidden="true" /> Set here, but not in
+            effect yet
+          </strong>
+          <ul>
+            {warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function readSavedWorkflows(): SavedWorkflow[] {
   if (typeof window === "undefined") return [];
@@ -801,6 +859,7 @@ function BuilderCanvas({
           )}
         </div>
       </div>
+      <WhatPublishingChanges definition={definition} />
       {testPlan && (
         <section
           className="workflow-test-panel"

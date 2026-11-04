@@ -215,9 +215,11 @@ describe("what a published workflow actually changes", () => {
     const compiled = compileWorkflowPolicy(published());
     expect(compiled.ok).toBe(true);
     // The salon template contains logic.confidence, which has no runtime
-    // equivalent. Silence there would be a lie.
+    // equivalent. Silence there would be a lie. The warning names the step
+    // the way the builder labels it rather than by node kind, because it is
+    // written for the owner reading the canvas.
     if (compiled.ok)
-      expect(compiled.policy.warnings.join(" ")).toMatch(/logic.confidence/);
+      expect(compiled.policy.warnings.join(" ")).toMatch(/minimum confidence/i);
   });
 });
 

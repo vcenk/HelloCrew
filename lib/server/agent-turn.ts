@@ -59,7 +59,7 @@ export async function runLiveTurn(
 ): Promise<({ ok: true } & StoredTurn) | TurnFailure> {
   const tenant = { tenantId: target.tenantId };
   const history = await historyForModel(admin, tenant, target.conversationId, MAX_HISTORY_MESSAGES);
-  const context = await loadAgentContext(admin, tenant);
+  const loaded = await loadAgentContext(admin, tenant);
   // Read once, up front: the channel decides which published workflow governs
   // this conversation, and the same row answers the notification question
   // later — so this replaces a second query rather than adding one.
@@ -74,6 +74,12 @@ export async function runLiveTurn(
     tenant,
     String(conversation?.channel ?? ""),
   );
+  // A governing workflow's per-step settings. Spread over the loaded context
+  // rather than into it, so with no workflow the context is the same object
+  // it has always been.
+  const context = workflow
+    ? { ...loaded, ...workflow.conversation }
+    : loaded;
   // Calendar tools are offered only when a calendar is connected and its
   // working hours are readable; otherwise the model is never shown them.
   const calendarEffects: CalendarTurnEffects = {
