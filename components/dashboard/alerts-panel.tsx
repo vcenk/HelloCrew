@@ -40,6 +40,14 @@ const toggles: {
   },
 ];
 
+// Kept apart from the list above, which is all "email me when…". This one
+// emails the customer, and reads as the opposite if it sits among them.
+const customerToggle = {
+  key: "onReminder" as const,
+  label: "Remind customers before their appointment",
+  hint: "Sent a day ahead, only to customers who gave an email when they booked.",
+};
+
 export function AlertsPanel() {
   const { account, toast } = useDashboard();
   const [settings, setSettings] = useState<AlertSettings | null>(null);
@@ -136,6 +144,26 @@ export function AlertsPanel() {
             </div>
           </label>
         ))}
+      </div>
+      <div className="alert-toggles alert-toggles-customer">
+        <p className="eyebrow">SENT TO YOUR CUSTOMERS</p>
+        <label className="switch switch-row">
+          <input
+            type="checkbox"
+            checked={settings[customerToggle.key]}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                [customerToggle.key]: e.target.checked,
+              })
+            }
+          />
+          <span aria-hidden="true" />
+          <div>
+            <strong>{customerToggle.label}</strong>
+            <small>{customerToggle.hint}</small>
+          </div>
+        </label>
       </div>
       <div className="form-actions">
         <Button

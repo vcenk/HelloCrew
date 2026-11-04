@@ -37,6 +37,10 @@ import {
 import { cancelBooking, type CancelOutcome } from "@/lib/calendar/cancel";
 import { confirmBooking, type ConfirmOutcome } from "@/lib/calendar/confirm";
 import {
+  markAppointmentCancelled,
+  recordAppointment,
+} from "@/lib/server/appointments";
+import {
   rescheduleBooking,
   type RescheduleOutcome,
 } from "@/lib/calendar/reschedule";
@@ -233,6 +237,55 @@ export async function decideApproval(input: {
         // with another operator deciding at the same moment cannot
         // double-book.
         outcome = await confirmBooking({ ...calendar, proposal });
+      }
+
+      // Written down only once the calendar has accepted it, so a row here
+      // always means a real appointment. Best effort: the customer is about
+      // to be told they are booked and they are, whether or not our own
+      // bookkeeping saved.
+      if (admin) {
+        const conversationId = (approval!.conversation_id as string) ?? null;
+        if (outcome?.status === "booked")
+          await recordAppointment(admin, ws.tenantId, {
+            conversationId,
+            service: proposal.service,
+            start: outcome.event.start,
+            end: outcome.event.end,
+            says: proposal.says,
+            customerName: proposal.customerName ?? null,
+            customerEmail: proposal.customerEmail ?? null,
+            idempotencyKey: proposal.idempotencyKey,
+            externalEventId: outcome.event.externalId,
+          });
+        else if (moved?.status === "moved")
+          await recordAppointment(admin, ws.tenantId, {
+            conversationId,
+            service: proposal.service,
+            start: moved.event.start,
+            end: moved.event.end,
+            says: proposal.says,
+            customerName: proposal.customerName ?? null,
+            customerEmail: proposal.customerEmail ?? null,
+            idempotencyKey: proposal.idempotencyKey,
+            externalEventId: moved.event.externalId,
+          });
+        // A cancelled appointment must stop being reminded about. Covers
+        // "already gone" too: either way it is not happening.
+        if (
+          cancelled?.status === "cancelled" ||
+          cancelled?.status === "already_gone"
+        )
+          await markAppointmentCancelled(
+            admin,
+            ws.tenantId,
+            proposal.idempotencyKey,
+          );
+        if (moved?.status === "moved" && replaces)
+          await markAppointmentCancelled(
+            admin,
+            ws.tenantId,
+            replaces.idempotencyKey,
+          );
       }
     }
 

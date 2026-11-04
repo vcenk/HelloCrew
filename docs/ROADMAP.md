@@ -20,7 +20,8 @@ of date and must not be used to decide anything.
 | Dashboard | Route-based under `/app/*`, token-based design system, light/dark, Owner Copilot panel on every page. |
 | Channels | Website chat is per-workspace and real (`hc_widget_installations`, domain-locked). Meta channels and Google reviews are built but waiting on platform approval. Phone is not started. |
 | Safety scaffolding | Strict Zod schemas, bounded bodies, same-origin checks, per-IP and per-site rate limits, forced RLS, a monthly spend cap that fails closed, and approvals for everything that reaches outside. |
-| Known gaps | No billing of any kind. No eval suite. No reminders. Confidence-based routing and approval expiry do not exist. Scanned PDFs are unreadable. |
+| Reminders | Customers are reminded a day before, by email, when they gave one at booking. `hc_appointments` is the local record of what HelloCrew booked; the calendar stays the source of truth for availability. Hourly cron, owner switch in Settings → Email alerts. |
+| Known gaps | No billing of any kind. Confidence-based routing and approval expiry do not exist. Scanned PDFs are unreadable. Reminders can only reach customers who gave an email, and there is no SMS. |
 
 ### Superseded audit (2026-10-17)
 

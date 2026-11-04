@@ -128,6 +128,54 @@ async function ownerEmail(admin: SupabaseClient, tenantId: string) {
   return user?.user?.email ?? null;
 }
 
+/**
+ * Sends one email, and says whether the provider accepted it.
+ *
+ * The one place a message leaves HelloCrew, so the timeout, the from
+ * address and the failure handling are decided once. Accepted is not
+ * delivered, and callers that record anything must record only that it was
+ * accepted.
+ */
+export async function sendEmail(message: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+}): Promise<boolean> {
+  const key = process.env.RESEND_API_KEY?.trim();
+  if (!key) return false;
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(5000),
+      body: JSON.stringify({
+        from:
+          process.env.NOTIFY_FROM?.trim() ||
+          "HelloCrew <onboarding@resend.dev>",
+        to: [message.to],
+        subject: message.subject.slice(0, 150),
+        text: message.text,
+        ...(message.html ? { html: message.html } : {}),
+      }),
+    });
+    if (!response.ok) {
+      console.error("[notify] email failed:", response.status);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error(
+      "[notify] email failed:",
+      error instanceof Error ? error.message : "unknown",
+    );
+    return false;
+  }
+}
+
 // Emails the owner about something that needs them. Best effort: a failure
 // is logged and never affects the customer's chat.
 export async function notifyOwner(
@@ -150,31 +198,15 @@ export async function notifyOwner(
     if (!to) return false;
     const site = getSiteUrl();
     const { subject, line, cta, url } = describeEvent(event, site);
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(5000),
-      body: JSON.stringify({
-        from:
-          process.env.NOTIFY_FROM?.trim() ||
-          "HelloCrew <onboarding@resend.dev>",
-        to: [to],
-        subject: subject.slice(0, 150),
-        text: `${line}\n\n${cta}: ${url}\n\nYou can change alerts in HelloCrew → Settings.`,
-        html: `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#15201a">
+    return await sendEmail({
+      to,
+      subject,
+      text: `${line}\n\n${cta}: ${url}\n\nYou can change alerts in HelloCrew → Settings.`,
+      html: `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#15201a">
 <p>${escapeHtml(line)}</p>
 <p><a href="${escapeHtml(url)}" style="display:inline-block;background:#1f5a44;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none">${escapeHtml(cta)}</a></p>
 <p style="color:#75817a;font-size:12px">You can change alerts in HelloCrew → Settings.</p></div>`,
-      }),
     });
-    if (!response.ok) {
-      console.error("[notify] email failed:", response.status);
-      return false;
-    }
-    return true;
   } catch (error) {
     console.error(
       "[notify] email failed:",

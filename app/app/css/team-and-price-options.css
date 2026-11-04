@@ -131,6 +131,17 @@
 .alert-toggles .switch-row {
   margin-top: 6px;
 }
+/* The one toggle that emails somebody other than the owner, set apart so
+   it does not read as another "tell me when…". */
+.alert-toggles-customer {
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, rgba(49, 91, 72, 0.14));
+}
+.alert-toggles-customer .eyebrow {
+  margin: 0;
+}
 @media (max-width: 720px) {
   .alert-toggles {
     grid-template-columns: minmax(0, 1fr);

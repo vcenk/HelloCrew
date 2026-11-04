@@ -39,6 +39,10 @@ export const calendarApprovalSchema = z.object({
   says: z.string().min(1),
   idempotencyKey: z.string().min(1),
   customerName: z.string().optional(),
+  // Carried through the approval so the reminder has somewhere to go. The
+  // proposal is the only place it was ever known: nothing re-asks the
+  // customer between proposing a time and the owner approving it.
+  customerEmail: z.string().email().optional(),
 });
 
 export type CalendarApprovalDetails = z.infer<typeof calendarApprovalSchema>;
@@ -66,6 +70,9 @@ export function calendarApprovalDetails(
     says: proposal.says,
     idempotencyKey: proposal.idempotencyKey,
     ...(proposal.customerName ? { customerName: proposal.customerName } : {}),
+    ...(proposal.customerEmail
+      ? { customerEmail: proposal.customerEmail }
+      : {}),
   };
 }
 
@@ -102,6 +109,9 @@ export function calendarProposalFromApproval(
     idempotencyKey: parsed.data.idempotencyKey,
     ...(parsed.data.customerName
       ? { customerName: parsed.data.customerName }
+      : {}),
+    ...(parsed.data.customerEmail
+      ? { customerEmail: parsed.data.customerEmail }
       : {}),
   };
 }

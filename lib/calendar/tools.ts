@@ -26,6 +26,8 @@ export type BookingProposal = {
   start: Date;
   end: Date;
   customerName?: string;
+  /** Only when the customer offered one. Used to remind them beforehand. */
+  customerEmail?: string;
   /**
    * The time in the business's own words, built where the timezone is known.
    * The owner's approval card and the customer's confirmation both use it,
@@ -184,6 +186,7 @@ export function calendarContracts(options: {
       service: z.ZodString;
       option: z.ZodNumber;
       customerName: z.ZodOptional<z.ZodString>;
+      customerEmail: z.ZodOptional<z.ZodString>;
     }>
   > = {
     name: "propose_booking",
@@ -200,6 +203,18 @@ export function calendarContracts(options: {
           "The `option` number of the time the customer chose, as check_availability numbered it",
         ),
       customerName: z.string().trim().max(80).optional(),
+      // Only ever what the customer typed. Validated here so a malformed
+      // address is dropped at the tool rather than failing later in a cron
+      // nobody is watching.
+      customerEmail: z
+        .string()
+        .trim()
+        .email()
+        .max(254)
+        .optional()
+        .describe(
+          "The customer's email, only if they gave it. Used to remind them before the appointment.",
+        ),
     }),
     effect: "needs_approval",
     scope: "conversation",
@@ -215,7 +230,7 @@ export function calendarContracts(options: {
       }`,
     audit: { action: "calendar.booking_proposed", recordsPii: true },
     isEnabled: (context: AgentContext) => context.skills.booking === "ask",
-    run: async ({ service, option, customerName }, context) => {
+    run: async ({ service, option, customerName, customerEmail }, context) => {
       const minutes = serviceMinutes(context, account, service);
       // Works whether or not check_availability ran first in this turn, so a
       // model that books straight away does not have to spend a round being
@@ -272,6 +287,7 @@ export function calendarContracts(options: {
         start,
         end,
         customerName,
+        customerEmail,
         says: describeSlot({ start, end }, account.timeZone),
         idempotencyKey: `calendar:${service.trim().toLowerCase()}:${start.toISOString()}`,
       });
