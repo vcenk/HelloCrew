@@ -6,9 +6,25 @@ Status: active plan, adopted 2026-10-17. This is the working build order. The ot
 
 HelloCrew is an agentic front desk for small, appointment-based businesses (salons, clinics, studios, local services). A business owner sets up an assistant once; the assistant answers customers from approved knowledge, takes actions through connected tools (booking, lead capture, review replies), and pauses for the owner whenever an action is risky or public.
 
-## Where we are (audit, 2026-10-17)
+## Where we are (audit, 2026-11-04)
+
+Re-checked against the code, not carried forward. The 2026-10-17 audit below
+is kept because the plan was written from it, but every line of it is now out
+of date and must not be used to decide anything.
 
 | Area | Reality |
+| --- | --- |
+| Agent runtime | Real. A LangGraph loop (`lib/agent/graph.ts`) over an OpenAI adapter, with a typed tool registry, per-turn budget reservation and owner approvals. The deterministic rule-based answerer survives as the no-key and over-budget fallback, not as the runtime. |
+| Workflows | A published workflow configures the live agent. It narrows which tools the agent may use (3A) and sets the voice, the knowledge kinds and prepare-only booking (3C). Settings with no runtime equivalent are reported as warnings rather than ignored. Workflows can also be authored from chat (3B). |
+| Persistence | Editors are local-first and sync to `hc_workspace_documents` per tenant with compare-and-swap. Conversations, messages, contacts, approvals, leads, knowledge files and widget installations are all live Postgres tables under forced RLS. |
+| Dashboard | Route-based under `/app/*`, token-based design system, light/dark, Owner Copilot panel on every page. |
+| Channels | Website chat is per-workspace and real (`hc_widget_installations`, domain-locked). Meta channels and Google reviews are built but waiting on platform approval. Phone is not started. |
+| Safety scaffolding | Strict Zod schemas, bounded bodies, same-origin checks, per-IP and per-site rate limits, forced RLS, a monthly spend cap that fails closed, and approvals for everything that reaches outside. |
+| Known gaps | No billing of any kind. No eval suite. No reminders. Confidence-based routing and approval expiry do not exist. Scanned PDFs are unreadable. |
+
+### Superseded audit (2026-10-17)
+
+| Area | Reality at the time |
 | --- | --- |
 | Agent runtime | A LangGraph `StateGraph` exists, but its "provider" is a hard-coded switch over four scenarios. Free text is matched by regex and exact FAQ text. No model, no planning. |
 | Workflows | The visual builder validates and topologically sorts a graph into a "test plan". Published workflows do not influence the conversation runtime. |
@@ -69,7 +85,14 @@ Progress (2026-10-17):
   - The agent rebuilds state from stored messages each turn, so resuming after an approval needs no separate graph checkpoint (`hc_checkpoints` stays unused for now).
   - Dashboard: saved conversation list with status (AI handling, Waiting for you, Needs a person, Closed), open/close/reopen/delete, **Take over** (owner replies, AI stays quiet) and **Hand back**. Today's "Needs you" reads approvals, handoffs and unanswered questions across all saved chats. Signed out, everything still works in the tab.
 - [ ] pgvector retrieval once knowledge outgrows the inline prompt budget.
-- [ ] Eval suite (grounding, unknowns, injection, EN/FA/ZH).
+- [x] Eval suite (2026-11-04). 13 scenarios over grounding, unknowns, prompt
+  injection, scope, booking claims and EN/FA/ZH, in `lib/evals/`. Graded
+  deterministically — substrings, regexes, which tools ran, which script the
+  reply is written in — because an LLM judge fabricates too, costs money every
+  run and turns a regression net into noise. `npm run eval` runs the corpus
+  against the real model and prints every reply; it is excluded from
+  `npm run check` and from CI, which cover the harness and the graders
+  without a model. First full live run: 13/13.
 
 - `lib/agent/`: supervisor graph, skill subgraphs, typed tool registry, policy gate, `interrupt()` for approvals.
 - `lib/models/`: Anthropic + OpenAI adapters behind `ModelProvider`; deterministic provider kept for tests and no-key mode.

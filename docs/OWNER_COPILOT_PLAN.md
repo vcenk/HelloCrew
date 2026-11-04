@@ -56,6 +56,14 @@ returns **nothing**.
 Any Copilot surface that touches workflows must say so plainly. Phase 3 is
 specified below but is **not** started in this deliverable.
 
+> **Superseded (2026-11-04).** Phase 3 shipped. A published workflow now
+> narrows the live agent's tools (3A), can be authored from chat (3B), and
+> sets the voice, the knowledge kinds and prepare-only booking (3C). The
+> quoted finding above describes the code as it was when this plan was
+> written; `lib/workflow-policy.ts` and `lib/server/workflow-runtime.ts` are
+> the current answer. Settings with no runtime equivalent still change
+> nothing, and the compiler reports each one as a warning.
+
 ### Auth and the server boundary
 
 - `getWorkspaceContext(db)` → `{ userId, email, tenantId, tenantName, role }`
@@ -297,9 +305,23 @@ other.
 Taking a required approval off anything that acts on the owner's behalf is
 refused outright rather than written down to fail at publish time.
 
-Not done in 3B: restoring an older published version, deleting a workflow
-through chat, and refreshing the canvas automatically after a chat edit —
-the library shows the change on its next load.
+Not done in 3B: restoring an older published version, and deleting a workflow
+through chat.
+
+**Canvas refresh — done (2026-10-30).** The sync announces a pulled document
+and the builder listens, so the library shows a chat edit in place. An open
+editor is offered the newer copy rather than given it, because replacing a
+draft underneath somebody mid-edit discards what they are typing.
+
+**Phase 3C — per-step settings. Done (2026-11-04).** Response style, the
+knowledge kinds the agent may use, and prepare-request-only booking now reach
+a live conversation; all three can only narrow. The knowledge restriction is
+enforced in the prompt digest, in `search_knowledge` and in
+`get_business_details`, which would otherwise be the way around it. Settings
+the runtime cannot honour — the confidence threshold, approval expiry, the
+welcome message, business hours, model policy, maximum sources — are reported
+as warnings in the compiler and shown under the canvas, rather than left
+looking as though they work.
 
 **Phase 3 — workflow authoring (original sketch).** Chat produces patches against the existing
 `WorkflowDefinition`; `validateWorkflow` is the deterministic gate; canvas and

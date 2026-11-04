@@ -49,6 +49,14 @@ export type Activity = {
   label: string;
   detail: string;
   kind: "plan" | "tool" | "approval" | "done" | "error";
+  /**
+   * The registered tool this entry came from, where it came from one.
+   *
+   * The label beside it is written for the owner ("Searched approved
+   * knowledge"), which is right for the trace panel and useless to anything
+   * that needs to know which tool actually ran.
+   */
+  tool?: string;
 };
 export type DemoResult = {
   session: DemoSession;

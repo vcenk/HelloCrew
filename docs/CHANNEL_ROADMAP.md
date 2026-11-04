@@ -1,6 +1,16 @@
 # Channel integration roadmap
 
-Status: the in-app web practice channel, real script loader, isolated iframe, fixed public demo installation, and separate installation test website are implemented. The demo can be embedded, but it exposes fictional practice facts only and is not a tenant-owned production installation. WhatsApp and Phone are future disabled adapters. No phone number, messaging account, customer domain, or external channel has been connected.
+Status (2026-11-04): website chat is tenant-owned and real. `createWebsiteChat`
+(`app/app/widget-actions.ts`) issues a workspace's own `w-…` installation with
+an allowed-origin list, `proxy.ts` sets `frame-ancestors` from it, and
+`/api/widget/chat` answers real visitors with the live agent inside the monthly
+budget. The fixed `demo-hellocrew` installation still exists alongside it and
+still exposes fictional practice facts only.
+
+Meta channels (Messenger, Instagram DMs, WhatsApp) and Google review replies
+are built and wired to the same agent, but stay disabled until the platform
+approvals in `INTEGRATIONS_TODO.md` land. Phone is not started. No phone
+number has been connected.
 
 ## Shared channel contract
 

@@ -158,6 +158,7 @@ export function buildAgentGraph(
           effectOf[call.name] === "needs_approval" && leftAnApproval(output);
         activity.push({
           label: toolLabel(call.name),
+          tool: call.name,
           detail: pending
             ? "Waiting for your approval. Nothing was booked."
             : effectOf[call.name] === "needs_approval"
@@ -180,6 +181,7 @@ export function buildAgentGraph(
         );
         activity.push({
           label: `${toolLabel(call.name)} failed`,
+          tool: call.name,
           detail: reason,
           kind: "error",
         });

@@ -12,7 +12,8 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "format": "prettier --write app components lib tests scripts *.ts *.mjs *.json"
+    "format": "prettier --write app components lib tests scripts *.ts *.mjs *.json",
+    "eval": "vitest run tests/evals.live.test.ts"
   },
   "keywords": [],
   "author": "",
