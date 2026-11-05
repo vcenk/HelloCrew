@@ -118,6 +118,39 @@ export function publishWorkflowVersion(
   };
 }
 
+/**
+ * Copies an older published version back over the draft.
+ *
+ * Deliberately not a republish. Restoring puts the old steps in front of
+ * the owner to look at; whether customers get them is the separate
+ * decision publishing already is. The published history is untouched, so
+ * restoring the wrong one is itself undoable.
+ */
+export function restoreWorkflowVersion(
+  record: WorkflowRecord,
+  version: number,
+  now?: string,
+): WorkflowRecord {
+  if (record.compatibility === "incompatible")
+    throw new Error("This workflow was saved by a newer HelloCrew version.");
+  const wanted = record.publishedVersions.find(
+    (item) => item.version === version,
+  );
+  if (!wanted) throw new Error(`There is no version ${version} to restore.`);
+
+  return {
+    ...record,
+    workflow: {
+      ...structuredClone(wanted),
+      // Keeps the numbering honest: the draft is based on v2 but is not v2,
+      // and the next publish continues the sequence rather than reusing it.
+      version: record.workflow.version,
+      status: record.lifecycle === "archived" ? "archived" : "draft",
+    },
+    updatedAt: isoNow(now),
+  };
+}
+
 export function setWorkflowArchived(
   record: WorkflowRecord,
   archived: boolean,

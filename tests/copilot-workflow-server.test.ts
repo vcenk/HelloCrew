@@ -10,7 +10,9 @@ vi.mock("@/lib/data/workspace", () => ({
 
 const {
   applyWorkflowEdit,
+  copilotDeleteWorkflow,
   copilotPublishWorkflow,
+  copilotRestoreWorkflowVersion,
   undoWorkflowChange,
 } = await import("../lib/server/copilot/workflow");
 const { createWorkflowRecord, publishWorkflowVersion, WORKFLOW_STORAGE_VERSION } =
@@ -245,5 +247,96 @@ describe("undoing a workflow action", () => {
       JSON.stringify({ k: "knowledge", remove: "x" }),
     );
     expect(result.status).toBe("failed");
+  });
+});
+
+describe("restoring an older published version", () => {
+  it("puts those steps back as the draft without republishing", async () => {
+    const live = publishWorkflowVersion(record());
+    const renamed = publishWorkflowVersion({
+      ...live,
+      workflow: { ...live.workflow, name: "Second idea" },
+    });
+    storeAt(6, [renamed]);
+
+    const result = await copilotRestoreWorkflowVersion(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      version: 1,
+      expectedVersion: 6,
+    });
+
+    expect(result.status).toBe("draft");
+    const saved = saveDocument.mock.calls[0][4] as {
+      workflows: { workflow: { name: string }; publishedVersions: unknown[] }[];
+    };
+    expect(saved.workflows[0].workflow.name).toBe(salonReceptionWorkflow.name);
+    // The history is left alone, so restoring the wrong one is itself undoable.
+    expect(saved.workflows[0].publishedVersions).toHaveLength(2);
+  });
+
+  it("says which version customers still get", async () => {
+    const live = publishWorkflowVersion(publishWorkflowVersion(record()));
+    storeAt(6, [live]);
+    const result = await copilotRestoreWorkflowVersion(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      version: 1,
+      expectedVersion: 6,
+    });
+    expect(result.summary).toMatch(/still get v2/i);
+  });
+
+  it("refuses a version that was never published", async () => {
+    storeAt(6, [publishWorkflowVersion(record())]);
+    const result = await copilotRestoreWorkflowVersion(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      version: 9,
+      expectedVersion: 6,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.summary).toMatch(/no version 9/i);
+    expect(saveDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleting a workflow", () => {
+  it("removes it and says the history went with it", async () => {
+    storeAt(6, [publishWorkflowVersion(record())]);
+    const result = await copilotDeleteWorkflow(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      expectedVersion: 6,
+    });
+
+    expect(result.status).toBe("applied");
+    expect(result.summary).toMatch(/cannot be undone/i);
+    const saved = saveDocument.mock.calls[0][4] as { workflows: unknown[] };
+    expect(saved.workflows).toHaveLength(0);
+  });
+
+  it("says plainly when the deleted one was governing conversations", async () => {
+    storeAt(6, [publishWorkflowVersion(record())]);
+    const result = await copilotDeleteWorkflow(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      expectedVersion: 6,
+    });
+    expect(result.summary).toMatch(/was governing website/i);
+  });
+
+  it("offers no undo token, because there is no undo", async () => {
+    storeAt(6, [publishWorkflowVersion(record())]);
+    const result = await copilotDeleteWorkflow(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      expectedVersion: 6,
+    });
+    expect(result.undo).toBeUndefined();
+  });
+
+  it("refuses when the document moved underneath", async () => {
+    storeAt(7, [publishWorkflowVersion(record())]);
+    const result = await copilotDeleteWorkflow(db, workspace, {
+      workflowId: salonReceptionWorkflow.id,
+      expectedVersion: 6,
+    });
+    expect(result.status).toBe("failed");
+    expect(saveDocument).not.toHaveBeenCalled();
   });
 });

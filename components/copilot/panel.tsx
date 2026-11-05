@@ -14,6 +14,7 @@ import { Paperclip, Send, Sparkles, X } from "lucide-react";
 import {
   applyCopilotKnowledge,
   approveCopilotKnowledge,
+  confirmCopilotAction,
   copilotTurn,
   undoCopilotKnowledge,
   type CopilotTurnResult,
@@ -23,11 +24,12 @@ import type {
   ActionProposal,
   ActionResult,
   CopilotMessage,
+  PendingAction,
 } from "@/lib/copilot/contracts";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/dashboard/ui";
 import { useDashboard } from "@/components/dashboard/provider";
-import { ProposalCard, ResultCard } from "./cards";
+import { ConfirmCard, ProposalCard, ResultCard } from "./cards";
 
 /**
  * The owner's Copilot: a conversational way to configure the business.
@@ -80,6 +82,8 @@ export function CopilotPanel({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
+  /** An action waiting on the owner's yes, kept apart from the knowledge one. */
+  const [confirming, setConfirming] = useState<PendingAction | null>(null);
   const [result, setResult] = useState<ActionResult | null>(null);
   const [attached, setAttached] = useState<{ id: string; name: string } | null>(
     null,
@@ -164,10 +168,7 @@ export function CopilotPanel({
       })),
       // Which copy of the workflows this page is holding. The server refuses
       // an edit built on a copy somebody has since changed on the canvas.
-      seen: (() => {
-        const workflows = seenDocumentVersion("workflows");
-        return workflows === null ? {} : { workflows };
-      })(),
+      seen: seenFor("workflows"),
       ...(attached ? { fileId: attached.id, fileName: attached.name } : {}),
     }).catch(() => null);
     setBusy(false);
@@ -180,10 +181,37 @@ export function CopilotPanel({
     say("copilot", answer.reply);
     if (answer.proposal && answer.source)
       setPending({ proposal: answer.proposal, source: answer.source });
+    if (answer.pending) setConfirming(answer.pending);
     if (answer.result) {
       setResult(answer.result);
       await adoptAfter(answer.result);
     }
+  }
+
+  /** The owner said yes to something the Copilot would not do on its own. */
+  async function confirm() {
+    if (!confirming) return;
+    setBusy(true);
+    const done = await confirmCopilotAction({
+      action: confirming.action,
+      input: confirming.input,
+      seen: seenFor("workflows"),
+    }).catch(() => null);
+    setBusy(false);
+    if (!done?.ok) {
+      say("copilot", done?.error ?? "That couldn't be done.");
+      return;
+    }
+    setConfirming(null);
+    setResult(done.result);
+    say("copilot", done.result.summary);
+    await adoptAfter(done.result);
+  }
+
+  /** The document version this page holds, in the shape the server wants. */
+  function seenFor(key: "workflows") {
+    const version = seenDocumentVersion(key);
+    return version === null ? {} : { [key]: version };
   }
 
   /**
@@ -325,6 +353,18 @@ export function CopilotPanel({
             onDiscard={() => {
               setPending(null);
               say("copilot", "Discarded — nothing was added.");
+            }}
+          />
+        )}
+
+        {confirming && (
+          <ConfirmCard
+            pending={confirming}
+            busy={busy}
+            onConfirm={confirm}
+            onCancel={() => {
+              setConfirming(null);
+              say("copilot", "Left alone — nothing changed.");
             }}
           />
         )}

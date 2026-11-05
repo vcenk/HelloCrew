@@ -201,3 +201,43 @@ describe("roles", () => {
     expect(roleAllows("viewer", "viewer")).toBe(true);
   });
 });
+
+describe("which actions a person has to agree to", () => {
+  // The gate was computed and nothing read it, so publishing a workflow —
+  // which decides what customers are offered — ran on the model's say-so.
+  // These pin which actions must stop and wait.
+  const decide = (name: string, role: "owner" | "operator" = "owner") =>
+    decideCopilotAction({ name, role, connected: new Set() });
+
+  it.each(["workflow_publish", "workflow_delete"])(
+    "%s waits for the owner",
+    (name) => {
+      const decision = decide(name);
+      expect(decision.allowed && decision.confirm).toBe(true);
+    },
+  );
+
+  it.each([
+    "knowledge_search",
+    "workflow_inspect",
+    "workflow_create_draft",
+    "workflow_update_draft",
+    "workflow_restore_version",
+    "workflow_test_draft",
+  ])("%s runs straight away", (name) => {
+    const decision = decide(name);
+    expect(decision.allowed && decision.confirm).toBe(false);
+  });
+
+  it("only an owner may delete, not an operator", () => {
+    expect(decide("workflow_delete", "operator").allowed).toBe(false);
+    expect(decide("workflow_delete", "owner").allowed).toBe(true);
+  });
+
+  it("every action that changes live behaviour needs a person", () => {
+    // The rule behind the list above, so a new action cannot quietly skip it.
+    for (const action of allCopilotActions())
+      if (action.affectsLiveBehaviour)
+        expect(needsConfirmation(action.safety), action.name).toBe(true);
+  });
+});

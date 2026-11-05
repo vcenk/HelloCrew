@@ -305,8 +305,18 @@ other.
 Taking a required approval off anything that acts on the owner's behalf is
 refused outright rather than written down to fail at publish time.
 
-Not done in 3B: restoring an older published version, and deleting a workflow
-through chat.
+**Restore and delete — done (2026-11-05).** `workflow_restore_version` puts
+an older published version back as the draft without republishing, leaving
+the history intact so restoring the wrong one is itself undoable.
+`workflow_delete` is the first `destructive` action and is owner-only.
+
+Adding it surfaced that the confirmation gate was computed and never read:
+`decideCopilotAction` returned `confirm` for every `live_configuration` and
+`destructive` action, and `copilotTurn` ignored it, so `workflow_publish`
+ran on the model's say-so. There is now one gate before any execution
+branch. Anything needing a person comes back as a `PendingAction`, the
+panel asks, and `confirmCopilotAction` re-resolves the session, re-checks
+the role and re-parses the arguments before running it.
 
 **Canvas refresh — done (2026-10-30).** The sync announces a pulled document
 and the builder listens, so the library shows a chat edit in place. An open

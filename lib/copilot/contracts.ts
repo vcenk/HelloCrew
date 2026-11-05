@@ -164,6 +164,26 @@ export const actionProposalSchema = z.object({
 });
 export type ActionProposal = z.infer<typeof actionProposalSchema>;
 
+/**
+ * An action the Copilot has worked out but will not run until a person says.
+ *
+ * Everything at a safety level `needsConfirmation` covers stops here. The
+ * arguments travel to the panel and back so the owner can be shown what
+ * would happen; the server re-resolves the session, re-checks the role and
+ * re-parses them against the action's own schema before anything runs, so
+ * the round trip is a convenience rather than a grant.
+ */
+export const pendingActionSchema = z.object({
+  action: z.string().min(1).max(80),
+  safety: z.enum(safetyLevels),
+  input: z.unknown(),
+  question: z.string().min(1).max(300),
+  /** Spelled out for destructive and external work. */
+  consequence: z.string().max(400).optional(),
+  confirmLabel: z.string().min(1).max(40),
+});
+export type PendingAction = z.infer<typeof pendingActionSchema>;
+
 /** The owner's decision, carrying which operations they kept. */
 export const confirmationRequestSchema = z.object({
   proposalId: z.string().min(1).max(120),

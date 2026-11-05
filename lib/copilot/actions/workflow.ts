@@ -120,10 +120,53 @@ export const publishWorkflow: CopilotActionMeta<
   audit: { event: "copilot.workflow.published", recordsPii: false },
 };
 
+export const restoreWorkflow: CopilotActionMeta<
+  z.ZodObject<{ workflowId: z.ZodString; version: z.ZodNumber }>
+> = {
+  name: "workflow_restore_version",
+  description:
+    "Put an older published version of a workflow back as the draft. It does not publish: the restored steps govern nothing until the owner publishes them.",
+  input: z.object({
+    workflowId: z.string().min(1).max(80),
+    version: z.number().int().min(1),
+  }),
+  // A draft write, not a live one, precisely because it stops short of
+  // publishing. The published history is left intact, so this is undoable
+  // by restoring whichever version was there before.
+  safety: "draft_write",
+  requiredRole: "operator",
+  resource: "workflow",
+  requires: null,
+  affectsLiveBehaviour: false,
+  supportsUndo: false,
+  audit: { event: "copilot.workflow.restored", recordsPii: false },
+};
+
+export const deleteWorkflow: CopilotActionMeta<
+  z.ZodObject<{ workflowId: z.ZodString }>
+> = {
+  name: "workflow_delete",
+  description:
+    "Delete a workflow and its published history for good. Only at the owner's explicit instruction, and only for one they have named.",
+  input: z.object({ workflowId: z.string().min(1).max(80) }),
+  // Destructive: the published versions go with it and nothing brings them
+  // back, so this one names its target and waits for a person.
+  safety: "destructive",
+  requiredRole: "owner",
+  resource: "workflow",
+  requires: null,
+  // A published workflow that governs conversations stops governing them.
+  affectsLiveBehaviour: true,
+  supportsUndo: false,
+  audit: { event: "copilot.workflow.deleted", recordsPii: false },
+};
+
 export const workflowActions = [
   inspectWorkflow,
   createWorkflowDraft,
   updateWorkflowDraft,
   testWorkflowDraft,
   publishWorkflow,
+  restoreWorkflow,
+  deleteWorkflow,
 ] as const;

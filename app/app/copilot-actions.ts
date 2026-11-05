@@ -8,8 +8,10 @@ import {
   type ActionProposal,
   type ActionResult,
   type CopilotContext,
+  type PendingAction,
 } from "@/lib/copilot/contracts";
 import { findCopilotAction } from "@/lib/copilot/registry";
+import { decideCopilotAction } from "@/lib/copilot/policy";
 import type { WorkflowOperation } from "@/lib/copilot/workflow-ops";
 import { getWorkspaceContext, type WorkspaceContext } from "@/lib/data/workspace";
 import { knowledgeKinds } from "@/lib/knowledge";
@@ -24,8 +26,10 @@ import {
 import {
   applyWorkflowEdit,
   copilotCreateWorkflowDraft,
+  copilotDeleteWorkflow,
   copilotInspectWorkflow,
   copilotPublishWorkflow,
+  copilotRestoreWorkflowVersion,
   copilotTestWorkflow,
   undoWorkflowChange,
 } from "@/lib/server/copilot/workflow";
@@ -175,11 +179,118 @@ export type CopilotTurnResult = {
   reply: string;
   /** Present when there is something to decide on. */
   proposal?: ActionProposal;
+  /** Present when the action needs a person to say yes before it runs. */
+  pending?: PendingAction;
   /** Present when the action ran immediately, as read_only ones do. */
   result?: ActionResult;
   /** Carried back so applying does not pay to read the document twice. */
   source?: { file: z.infer<typeof fileSchema>; suggestions: z.infer<typeof suggestionSchema>[] };
 };
+
+/**
+ * What the owner is asked before an action that needs their word.
+ *
+ * Built from the workspace's own data rather than the model's wording, so
+ * the question names the real workflow and the real consequence.
+ */
+async function confirmationFor(
+  s: Session,
+  actionName: string,
+  input: unknown,
+): Promise<
+  { ok: true; pending: PendingAction } | { ok: false; failure: Failure }
+> {
+  const action = findCopilotAction(actionName);
+  if (!action) return { ok: false, failure: failure("invalid", "That isn't something I can do.") };
+  const parsed = action.input.safeParse(input);
+  if (!parsed.success)
+    return {
+      ok: false,
+      failure: failure("invalid", "I understood what you want but not the details."),
+    };
+
+  const base = { action: actionName, safety: action.safety, input: parsed.data };
+  if (actionName === "workflow_publish" || actionName === "workflow_delete") {
+    const { workflowId } = parsed.data as { workflowId: string };
+    const looked = await copilotInspectWorkflow(s.db, s.workspace, workflowId);
+    const named = looked.summary.match(/^“([^”]+)”/)?.[1] ?? "that workflow";
+    return {
+      ok: true,
+      pending:
+        actionName === "workflow_publish"
+          ? {
+              ...base,
+              question: `Publish “${named}” so it starts governing live conversations?`,
+              consequence: looked.summary,
+              confirmLabel: "Publish it",
+            }
+          : {
+              ...base,
+              question: `Delete “${named}” for good?`,
+              consequence:
+                "Its published versions go with it and nothing brings them back.",
+              confirmLabel: "Delete it",
+            },
+    };
+  }
+
+  return {
+    ok: true,
+    pending: {
+      ...base,
+      question: `Go ahead with ${actionName.replace(/_/g, " ")}?`,
+      confirmLabel: "Yes, do it",
+    },
+  };
+}
+
+const confirmSchema = z.object({
+  action: z.string().min(1).max(80),
+  input: z.unknown(),
+  seen: z.object({ workflows: z.number().int().min(0).optional() }).default({}),
+});
+
+/**
+ * Runs an action the owner has just confirmed.
+ *
+ * Nothing here trusts the round trip. The session is resolved again, the
+ * name is looked up in the registry again, the role is checked against
+ * that action again, and the arguments are re-parsed against its own
+ * schema — so a crafted POST can do no more than the owner could.
+ */
+export async function confirmCopilotAction(
+  raw: unknown,
+): Promise<Result<{ result: ActionResult }>> {
+  const parsed = confirmSchema.safeParse(raw);
+  if (!parsed.success) return failure("invalid", "That action is no longer valid.");
+
+  return authorized(parsed.data.action, async (auth, action) => {
+    const args = action.input.safeParse(parsed.data.input);
+    if (!args.success) return failure("invalid", "Those details didn't check out.");
+    const expectedVersion = parsed.data.seen.workflows ?? null;
+
+    let result: ActionResult;
+    if (action.name === "workflow_publish")
+      result = await copilotPublishWorkflow(auth.db, auth.workspace, {
+        ...(args.data as { workflowId: string }),
+        expectedVersion,
+      });
+    else if (action.name === "workflow_delete")
+      result = await copilotDeleteWorkflow(auth.db, auth.workspace, {
+        ...(args.data as { workflowId: string }),
+        expectedVersion,
+      });
+    else return failure("invalid", "That action can't be confirmed this way.");
+
+    recordCopilotAudit(
+      auth.workspace,
+      action,
+      result.status === "applied" ? "applied" : "failed",
+      { applied: result.applied },
+    );
+    return { ok: true, result };
+  });
+}
 
 /**
  * One turn: work out what the owner wants and go as far as the safety level
@@ -215,6 +326,26 @@ export async function copilotTurn(input: unknown): Promise<Result<CopilotTurnRes
 
   if (intent.kind === "reply") return { ok: true, reply: intent.text };
   if (intent.kind === "refused") return { ok: true, reply: intent.text };
+
+  // The single confirmation gate. Anything whose declared safety level
+  // needs a person stops here, before any execution branch below can run
+  // it. Previously the level was computed and nothing read it, so
+  // publishing a workflow — which decides what customers are offered —
+  // went straight through on the model's say-so.
+  const gate = decideCopilotAction({
+    name: intent.action,
+    role: s.workspace.role,
+    connected,
+  });
+  if (gate.allowed && gate.confirm) {
+    const ask = await confirmationFor(s, intent.action, intent.input);
+    if (!ask.ok) return ask.failure;
+    return {
+      ok: true,
+      reply: ask.pending.question,
+      pending: ask.pending,
+    };
+  }
 
   if (intent.action === "knowledge_search") {
     const { query } = intent.input as { query: string };
@@ -328,23 +459,25 @@ export async function copilotTurn(input: unknown): Promise<Result<CopilotTurnRes
     });
   }
 
-  if (intent.action === "workflow_publish") {
-    const publish = intent.input as { workflowId: string };
+  if (intent.action === "workflow_restore_version") {
+    const restore = intent.input as { workflowId: string; version: number };
     return authorized(intent.action, async (auth, action) => {
-      const result = await copilotPublishWorkflow(auth.db, auth.workspace, {
-        ...publish,
+      const result = await copilotRestoreWorkflowVersion(auth.db, auth.workspace, {
+        ...restore,
         expectedVersion: parsed.data.seen.workflows ?? null,
       });
       recordCopilotAudit(
         auth.workspace,
         action,
-        result.status === "applied" ? "applied" : "failed",
+        result.status === "failed" ? "failed" : "draft",
         { applied: result.applied },
       );
       return { ok: true, reply: result.summary, result };
     });
   }
 
+  // workflow_publish and workflow_delete never reach here: the gate above
+  // turns them into a question first.
   return { ok: true, reply: "I can't do that one yet." };
 }
 

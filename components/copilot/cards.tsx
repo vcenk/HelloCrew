@@ -7,6 +7,7 @@ import type {
   ActionProposal,
   ActionResult,
   ChangeOperation,
+  PendingAction,
 } from "@/lib/copilot/contracts";
 import { Button, Pill } from "@/components/dashboard/ui";
 
@@ -198,6 +199,56 @@ export function ProposalCard({
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+/**
+ * One question, for an action the Copilot will not run on its own.
+ *
+ * Deliberately not the ProposalCard: there is nothing here to tick or
+ * edit, and dressing a yes/no in a list of operations invites the owner to
+ * skim it. Destructive work says what is lost, in the card, not a tooltip.
+ */
+export function ConfirmCard({
+  pending,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  pending: PendingAction;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const destructive = pending.safety === "destructive";
+  return (
+    <section className="copilot-card" aria-label={pending.question}>
+      <header className="copilot-card-head">
+        <strong>{pending.question}</strong>
+        <Pill tone={destructive ? "attention" : "info"}>
+          {destructive ? "Cannot be undone" : "Changes live behaviour"}
+        </Pill>
+      </header>
+
+      {pending.consequence && (
+        <p className="copilot-card-summary">{pending.consequence}</p>
+      )}
+
+      <div className="copilot-card-actions">
+        <Button
+          size="sm"
+          variant={destructive ? "danger" : "primary"}
+          icon={destructive ? AlertTriangle : Check}
+          disabled={busy}
+          onClick={onConfirm}
+        >
+          {pending.confirmLabel}
+        </Button>
+        <Button size="sm" disabled={busy} onClick={onCancel}>
+          Not now
+        </Button>
+      </div>
     </section>
   );
 }

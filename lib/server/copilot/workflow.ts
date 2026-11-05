@@ -11,6 +11,7 @@ import {
   createWorkflowRecord,
   parseWorkflowStore,
   publishWorkflowVersion,
+  restoreWorkflowVersion,
   saveWorkflowDraft,
   setWorkflowArchived,
   WORKFLOW_STORAGE_VERSION,
@@ -362,6 +363,94 @@ export async function copilotPublishWorkflow(
       expiresAt: Date.now() + 60 * 60 * 1000,
       describes: `publishing “${publishedRecord.workflow.name}” v${version}`,
     },
+  };
+}
+
+/** draft_write: an older published version becomes the draft again. */
+export async function copilotRestoreWorkflowVersion(
+  db: SupabaseClient,
+  workspace: WorkspaceContext,
+  input: { workflowId: string; version: number; expectedVersion: number | null },
+): Promise<ActionResult> {
+  const loaded = await loadStore(db, workspace);
+  if (movedOn(loaded.version, input.expectedVersion)) return failed(staleMessage);
+
+  const record = loaded.store.workflows.find(
+    (candidate) => candidate.workflow.id === input.workflowId,
+  );
+  if (!record) return failed("That workflow no longer exists.");
+
+  let restored: WorkflowRecord;
+  try {
+    restored = restoreWorkflowVersion(record, input.version);
+  } catch (error) {
+    return failed(
+      error instanceof Error ? error.message : "That version could not be restored.",
+    );
+  }
+
+  const outcome = await save(
+    db,
+    workspace,
+    loaded,
+    loaded.store.workflows.map((candidate) =>
+      candidate.workflow.id === record.workflow.id ? restored : candidate,
+    ),
+  );
+  if (outcome !== "saved")
+    return failed(outcome === "conflict" ? staleMessage : "That could not be restored.");
+
+  const live = latestPublished(record)?.version;
+  return {
+    status: "draft",
+    summary:
+      `Put version ${input.version} of “${restored.workflow.name}” back as the draft. ` +
+      (live !== undefined && live !== input.version
+        ? `Customers still get v${live} until you publish this.`
+        : "Publishing is a separate step."),
+    applied: 1,
+    skipped: 0,
+    links: [workflowLink],
+  };
+}
+
+/** destructive: the workflow and everything it ever published. */
+export async function copilotDeleteWorkflow(
+  db: SupabaseClient,
+  workspace: WorkspaceContext,
+  input: { workflowId: string; expectedVersion: number | null },
+): Promise<ActionResult> {
+  const loaded = await loadStore(db, workspace);
+  if (movedOn(loaded.version, input.expectedVersion)) return failed(staleMessage);
+
+  const record = loaded.store.workflows.find(
+    (candidate) => candidate.workflow.id === input.workflowId,
+  );
+  if (!record) return failed("That workflow no longer exists.");
+
+  const wasGoverning = compileWorkflowPolicy(record);
+  const outcome = await save(
+    db,
+    workspace,
+    loaded,
+    loaded.store.workflows.filter(
+      (candidate) => candidate.workflow.id !== record.workflow.id,
+    ),
+  );
+  if (outcome !== "saved")
+    return failed(outcome === "conflict" ? staleMessage : "That could not be deleted.");
+
+  return {
+    status: "applied",
+    // Said plainly, because there is no undo token to soften it with.
+    summary:
+      `Deleted “${record.workflow.name}” and its ${record.publishedVersions.length} published version${record.publishedVersions.length === 1 ? "" : "s"}. That cannot be undone.` +
+      (wasGoverning.ok
+        ? ` It was governing ${wasGoverning.policy.channel} conversations, which now follow your crew settings instead.`
+        : ""),
+    applied: 1,
+    skipped: 0,
+    links: [workflowLink],
   };
 }
 
