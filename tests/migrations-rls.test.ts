@@ -25,14 +25,84 @@ const sql = readdirSync(DIR)
 
 const all = sql.map((file) => file.text).join("\n");
 
+/**
+ * Each create-table statement's body, read by balancing parentheses.
+ *
+ * Not "up to the first `);`": column checks are full of brackets, and a
+ * check that happened to end in `);` would silently truncate the body and
+ * make every rule below pass on half a table.
+ */
+const bodies = new Map<string, string>();
+for (const match of all.matchAll(
+  /create table (?:if not exists )?public\.(hc_\w+)\s*\(/g,
+)) {
+  const open = match.index! + match[0].length - 1;
+  let depth = 0;
+  for (let i = open; i < all.length; i += 1) {
+    if (all[i] === "(") depth += 1;
+    else if (all[i] === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        bodies.set(match[1], all.slice(open + 1, i));
+        break;
+      }
+    }
+  }
+}
+
 /** Tables created anywhere in the migration history. */
-const tables = [
-  ...new Set(
-    [...all.matchAll(/create table (?:if not exists )?public\.(hc_\w+)/g)].map(
-      (match) => match[1],
+const tables = [...bodies.keys()].sort();
+
+/** The primary key's columns, whether declared inline or as a constraint. */
+function primaryKeyOf(body: string): string[] {
+  const asConstraint = /primary key \(([^)]*)\)/.exec(body);
+  if (asConstraint)
+    return asConstraint[1].split(",").map((part) => part.trim());
+  const inline = /^\s*(\w+)[^,\n]*\bprimary key\b/m.exec(body);
+  return inline ? [inline[1]] : [];
+}
+
+/**
+ * Tables whose primary key starts with tenant_id.
+ *
+ * The shape takes several forms — (tenant_id, id), (tenant_id, user_id),
+ * (tenant_id, key), (tenant_id, workflow_id, version), or tenant_id alone
+ * — and what matters is the same in all of them: there is no bare unique
+ * id, so Postgres will not accept a single-column foreign key pointing at
+ * one. Every reference has to carry the tenant.
+ */
+const tenantKeyed = new Set(
+  tables.filter((table) => primaryKeyOf(bodies.get(table) ?? "")[0] === "tenant_id"),
+);
+
+/** Foreign keys declared as a table constraint, i.e. the composite ones. */
+function compositeReferences(body: string) {
+  return [
+    ...body.matchAll(
+      /foreign key \(([^)]*)\)\s*\n?\s*references public\.(hc_\w+)\(([^)]*)\)/g,
     ),
-  ),
-].sort();
+  ].map((match) => ({
+    columns: match[1].split(",").map((part) => part.trim()),
+    target: match[2],
+    targetColumns: match[3].split(",").map((part) => part.trim()),
+  }));
+}
+
+/**
+ * References written inline on a column, which can only be single-column.
+ *
+ * Found by removing the table-constraint ones first, so what is left is
+ * exactly the `col uuid references public.x(y)` form.
+ */
+function inlineReferences(body: string) {
+  const withoutComposite = body.replace(
+    /foreign key \([^)]*\)\s*\n?\s*references public\.hc_\w+\([^)]*\)/g,
+    "",
+  );
+  return [
+    ...withoutComposite.matchAll(/references public\.(hc_\w+)\(([^)]*)\)/g),
+  ].map((match) => ({ target: match[1], targetColumns: match[2].trim() }));
+}
 
 /**
  * Tables the server owns outright.
@@ -157,6 +227,63 @@ describe("the migrations keep row-level security on", () => {
       );
       expect(body, `${table} has no tenant_id`).toContain("tenant_id");
     }
+  });
+});
+
+describe("foreign keys carry the tenant", () => {
+  /*
+   * The rule this file was missing. hc_appointments shipped with
+   *
+   *   conversation_id uuid references public.hc_conversations(id)
+   *
+   * which Postgres refused, because hc_conversations is keyed
+   * (tenant_id, id) and has no bare unique id to point at. The refusal was
+   * the protection working — but had the target happened to have a plain
+   * unique id, that reference would have compiled and quietly allowed a
+   * row to name another workspace's conversation.
+   *
+   * Everything here checks the schema keeps making that impossible rather
+   * than relying on it having been impossible once.
+   */
+
+  it("found tables keyed by tenant to check against", () => {
+    // A parser that quietly matched nothing would make every rule below
+    // pass without reading a single key.
+    expect(tenantKeyed.size).toBeGreaterThan(10);
+    expect(tenantKeyed.has("hc_conversations")).toBe(true);
+    expect(tenantKeyed.has("hc_appointments")).toBe(true);
+    expect(tenantKeyed.has("hc_tenants")).toBe(false);
+  });
+
+  it.each(tables)("%s never points at a tenant table with a bare id", (table) => {
+    const offending = inlineReferences(bodies.get(table) ?? "").filter((ref) =>
+      tenantKeyed.has(ref.target),
+    );
+    expect(
+      offending.map((ref) => `${ref.target}(${ref.targetColumns})`),
+      `${table} references a tenant-keyed table without carrying tenant_id`,
+    ).toEqual([]);
+  });
+
+  it.each(tables)("%s names tenant_id first on both sides of a key", (table) => {
+    // Not "(tenant_id, id)": the targets are legitimately varied —
+    // (tenant_id, source_id, version), (tenant_id, conversation_id). What
+    // has to hold everywhere is that the tenant travels with the
+    // reference, which is the first column on each side.
+    for (const ref of compositeReferences(bodies.get(table) ?? "")) {
+      expect(ref.columns[0], `${table} -> ${ref.target}`).toBe("tenant_id");
+      expect(ref.targetColumns[0], `${table} -> ${ref.target}`).toBe("tenant_id");
+    }
+  });
+
+  it.each(tables)("%s keys itself by tenant when it holds tenant rows", (table) => {
+    // hc_tenants is the tenant itself, so its key is its id; and
+    // hc_webhook_events holds no tenant data at all.
+    if (table === "hc_tenants" || table === "hc_webhook_events") return;
+    expect(
+      primaryKeyOf(bodies.get(table) ?? "")[0],
+      `${table} does not lead its primary key with tenant_id`,
+    ).toBe("tenant_id");
   });
 });
 
