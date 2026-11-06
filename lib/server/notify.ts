@@ -111,6 +111,21 @@ async function loadSettings(
   return (data as Settings | null) ?? defaults;
 }
 
+/**
+ * Where owner-facing mail for this workspace goes.
+ *
+ * The configured alert address if there is one, otherwise the owner's
+ * sign-in address. Exported so anything else emailing the owner resolves
+ * it the same way rather than keeping a second copy of the rule.
+ */
+export async function ownerAlertAddress(
+  admin: SupabaseClient,
+  tenantId: string,
+): Promise<string | null> {
+  const settings = await loadSettings(admin, tenantId);
+  return settings.email ?? (await ownerEmail(admin, tenantId));
+}
+
 async function ownerEmail(admin: SupabaseClient, tenantId: string) {
   const { data } = await admin
     .from("hc_memberships")

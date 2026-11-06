@@ -2,14 +2,20 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isKnownTimeZone } from "@/lib/calendar/account";
 import {
   digestMessage,
+  localDateIn,
+  localHourIn,
+  nextLocalDate,
+  onLocalDay,
   reminderMessage,
+  shouldSendDigest,
   skipReason,
   REMINDER_LEAD_HOURS,
   type Appointment,
 } from "@/lib/reminders";
-import { sendEmail } from "./notify";
+import { ownerAlertAddress, sendEmail } from "./notify";
 
 /**
  * The record of what HelloCrew booked, and the reminders that run off it.
@@ -210,27 +216,172 @@ export async function sendDueReminders(
   return run;
 }
 
-/** Tomorrow's appointments for one workspace, for the owner's digest. */
+/**
+ * Tomorrow's appointments for one workspace, on the business's own clock.
+ *
+ * "Tomorrow" is the next local calendar date, not now plus 24 hours. The
+ * rolling window this used to use meant a digest sent at six in the
+ * evening covered 6pm tomorrow to 6pm the day after — half of two days,
+ * and not the day the email says it is describing.
+ *
+ * The database is asked for a generous span of instants and the local day
+ * is picked out in code, so no offset arithmetic is needed and a daylight
+ * saving change cannot move the boundary.
+ */
 export async function appointmentsTomorrow(
   admin: SupabaseClient,
   tenantId: string,
+  timeZone: string,
   now = new Date(),
 ): Promise<Appointment[]> {
-  const start = new Date(now.getTime() + 24 * 3_600_000);
-  const end = new Date(now.getTime() + 48 * 3_600_000);
+  const tomorrow = nextLocalDate(localDateIn(now, timeZone));
+  // Wide enough to contain the whole of any zone's "tomorrow" — the
+  // extremes are only ±14 hours from UTC — and still bounded.
+  const end = new Date(now.getTime() + 72 * 3_600_000);
   const { data } = await admin
     .from("hc_appointments")
     .select(SELECT)
     .eq("tenant_id", tenantId)
     .eq("status", "booked")
-    .gte("starts_at", start.toISOString())
+    .gte("starts_at", now.toISOString())
     .lt("starts_at", end.toISOString())
     .order("starts_at", { ascending: true })
-    .limit(100);
-  return ((data ?? []) as Row[]).map(toAppointment);
+    .limit(200);
+
+  return onLocalDay(
+    ((data ?? []) as Row[]).map(toAppointment),
+    tomorrow,
+    timeZone,
+  );
+}
+
+export type DigestRun = {
+  workspaces: number;
+  sent: number;
+  skipped: Record<string, number>;
+};
+
+/**
+ * Emails each owner tomorrow's appointments, once, the evening before.
+ *
+ * Driven from the appointments rather than from the list of workspaces: a
+ * business with nothing booked has nothing to be told, and walking every
+ * tenant every hour to discover that would be most of the work for none of
+ * the value.
+ *
+ * `last_digest_on` is written only after the provider accepts, so a failed
+ * send is retried on the next run inside the window rather than lost for
+ * the day.
+ */
+export async function sendOwnerDigests(
+  admin: SupabaseClient,
+  now = new Date(),
+): Promise<DigestRun> {
+  const run: DigestRun = { workspaces: 0, sent: 0, skipped: {} };
+  const skip = (reason: string) => {
+    run.skipped[reason] = (run.skipped[reason] ?? 0) + 1;
+  };
+
+  const horizon = new Date(now.getTime() + 72 * 3_600_000);
+  const { data, error } = await admin
+    .from("hc_appointments")
+    .select("tenant_id")
+    .eq("status", "booked")
+    .gte("starts_at", now.toISOString())
+    .lt("starts_at", horizon.toISOString())
+    .limit(1000);
+  if (error) throw new Error(error.message);
+
+  const tenants = [...new Set(((data ?? []) as { tenant_id: string }[]).map((row) => row.tenant_id))];
+  run.workspaces = tenants.length;
+
+  for (const tenantId of tenants) {
+    const settings = await digestSettings(admin, tenantId);
+    if (!settings.wanted) {
+      skip("turned_off");
+      continue;
+    }
+
+    const timeZone = await tenantTimeZone(admin, tenantId);
+    const today = localDateIn(now, timeZone);
+    if (!shouldSendDigest(localHourIn(now, timeZone), settings.lastSentOn, today)) {
+      skip(settings.lastSentOn === today ? "already_sent" : "not_the_hour");
+      continue;
+    }
+
+    const appointments = await appointmentsTomorrow(admin, tenantId, timeZone, now);
+    const message = digestMessage(appointments, await businessName(admin, tenantId));
+    // Nothing booked tomorrow. Deliberately not marked as sent, so a
+    // booking made later this evening still earns a digest tonight.
+    if (!message) {
+      skip("nothing_tomorrow");
+      continue;
+    }
+
+    const to = await ownerAlertAddress(admin, tenantId);
+    if (!to) {
+      skip("no_address");
+      continue;
+    }
+
+    const accepted = await sendEmail({
+      to,
+      subject: message.subject,
+      text: `${message.text}\n\nYou can turn this off in HelloCrew → Settings.`,
+    });
+    if (!accepted) {
+      skip("send_failed");
+      continue;
+    }
+
+    const { error: markError } = await admin
+      .from("hc_notification_settings")
+      .update({ last_digest_on: today })
+      .eq("tenant_id", tenantId);
+    if (markError)
+      console.error("[appointments] digest sent but could not mark:", markError.message);
+    run.sent += 1;
+  }
+
+  return run;
 }
 
 export { digestMessage };
+
+/** Whether this owner wants a digest, and when they last got one. */
+async function digestSettings(admin: SupabaseClient, tenantId: string) {
+  const { data } = await admin
+    .from("hc_notification_settings")
+    .select("on_digest, last_digest_on")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  const row = data as { on_digest?: boolean; last_digest_on?: string | null } | null;
+  return {
+    // Default on, matching the column default, so a workspace that never
+    // opened the settings behaves the way the schema describes.
+    wanted: row?.on_digest !== false,
+    lastSentOn: row?.last_digest_on ?? null,
+  };
+}
+
+/**
+ * The business's own timezone, from its connected calendar.
+ *
+ * UTC when there is no calendar — which also means there are no
+ * appointments, since bookings only exist through one.
+ */
+async function tenantTimeZone(admin: SupabaseClient, tenantId: string) {
+  const { data } = await admin
+    .from("hc_channel_connections")
+    .select("settings")
+    .eq("tenant_id", tenantId)
+    .eq("kind", "google_calendar")
+    .eq("status", "connected")
+    .maybeSingle();
+  const zone = (data as { settings?: { timeZone?: string } } | null)?.settings
+    ?.timeZone;
+  return zone && isKnownTimeZone(zone) ? zone : "UTC";
+}
 
 async function remindersWanted(admin: SupabaseClient, tenantId: string) {
   const { data } = await admin

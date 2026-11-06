@@ -15,6 +15,7 @@ export type AlertSettings = {
   onHandoff: boolean;
   onLead: boolean;
   onNewChat: boolean;
+  onDigest: boolean;
   /** Not an owner alert: whether customers are reminded before appointments. */
   onReminder: boolean;
 };
@@ -41,7 +42,7 @@ export async function getAlertSettings(): Promise<
   if (!s) return { ok: false, error: "Sign in to set up alerts." };
   const { data } = await s.db
     .from("hc_notification_settings")
-    .select("email, on_approval, on_handoff, on_lead, on_new_chat, on_reminder")
+    .select("email, on_approval, on_handoff, on_lead, on_new_chat, on_digest, on_reminder")
     .eq("tenant_id", s.workspace.tenantId)
     .maybeSingle();
   return {
@@ -54,6 +55,7 @@ export async function getAlertSettings(): Promise<
       onHandoff: data?.on_handoff ?? true,
       onLead: data?.on_lead ?? true,
       onNewChat: data?.on_new_chat ?? false,
+      onDigest: data?.on_digest ?? true,
       onReminder: data?.on_reminder ?? true,
     },
   };
@@ -66,6 +68,7 @@ const settingsSchema = z
     onHandoff: z.boolean(),
     onLead: z.boolean(),
     onNewChat: z.boolean(),
+    onDigest: z.boolean(),
     onReminder: z.boolean(),
   })
   .strict();
@@ -86,6 +89,7 @@ export async function saveAlertSettings(
     on_handoff: parsed.data.onHandoff,
     on_lead: parsed.data.onLead,
     on_new_chat: parsed.data.onNewChat,
+    on_digest: parsed.data.onDigest,
     on_reminder: parsed.data.onReminder,
     updated_by: s.workspace.userId,
   });

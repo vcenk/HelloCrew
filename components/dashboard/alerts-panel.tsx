@@ -38,6 +38,11 @@ const toggles: {
     label: "Every new website chat",
     hint: "Can be a lot on busy days.",
   },
+  {
+    key: "onDigest",
+    label: "Tomorrow's appointments",
+    hint: "One email each evening, only on days with something booked.",
+  },
 ];
 
 // Kept apart from the list above, which is all "email me when…". This one

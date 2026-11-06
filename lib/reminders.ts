@@ -1,3 +1,5 @@
+import { localWallClock } from "@/lib/calendar/slots";
+
 /**
  * When a reminder goes out, and what it says.
  *
@@ -84,6 +86,78 @@ export function reminderMessage(
       "If you need to change or cancel it, just reply to the chat where you booked and we'll sort it out.",
     ].join("\n"),
   };
+}
+
+/** The local hour the owner's digest aims for, the evening before. */
+export const DIGEST_HOUR = 18;
+
+/**
+ * The last local hour it is still worth sending one.
+ *
+ * Same reasoning as the reminder floor: the cron can miss a run, and a
+ * digest that is simply dropped for the day is worse than one arriving at
+ * nine in the evening. Past this it waits for tomorrow, because "tomorrow"
+ * stops meaning what the owner reads it as.
+ */
+export const DIGEST_LAST_HOUR = 22;
+
+/**
+ * The calendar date an instant falls on, where the business is.
+ *
+ * Asks the timezone rather than computing an offset, the same way
+ * localWallClock does, so daylight saving is a non-event. en-CA because it
+ * renders dates as YYYY-MM-DD, which sorts and compares as a string.
+ */
+export function localDateIn(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(instant);
+}
+
+/** The hour on the business's own clock, 0–23. */
+export function localHourIn(instant: Date, timeZone: string): number {
+  return Math.floor(localWallClock(instant, timeZone).minuteOfDay / 60);
+}
+
+/**
+ * The day after a YYYY-MM-DD date.
+ *
+ * Plain calendar arithmetic with no timezone in it: the date has already
+ * been resolved in the business's zone, and "the next date" is the same
+ * question in every zone. Done in UTC space so no local offset can shift it.
+ */
+export function nextLocalDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+
+/**
+ * Whether this run should send the owner their digest.
+ *
+ * `lastSentOn` and `today` are both local dates, so one digest a day means
+ * one per day where the business is, not per UTC day.
+ */
+export function shouldSendDigest(
+  localHour: number,
+  lastSentOn: string | null,
+  today: string,
+): boolean {
+  if (lastSentOn === today) return false;
+  return localHour >= DIGEST_HOUR && localHour < DIGEST_LAST_HOUR;
+}
+
+/** The appointments falling on one local date, out of a wider window. */
+export function onLocalDay(
+  appointments: readonly Appointment[],
+  localDate: string,
+  timeZone: string,
+): Appointment[] {
+  return appointments.filter(
+    (appointment) => localDateIn(appointment.startsAt, timeZone) === localDate,
+  );
 }
 
 /** The owner's view of tomorrow, for the daily digest. */

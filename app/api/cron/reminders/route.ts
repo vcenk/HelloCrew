@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { sendDueReminders } from "@/lib/server/appointments";
+import { sendDueReminders, sendOwnerDigests } from "@/lib/server/appointments";
 import { emailConfigured } from "@/lib/server/notify";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 
@@ -20,12 +20,16 @@ function authorized(request: Request) {
 }
 
 /**
- * Reminds customers about appointments coming up.
+ * Reminds customers about appointments coming up, and tells each owner
+ * what tomorrow looks like.
  *
- * Hourly rather than daily: the window has a floor as well as a lead time,
- * so a run that is missed is picked up by the next one instead of dropping
- * the reminder silently. Sending twice is prevented by the row itself,
- * which is marked only once the provider has accepted the message.
+ * Hourly rather than daily, and one cron rather than two. Both jobs need
+ * the same thing from an hourly beat: the reminder window has a floor as
+ * well as a lead time, so a missed run is picked up by the next one
+ * instead of dropping the reminder silently; and the digest has to find
+ * the owner's own evening, which falls at a different UTC hour for every
+ * workspace. Neither can send twice — the appointment row and the
+ * settings row are marked only once the provider has accepted.
  */
 export async function GET(request: Request) {
   if (!authorized(request)) return new Response("Unauthorized", { status: 401 });
@@ -36,14 +40,30 @@ export async function GET(request: Request) {
   // would be retried next hour for nothing.
   if (!emailConfigured()) return Response.json({ sent: 0, reason: "no_email_provider" });
 
+  // Reported separately, and each is allowed to fail on its own: a digest
+  // that throws must not stop customers being reminded.
+  const result: Record<string, unknown> = {};
   try {
-    const run = await sendDueReminders(admin);
-    return Response.json(run);
+    result.reminders = await sendDueReminders(admin);
   } catch (error) {
     console.error(
-      "[cron/reminders] failed:",
+      "[cron/reminders] reminders failed:",
       error instanceof Error ? error.message : "unknown",
     );
-    return Response.json({ sent: 0, reason: "error" }, { status: 500 });
+    result.reminders = { reason: "error" };
   }
+  try {
+    result.digests = await sendOwnerDigests(admin);
+  } catch (error) {
+    console.error(
+      "[cron/reminders] digests failed:",
+      error instanceof Error ? error.message : "unknown",
+    );
+    result.digests = { reason: "error" };
+  }
+
+  const failed =
+    (result.reminders as { reason?: string }).reason === "error" &&
+    (result.digests as { reason?: string }).reason === "error";
+  return Response.json(result, { status: failed ? 500 : 200 });
 }
