@@ -197,7 +197,10 @@ export async function sendDueReminders(
     }
     const { error: markError } = await admin
       .from("hc_appointments")
+      // Scoped by tenant as well as id: the table is keyed (tenant_id, id),
+      // and every other write here names both.
       .update({ reminder_sent_at: new Date().toISOString() })
+      .eq("tenant_id", row.tenant_id)
       .eq("id", row.id);
     if (markError)
       console.error("[appointments] sent but could not mark:", markError.message);

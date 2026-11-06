@@ -13,10 +13,16 @@
 begin;
 
 create table public.hc_appointments (
-  id uuid primary key default gen_random_uuid(),
+  -- Keyed (tenant_id, id) like every other tenant table, so a foreign key
+  -- to it has to carry the tenant too. hc_conversations and hc_contacts
+  -- are keyed the same way, which is why the references below are
+  -- composite: a single-column one would compile only if those tables had
+  -- a bare unique id, and would then let a row point at another
+  -- workspace's conversation. The schema refuses instead.
   tenant_id uuid not null references public.hc_tenants(id) on delete cascade,
-  conversation_id uuid references public.hc_conversations(id) on delete set null,
-  contact_id uuid references public.hc_contacts(id) on delete set null,
+  id uuid not null default gen_random_uuid(),
+  conversation_id uuid,
+  contact_id uuid,
 
   service text not null check (char_length(service) between 1 and 200),
   starts_at timestamptz not null,
@@ -49,7 +55,12 @@ create table public.hc_appointments (
   updated_at timestamptz not null default now(),
 
   constraint hc_appointments_ends_after_start check (ends_at > starts_at),
-  constraint hc_appointments_key_per_tenant unique (tenant_id, idempotency_key)
+  constraint hc_appointments_key_per_tenant unique (tenant_id, idempotency_key),
+  primary key (tenant_id, id),
+  foreign key (tenant_id, conversation_id)
+    references public.hc_conversations(tenant_id, id) on delete set null (conversation_id),
+  foreign key (tenant_id, contact_id)
+    references public.hc_contacts(tenant_id, id) on delete set null (contact_id)
 );
 
 -- The cron's only query: upcoming, still booked, not yet reminded.
