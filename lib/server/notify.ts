@@ -143,6 +143,42 @@ async function ownerEmail(admin: SupabaseClient, tenantId: string) {
   return user?.user?.email ?? null;
 }
 
+export const DEFAULT_FROM = "HelloCrew <onboarding@resend.dev>";
+
+/**
+ * The From line, optionally showing the business rather than HelloCrew.
+ *
+ * A reminder goes to the client's customer, not to the client. Someone who
+ * booked at Northline Studio has never heard of HelloCrew, so a reminder
+ * from us reads as spam and the appointment gets missed. The address still
+ * has to stay on the one domain verified with the provider — Resend rejects
+ * a from address outside it — so only the display name changes.
+ *
+ * `displayName` arrives from tenant data, which makes it untrusted input on
+ * its way into a mail header. Anything that could end the name, start an
+ * address or split the header is replaced rather than escaped, and the
+ * result is quoted and bounded. A name that sanitizes away to nothing falls
+ * back to the configured From instead of sending `"" <addr>`.
+ */
+export function fromHeader(
+  displayName?: string,
+  configured = process.env.NOTIFY_FROM?.trim(),
+): string {
+  const base = configured || DEFAULT_FROM;
+  if (!displayName) return base;
+  const address = base.match(/<([^>]+)>/)?.[1]?.trim() ?? base;
+  const safe = displayName
+    // "@" goes too, though it cannot break the header. Without it a crafted
+    // name can still render as "Evil attacker@evil.com" in the From line,
+    // which is a phishing surface rather than a parsing bug. Real business
+    // names do not contain one.
+    .replace(/[\r\n"<>,;:\\@]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
+  return safe ? `"${safe}" <${address}>` : base;
+}
+
 /**
  * Sends one email, and says whether the provider accepted it.
  *
@@ -156,6 +192,8 @@ export async function sendEmail(message: {
   subject: string;
   text: string;
   html?: string;
+  /** Shown instead of HelloCrew. Use the business the customer booked with. */
+  fromName?: string;
 }): Promise<boolean> {
   const key = process.env.RESEND_API_KEY?.trim();
   if (!key) return false;
@@ -168,9 +206,7 @@ export async function sendEmail(message: {
       },
       signal: AbortSignal.timeout(5000),
       body: JSON.stringify({
-        from:
-          process.env.NOTIFY_FROM?.trim() ||
-          "HelloCrew <onboarding@resend.dev>",
+        from: fromHeader(message.fromName),
         to: [message.to],
         subject: message.subject.slice(0, 150),
         text: message.text,

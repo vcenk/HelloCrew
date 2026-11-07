@@ -194,6 +194,8 @@ export async function sendDueReminders(
       to: appointment.customerEmail!,
       subject: message.subject,
       text: message.text,
+      // The customer booked with the business, not with us.
+      fromName: business,
     });
     if (!accepted) {
       // Left unmarked on purpose: the next run retries while the

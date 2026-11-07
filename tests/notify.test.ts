@@ -2,7 +2,13 @@ import { vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { afterEach, describe, expect, it } from "vitest";
 
-import { describeEvent, notifyOwner } from "../lib/server/notify";
+import {
+  DEFAULT_FROM,
+  describeEvent,
+  fromHeader,
+  notifyOwner,
+  sendEmail,
+} from "../lib/server/notify";
 
 // A tiny stand-in for the service-role client: returns the given settings row.
 function fakeAdmin(settings: Record<string, unknown> | null, ownerEmail = "owner@salon.com") {
@@ -21,6 +27,76 @@ function fakeAdmin(settings: Record<string, unknown> | null, ownerEmail = "owner
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+});
+
+describe("who a customer sees the reminder from", () => {
+  const configured = "HelloCrew <hellocrew@agentland.app>";
+
+  it("shows the business, not HelloCrew", () => {
+    // The person booked at Northline Studio and has never heard of us.
+    expect(fromHeader("Northline Studio", configured)).toBe(
+      '"Northline Studio" <hellocrew@agentland.app>',
+    );
+  });
+
+  it("keeps the address on the verified domain", () => {
+    // Resend rejects a from address outside the domain it verified, so the
+    // display name is the only part that may change.
+    expect(fromHeader("Anything At All", configured)).toContain(
+      "<hellocrew@agentland.app>",
+    );
+  });
+
+  it("stays as configured when no business is given", () => {
+    expect(fromHeader(undefined, configured)).toBe(configured);
+    expect(fromHeader(undefined, "")).toBe(DEFAULT_FROM);
+  });
+
+  it("cannot be used to inject a second header or a second address", () => {
+    // Business names come from tenant data, so this is untrusted input on
+    // its way into a mail header.
+    const attack = 'Evil" <attacker@evil.com>\r\nBcc: victim@example.com';
+    const header = fromHeader(attack, configured);
+    // Nothing that could split the header or start a second address.
+    expect(header).not.toMatch(/[\r\n]/);
+    expect(header.match(/</g) ?? []).toHaveLength(1);
+    expect(header.match(/>/g) ?? []).toHaveLength(1);
+    // And no address-shaped text left to read as a sender.
+    expect(header).not.toContain("@evil.com");
+    expect(header.match(/@/g) ?? []).toHaveLength(1);
+    expect(header).toContain("<hellocrew@agentland.app>");
+  });
+
+  it("falls back rather than sending an empty display name", () => {
+    expect(fromHeader('<>",', configured)).toBe(configured);
+    expect(fromHeader("   ", configured)).toBe(configured);
+  });
+
+  it("bounds a very long name", () => {
+    const header = fromHeader("N".repeat(500), configured);
+    expect(header.length).toBeLessThan(120);
+  });
+
+  it("sends the business name through to the provider", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("NOTIFY_FROM", configured);
+    const fetchSpy = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    expect(
+      await sendEmail({
+        to: "sam@example.com",
+        subject: "Reminder",
+        text: "See you tomorrow",
+        fromName: "Northline Studio",
+      }),
+    ).toBe(true);
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0] as unknown as [string, RequestInit])[1]
+        .body as string,
+    );
+    expect(body.from).toBe('"Northline Studio" <hellocrew@agentland.app>');
+  });
 });
 
 describe("owner email alerts", () => {
