@@ -222,7 +222,7 @@ describe("live AI cost accounting", () => {
     });
     const oneRound = costMicroUsd(2600, 1200, 0.15, 0.6);
     expect(worst).toBeGreaterThan(oneRound * 3);
-    expect(worst).toBeLessThan(10_000); // under one cent for gpt-4o-mini
+    expect(worst).toBeLessThan(10_000); // under one cent at the rates above
   });
 
   it("stays off until both server keys exist", () => {
@@ -234,7 +234,20 @@ describe("live AI cost accounting", () => {
       OPENAI_API_KEY: "k",
       SUPABASE_SECRET_KEY: "s",
     });
-    expect(ready.ready && ready.config.models.fast).toBe("gpt-4o-mini");
+    expect(ready.ready && ready.config.models.fast).toBe("gpt-6-luna");
+  });
+
+  it("never reserves less than the default model actually costs", () => {
+    // The price defaults exist to over-estimate. If someone lowers them below
+    // the default model's published rates, a tenant can spend past its cap
+    // before settlement notices, which is the one direction that loses money
+    // silently. Luna is $0.10 in / $0.50 out per Mtok.
+    const ready = readLiveConfig({
+      OPENAI_API_KEY: "k",
+      SUPABASE_SECRET_KEY: "s",
+    });
+    expect(ready.ready && ready.config.inputUsdPerMTok).toBeGreaterThanOrEqual(0.1);
+    expect(ready.ready && ready.config.outputUsdPerMTok).toBeGreaterThanOrEqual(0.5);
   });
 });
 

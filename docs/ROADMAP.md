@@ -74,7 +74,7 @@ Exit: lint, typecheck, unit tests, build and browser smoke pass; every page work
 
 Progress (2026-10-17):
 
-- [x] OpenAI behind one adapter (`lib/models/openai.ts`, default `gpt-4o-mini`, configurable by env). Anthropic adapter still to add.
+- [x] OpenAI behind one adapter (`lib/models/openai.ts`, default `gpt-6-luna` over the Responses API, configurable by env). Anthropic adapter still to add.
 - [x] LangGraph agent (`lib/agent/`): model ↔ tools loop, max 3 model rounds, policy gate that only runs registered tools with schema-checked arguments.
 - [x] Tools: `search_knowledge`, `get_business_details`, `request_booking` (records an owner approval, never books), `handoff_to_human`.
 - [x] Grounding: approved knowledge and identity are loaded server-side from the signed-in workspace; nothing the browser sends is used as knowledge. Prompt-injection rule in the system prompt.

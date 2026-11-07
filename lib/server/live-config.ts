@@ -41,13 +41,18 @@ export function readLiveConfig(
         fast:
           env.OPENAI_MODEL_FAST?.trim() ||
           env.OPENAI_MODEL?.trim() ||
-          "gpt-4o-mini",
+          "gpt-6-luna",
         strong:
           env.OPENAI_MODEL_STRONG?.trim() ||
           env.OPENAI_MODEL?.trim() ||
-          "gpt-4o-mini",
+          "gpt-6-luna",
       },
-      // Conservative defaults so the budget over- rather than under-estimates.
+      // Deliberately above the default model's published rates. Luna is
+      // $0.10/$0.50 per Mtok, so a deployment that sets no price variables
+      // over-reserves by half on input. That is the safe direction: an
+      // under-estimate lets a tenant spend past its cap before anyone
+      // notices, while an over-estimate only reserves too much and releases
+      // the remainder at settlement.
       inputUsdPerMTok: positiveNumber(env.OPENAI_INPUT_USD_PER_MTOK, 0.15),
       outputUsdPerMTok: positiveNumber(env.OPENAI_OUTPUT_USD_PER_MTOK, 0.6),
       maxOutputTokens: Math.min(

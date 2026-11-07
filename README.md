@@ -63,7 +63,7 @@ Conversations can answer with OpenAI instead of the practice rules. It needs, in
 
 - `OPENAI_API_KEY`
 - `SUPABASE_SECRET_KEY` (service role; used only for the usage ledger and workspace limits)
-- optional `OPENAI_MODEL` (default `gpt-4o-mini`) and its prices `OPENAI_INPUT_USD_PER_MTOK` / `OPENAI_OUTPUT_USD_PER_MTOK`
+- optional `OPENAI_MODEL` (default `gpt-6-luna`) and its prices `OPENAI_INPUT_USD_PER_MTOK` / `OPENAI_OUTPUT_USD_PER_MTOK`. Set the prices whenever you change the model; the built-in defaults sit above Luna's rates so that leaving them unset over-reserves rather than under-reserves.
 
 Then sign in, open Settings → Live AI and switch it on (owner only). Each workspace has a $5/month budget and the whole platform a $20/month cap (`HELLOCREW_PLATFORM_MONTHLY_CAP_USD`). When a budget is used up, replies fall back to practice mode. Bookings proposed by the AI always wait for the owner's approval; no calendar is connected yet.
 
