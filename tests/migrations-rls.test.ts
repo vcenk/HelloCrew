@@ -227,10 +227,13 @@ describe("the migrations keep row-level security on", () => {
     ]);
     for (const table of tables) {
       if (scopedElsewhere.has(table)) continue;
-      const body = all.slice(
-        all.indexOf(`create table public.${table}`),
-        all.indexOf(");", all.indexOf(`create table public.${table}`)),
-      );
+      // Uses the parsed bodies rather than slicing the text again. The old
+      // slice looked for "create table public.x" exactly, so a table
+      // declared "create table if not exists public.x" produced an empty
+      // body and passed or failed for the wrong reason — and the regex that
+      // collects `bodies` had always accepted both forms.
+      const body = bodies.get(table) ?? "";
+      expect(body, `${table} has no body to check`).not.toBe("");
       expect(body, `${table} has no tenant_id`).toContain("tenant_id");
     }
   });
