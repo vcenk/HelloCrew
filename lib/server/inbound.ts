@@ -5,7 +5,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { titleFrom } from "@/lib/conversations";
 import { appendMessages } from "@/lib/data/conversations";
 import { runCustomerTurn } from "./agent-turn";
-import { findConnection, firstDelivery, markConnectionError, type ConnectionKind } from "./connections";
+import {
+  claimEvent,
+  completeEvent,
+  failEvent,
+  findConnection,
+  markConnectionError,
+  receiveEvent,
+  stuckEvents,
+  type ConnectionKind,
+} from "./connections";
 import { sendDirectMessage, type MetaConfig, type MetaInbound } from "./meta";
 import { notifyOwner } from "./notify";
 import { saveDraftOrPost } from "./public-replies";
@@ -73,7 +82,6 @@ async function threadFor(
 async function handleMessage(admin: SupabaseClient, config: MetaConfig, event: Extract<MetaInbound, { type: "message" }>) {
   const connection = await findConnection<MetaCredentials>(admin, kindFor[event.channel], event.accountId);
   if (!connection) return;
-  if (!(await firstDelivery(admin, "meta", `${event.channel}:${event.messageId}`))) return;
   const tenantId = connection.tenantId;
   const thread = await threadFor(admin, tenantId, connection.id, event);
   await appendMessages(admin, { tenantId }, thread.id, [
@@ -134,13 +142,97 @@ async function handlePublic(admin: SupabaseClient, event: Extract<MetaInbound, {
     });
 }
 
-// Handles one webhook event. Errors are logged so one bad event never blocks
-// the rest of the delivery.
-export async function handleMetaEvent(admin: SupabaseClient, config: MetaConfig, event: MetaInbound) {
+/** The provider's own id for this delivery, stable across its retries. */
+function eventKey(event: MetaInbound) {
+  return event.type === "message"
+    ? `${event.channel}:${event.messageId}`
+    : `${event.kind}:${event.externalId}`;
+}
+
+/**
+ * Write the delivery down before the route answers 200.
+ *
+ * Stores the parsed event rather than the raw body: the raw body carries
+ * provider metadata we have no use for, and the parsed form is the smallest
+ * thing the sweeper can replay.
+ */
+export async function recordArrival(admin: SupabaseClient, event: MetaInbound) {
+  await receiveEvent(admin, "meta", eventKey(event), event);
+}
+
+/**
+ * Finish deliveries that were accepted and never completed.
+ *
+ * The gap this closes: the route answers 200 immediately, so Meta will not
+ * redeliver, and `after` can be cut off by the invocation's time limit. With
+ * no sweeper, work interrupted halfway would stay unfinished forever. Only
+ * events whose lease has expired are picked up, so a turn still running is
+ * never duplicated.
+ */
+export async function retryStuckMetaEvents(
+  admin: SupabaseClient,
+  config: MetaConfig,
+  limit = 20,
+): Promise<{ found: number; finished: number }> {
+  const stuck = await stuckEvents(admin, "meta", limit);
+  let finished = 0;
+  for (const row of stuck) {
+    const event = row.payload as MetaInbound | null;
+    if (!event || typeof event !== "object" || !("type" in event)) {
+      // Nothing replayable. Park it rather than trying again every hour.
+      await failEvent(admin, "meta", row.eventId, "unreadable stored event", false);
+      continue;
+    }
+    if ((await handleMetaEvent(admin, config, event)) === "completed") finished += 1;
+  }
+  return { found: stuck.length, finished };
+}
+
+/**
+ * Handles one webhook event, exactly once, and lets a failure be retried.
+ *
+ * The claim wraps the whole unit of work rather than preceding it. Marking
+ * the event before storing the message, running the model and delivering the
+ * reply meant a later failure was permanent: Meta's retry carried the same
+ * id, the old insert conflicted, and the customer's message was dropped with
+ * nothing but a log line.
+ *
+ * One bad event still must not block the rest of the batch, so the error is
+ * swallowed here — but only after the row is marked retryable, which is what
+ * makes the provider's next delivery do something.
+ */
+export type EventOutcome = "completed" | "skipped" | "failed";
+
+export async function handleMetaEvent(
+  admin: SupabaseClient,
+  config: MetaConfig,
+  event: MetaInbound,
+): Promise<EventOutcome> {
+  const key = eventKey(event);
+  let claim: Awaited<ReturnType<typeof claimEvent>>;
+  try {
+    claim = await claimEvent(admin, "meta", key);
+  } catch (error) {
+    // The ledger itself is unreachable. Doing the work anyway risks a
+    // duplicate reply to a real customer, which is worse than leaving the
+    // event for the sweeper.
+    console.error("[meta] could not claim event:", error instanceof Error ? error.message : "unknown");
+    return "skipped";
+  }
+  // 'completed' means someone already did it; 'locked' means someone is
+  // doing it now. Neither is this worker's to touch.
+  if (claim !== "claimed") return "skipped";
+
   try {
     if (event.type === "message") await handleMessage(admin, config, event);
     else await handlePublic(admin, event);
+    await completeEvent(admin, "meta", key);
+    return "completed";
   } catch (error) {
-    console.error("[meta] event failed:", error instanceof Error ? error.message : "unknown");
+    // Only the step name and the provider's own wording. Never the message.
+    const reason = error instanceof Error ? error.message : "unknown";
+    console.error("[meta] event failed:", reason);
+    await failEvent(admin, "meta", key, reason, true);
+    return "failed";
   }
 }

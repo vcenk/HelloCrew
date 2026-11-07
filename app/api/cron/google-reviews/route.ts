@@ -4,6 +4,8 @@ import { decryptSecret } from "@/lib/server/secrets";
 import type { Connection } from "@/lib/server/connections";
 import type { GoogleCredentials } from "@/lib/server/google";
 import { googleConfigured } from "@/lib/server/google";
+import { retryStuckMetaEvents } from "@/lib/server/inbound";
+import { readMetaConfig } from "@/lib/server/meta";
 import { syncGoogleLocation } from "@/lib/server/review-sync";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 
@@ -50,7 +52,26 @@ export async function GET(request: Request) {
     };
     added += await syncGoogleLocation(admin, connection, row.last_synced_at ?? null);
   }
+  // Finish Meta deliveries that were accepted and never completed. The
+  // webhook answers 200 before doing the work, so Meta will not redeliver,
+  // and `after` can be cut off by the invocation's time limit: without this
+  // pass, an interrupted event would stay unfinished forever. Allowed to
+  // fail on its own, since it has nothing to do with review syncing.
+  let recovered: unknown = { found: 0, finished: 0 };
+  const meta = readMetaConfig();
+  if (meta) {
+    try {
+      recovered = await retryStuckMetaEvents(admin, meta);
+    } catch (error) {
+      console.error(
+        "[cron/google-reviews] webhook recovery failed:",
+        error instanceof Error ? error.message : "unknown",
+      );
+      recovered = { reason: "error" };
+    }
+  }
+
   // Housekeeping: webhook ids older than a week can't be retried anymore.
   await admin.from("hc_webhook_events").delete().lt("received_at", new Date(Date.now() - 7 * 86_400_000).toISOString());
-  return Response.json({ synced: data?.length ?? 0, added });
+  return Response.json({ synced: data?.length ?? 0, added, recovered });
 }

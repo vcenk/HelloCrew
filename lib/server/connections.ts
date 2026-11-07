@@ -151,10 +151,107 @@ export async function markConnectionError(admin: SupabaseClient, tenantId: strin
     .eq("id", id);
 }
 
-// True the first time an event id is seen; providers retry deliveries.
-export async function firstDelivery(admin: SupabaseClient, provider: "meta" | "google", eventId: string) {
-  const { error } = await admin.from("hc_webhook_events").insert({ provider, event_id: eventId.slice(0, 300) });
-  if (!error) return true;
-  if (error.code === "23505") return false;
-  throw new Error("Couldn’t record the event.");
+export type EventClaim = "claimed" | "completed" | "locked";
+
+/**
+ * Record that a delivery arrived, before any work is done with it.
+ *
+ * Called inside the request, before the 200. The provider is told the
+ * delivery succeeded and will not send it again, so if the invocation is cut
+ * off during `after` this row is the only thing that knows the event existed.
+ * The payload is kept so the sweeper has something to replay, and is cleared
+ * the moment the work completes.
+ */
+export async function receiveEvent(
+  admin: SupabaseClient,
+  provider: "meta" | "google",
+  eventId: string,
+  payload: unknown,
+) {
+  const { error } = await admin.rpc("hc_receive_webhook_event", {
+    p_provider: provider,
+    p_event_id: eventId.slice(0, 300),
+    p_payload: payload,
+  });
+  if (error) throw new Error("Couldn’t record the event.");
+}
+
+/** Accepted deliveries that were never finished and whose lease has expired. */
+export async function stuckEvents(
+  admin: SupabaseClient,
+  provider: "meta" | "google",
+  limit = 20,
+): Promise<{ eventId: string; payload: unknown; attempts: number }[]> {
+  const { data, error } = await admin.rpc("hc_stuck_webhook_events", {
+    p_provider: provider,
+    p_limit: limit,
+  });
+  if (error) throw new Error("Couldn’t read unfinished events.");
+  return ((data ?? []) as { event_id: string; payload: unknown; attempts: number }[]).map(
+    (row) => ({ eventId: row.event_id, payload: row.payload, attempts: row.attempts }),
+  );
+}
+
+/**
+ * Take ownership of one provider delivery.
+ *
+ * Replaces an insert-and-hope: the old version recorded the event id before
+ * any of the work, so a failure after that point was permanent — the
+ * provider's retry carried the same id, the insert conflicted, and the
+ * message was gone. Now the row carries a lease and a status, so only a
+ * `completed` event is refused.
+ *
+ * 'claimed' means process it. 'completed' means it is already done and must
+ * not be repeated. 'locked' means another worker holds a live lease, so this
+ * delivery should be left alone; the provider will retry if that worker dies,
+ * and the expired lease will let the retry through.
+ */
+export async function claimEvent(
+  admin: SupabaseClient,
+  provider: "meta" | "google",
+  eventId: string,
+  leaseSeconds = 120,
+): Promise<EventClaim> {
+  const { data, error } = await admin.rpc("hc_claim_webhook_event", {
+    p_provider: provider,
+    p_event_id: eventId.slice(0, 300),
+    p_lease_seconds: leaseSeconds,
+  });
+  if (error) throw new Error("Couldn’t record the event.");
+  return (data as EventClaim | null) ?? "locked";
+}
+
+/** The work is done. Nothing will process this delivery again. */
+export async function completeEvent(
+  admin: SupabaseClient,
+  provider: "meta" | "google",
+  eventId: string,
+) {
+  const { error } = await admin.rpc("hc_complete_webhook_event", {
+    p_provider: provider,
+    p_event_id: eventId.slice(0, 300),
+  });
+  if (error) console.error("[webhook] could not mark complete:", error.message);
+}
+
+/**
+ * The attempt failed. Releases the lease so a retry can pick it up.
+ *
+ * `reason` is stored, so it must name the step and nothing else — never a
+ * token, never the customer's message.
+ */
+export async function failEvent(
+  admin: SupabaseClient,
+  provider: "meta" | "google",
+  eventId: string,
+  reason: string,
+  retryable = true,
+) {
+  const { error } = await admin.rpc("hc_fail_webhook_event", {
+    p_provider: provider,
+    p_event_id: eventId.slice(0, 300),
+    p_reason: reason.slice(0, 300),
+    p_retryable: retryable,
+  });
+  if (error) console.error("[webhook] could not mark failed:", error.message);
 }

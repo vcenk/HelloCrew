@@ -1,6 +1,6 @@
 import { after } from "next/server";
 
-import { handleMetaEvent } from "@/lib/server/inbound";
+import { handleMetaEvent, recordArrival } from "@/lib/server/inbound";
 import { parseMetaWebhook, readMetaConfig, verifyMetaSignature } from "@/lib/server/meta";
 import { widgetAdminClient } from "@/lib/server/widget-installations";
 
@@ -40,9 +40,25 @@ export async function POST(request: Request) {
     return new Response("Bad payload", { status: 400 });
   }
   console.info(`[meta] webhook received: ${events.length} event(s)`);
-  if (events.length)
+  const batch = events.slice(0, 50);
+
+  // Durable before the 200, because the 200 is a promise we will not get a
+  // second chance at: Meta does not redeliver an event it was told arrived,
+  // and `after` runs under waitUntil, so the invocation can be cut off
+  // partway through the work. If that happens, these rows are the only
+  // record the events existed, and the sweeper replays them from here.
+  try {
+    for (const event of batch) await recordArrival(admin, event);
+  } catch (error) {
+    // Could not persist. Better to let Meta retry the whole delivery than to
+    // accept events we might silently drop.
+    console.error("[meta] could not record delivery:", error instanceof Error ? error.message : "unknown");
+    return new Response("Storage unavailable", { status: 503 });
+  }
+
+  if (batch.length)
     after(async () => {
-      for (const event of events.slice(0, 50)) await handleMetaEvent(admin, config, event);
+      for (const event of batch) await handleMetaEvent(admin, config, event);
     });
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
