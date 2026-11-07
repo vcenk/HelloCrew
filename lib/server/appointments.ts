@@ -336,12 +336,20 @@ export async function sendOwnerDigests(
       continue;
     }
 
+    // Upsert, not update. Most workspaces have no settings row until the
+    // owner opens the alerts panel, and an update matching no rows reports
+    // no error — so the once-a-day marker silently never persisted and the
+    // digest went out again on every run inside the evening window, up to
+    // four times. The row's other columns take their schema defaults, which
+    // is what the absent row already meant.
     const { error: markError } = await admin
       .from("hc_notification_settings")
-      .update({ last_digest_on: today })
-      .eq("tenant_id", tenantId);
-    if (markError)
+      .upsert({ tenant_id: tenantId, last_digest_on: today }, { onConflict: "tenant_id" });
+    if (markError) {
+      // Worth more than a log line: unmarked means it sends again next run.
       console.error("[appointments] digest sent but could not mark:", markError.message);
+      skip("mark_failed");
+    }
     run.sent += 1;
   }
 
