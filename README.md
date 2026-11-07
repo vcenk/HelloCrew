@@ -2,7 +2,9 @@
 
 A welcoming workspace for business owners to set up, test, and supervise an AI assistant that can answer questions and use approved business tools.
 
-**Status: implemented practice prototype plus authenticated owner foundation, not live AI.** The working plan is [docs/ROADMAP.md](docs/ROADMAP.md). The public website is at `/`; the dashboard is at `/app` with routes `/app/conversations`, `/app/crew`, `/app/knowledge` and `/app/settings`; the isolated public practice widget is demonstrated at `/widget-test`; Google OAuth starts at `/login`; and `/workspace` is protected by a verified Supabase session and tenant RLS. A real LangGraph graph runs deterministic tools against fictional sample data. Durable editor saves, real customers, paid model calls, and external actions are not supported yet.
+**Status: live AI and persistent customer workflows are implemented; not production-verified, and not production-ready.** Signed-in owners run real OpenAI turns on the usage ledger, real conversations and contacts persist under forced RLS, Google Calendar booking works, and customer reminders and the owner's daily digest have been sent and delivered from production. What that does *not* mean is covered in [what works and what does not](docs/VERIFICATION.md#what-works-and-what-does-not), which separates usable features from those awaiting provider approval, those implemented but never verified against real traffic, and those not built. Read it before relying on anything here.
+
+An unauthenticated practice mode still exists alongside the live product: `/app` without a session, and the `/widget-test` fixture, run deterministic tools against fictional data and make no paid calls. The working plan is [docs/ROADMAP.md](docs/ROADMAP.md) and the pilot hardening work is in [docs/PILOT_HARDENING_PLAN.md](docs/PILOT_HARDENING_PLAN.md). The public website is at `/`; the dashboard is at `/app` with routes `/app/conversations`, `/app/crew`, `/app/knowledge` and `/app/settings`; Google OAuth starts at `/login`; and `/workspace` is protected by a verified Supabase session and tenant RLS.
 
 ## Start here
 
@@ -24,7 +26,7 @@ The public landing page takes original visual inspiration from Gaia’s public w
 - Open-source LangGraph JS for an actual stateful tool graph, including deterministic demo execution.
 - Existing Vercel Pro hosting as the intended deployment target. Existing subscription coverage is not a guarantee of zero incremental cost.
 - No paid LangSmith service, AI subscription, new infrastructure account, or billing system is required for the initial demo.
-- Web, Messenger, Instagram and WhatsApp are connected. Telephone remains future work, and no calendar or booking provider is connected yet.
+- Website chat and Google Calendar booking are connected and working. Messenger, Instagram and WhatsApp are implemented but cannot carry real traffic until Meta App Review approves the app; Google Business Profile replies are implemented and waiting on Google's approval. Telephone is not built.
 - Supabase Auth/Postgres is connected to project `yfmoggubjsffgameexfi`. The first migration adds tenant membership, workflow/knowledge versioning, forced RLS, and deny-all server-control tables.
 - Live AI is available to a signed-in owner once `OPENAI_API_KEY` and `SUPABASE_SECRET_KEY` are set: see [Live AI](#live-ai). It runs on the usage ledger with per-workspace and platform caps. It is **not** reachable without an account, and the public `/api/live` route stays closed.
 

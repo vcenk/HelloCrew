@@ -2,7 +2,11 @@
 
 > Target runtime adopted 2026-10-17 is summarized under "Agent runtime (target)" below; build order is in [ROADMAP.md](ROADMAP.md).
 
-Status: proposed. All modules and flows below require implementation and verification.
+Status: partly built, as of 2026-11-07. Much of what follows now exists — the tenant schema with forced RLS,
+the agent runtime, conversations and messages, knowledge, the widget, Google Calendar booking and the
+notification paths. Other parts remain target designs. This document does not distinguish them line by line;
+[VERIFICATION.md](VERIFICATION.md#what-works-and-what-does-not) does, and it is the one to trust when the two
+disagree.
 
 ## Shape of the system
 

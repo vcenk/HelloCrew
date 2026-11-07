@@ -20,13 +20,15 @@ const crew: {
   {
     variant: "yellow",
     name: "Reputation manager",
-    job: "Watches your Google reviews and drafts replies in your words.",
-    status: "working",
+    // Built and tested, but it cannot read a real listing until Google
+    // approves Business Profile access, so the card must not say "working".
+    job: "Drafts replies to your Google reviews. Waiting on Google’s approval.",
+    status: "soon",
   },
   {
     variant: "coral",
     name: "More to come",
-    job: "Phone calls and booking systems are next on the list.",
+    job: "Square Appointments next, then phone calls.",
     status: "soon",
   },
 ];

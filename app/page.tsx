@@ -219,7 +219,8 @@ export default function Home() {
             </h2>
             <p>
               Connect an account and the right crew member starts watching it.
-              Phone calls and booking systems are planned, not available yet.
+              Google Calendar booking works today. Social channels are built and
+              waiting on Meta’s review; phone calls are not available yet.
             </p>
           </div>
           <ul className="reach-list">

@@ -64,7 +64,7 @@ Exit: isolation, concurrent budget, replay, recovery, and deletion tests pass ag
 - Enable only approved read-only business tools and the configured booking link initially.
 - Verify real usage accounting, failure behavior, kill switch, handoff, and redacted operational logs.
 
-Exit: measured pilot results meet pre-agreed criteria, spend reconciles, unknown outcomes are handled, and a responsible person can pause and support the service. No real booking integration is implied.
+Exit: measured pilot results meet pre-agreed criteria, spend reconciles, unknown outcomes are handled, and a responsible person can pause and support the service. Google Calendar is a real booking integration and is connected; Square Appointments is the next one, and no other is implied.
 
 ## Phase 6 Add integrations based on demonstrated demand
 

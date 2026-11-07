@@ -1,7 +1,7 @@
 {
   "name": "hellocrew",
   "version": "1.0.0",
-  "description": "A safe practice studio for a business assistant built with LangGraph.",
+  "description": "An approval-first AI front desk for independent salons and wellness studios: answers from approved business knowledge, captures leads, and prepares bookings in the systems a business already uses.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
