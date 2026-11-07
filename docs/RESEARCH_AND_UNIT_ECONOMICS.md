@@ -187,6 +187,14 @@ The base platform floor is therefore about $45/month before taxes and usage; bec
 
 ### Commercial model to test
 
+> Superseded on 2026-11-06 by [PRICING_STRATEGY.md](PRICING_STRATEGY.md), which carries measured per-conversation
+> costs from the usage ledger, checked competitor prices, Stripe's actual Canadian fees, GST/HST obligations, and
+> the constraint that only the website-chat tier can be sold until Meta and Google approve the other channels.
+> The market is now **Canada first, priced in CAD** — so the USD figures below are reference points, not the plan,
+> and Jane App rather than Podium is the price anchor to beat. The tier architecture held up and converts to
+> CA$199 / CA$449 / CA$899; the conversation allowances were far too small. The `gpt-6-luna` recommendation in
+> this doc was adopted, but note it is not the model the code currently runs. Read the newer doc first.
+
 Do not sell tokens. Sell an operated business assistant with predictable included usage, then charge transparent overages:
 
 | Offer hypothesis | Monthly price | Included scope |
