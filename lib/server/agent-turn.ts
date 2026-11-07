@@ -12,6 +12,7 @@ import type { Activity } from "@/lib/demo";
 import { answerFromBusiness } from "@/lib/business";
 import { statusAfterTurn, UNANSWERED_SOURCE, type ThreadStatus } from "@/lib/conversations";
 import { appendMessages, historyForModel } from "@/lib/data/conversations";
+import { claimTurn, releaseTurn, turnStillValid } from "@/lib/server/conversation-lock";
 import { businessFromKnowledge } from "@/lib/knowledge";
 import { createOpenAIChatModel } from "@/lib/models/openai";
 import { readLiveConfig, type LiveConfig } from "@/lib/server/live-config";
@@ -329,10 +330,52 @@ async function storeLeads(admin: SupabaseClient, tenantId: string, conversationI
   }
 }
 
-// Answers a real customer on any channel: live AI when the owner switched it
-// on and the budget allows, otherwise (or if the model fails) the free
-// rule-based answer from approved knowledge.
+/**
+ * Nothing was said, because something else is saying it or a person took over.
+ *
+ * Narrow with `"skipped" in turn`. StoredTurn carries no discriminant and is
+ * used in too many places to grow one for this.
+ */
+export type SkippedTurn = { skipped: "busy" | "human" };
+
+/**
+ * Answers a real customer on any channel: live AI when the owner switched it
+ * on and the budget allows, otherwise (or if the model fails) the free
+ * rule-based answer from approved knowledge.
+ *
+ * Serialized per conversation. Without the lease, two messages arriving
+ * together produced two turns that each read the history without the other's
+ * reply and then both answered — two replies to one customer, possibly
+ * contradicting each other, both billed. The lease is taken in the database,
+ * not here, so two instances cannot both believe they hold it.
+ *
+ * Returns a skip rather than throwing: the caller's job is to store the
+ * customer's message, which must happen either way, and a second message
+ * arriving mid-turn is ordinary rather than an error.
+ */
 export async function runCustomerTurn(
+  admin: SupabaseClient,
+  target: { tenantId: string; conversationId: string; question: string },
+): Promise<StoredTurn | SkippedTurn> {
+  const owner = await claimTurn(admin, target.tenantId, target.conversationId);
+  // Either another turn holds the lease, or a person has taken over. The
+  // claim refuses both, so the caller does not have to tell them apart.
+  if (!owner) return { skipped: "busy" };
+
+  try {
+    const result = await runTurnUnlocked(admin, target);
+    // The model took seconds. A person may have taken the conversation over
+    // inside that window, and the reply they stepped in to prevent must not
+    // arrive. Checked before anything is returned to be stored or sent.
+    if (!(await turnStillValid(admin, target.tenantId, target.conversationId, owner)))
+      return { skipped: "human" };
+    return result;
+  } finally {
+    await releaseTurn(admin, target.tenantId, target.conversationId, owner);
+  }
+}
+
+async function runTurnUnlocked(
   admin: SupabaseClient,
   target: { tenantId: string; conversationId: string; question: string },
 ): Promise<StoredTurn> {

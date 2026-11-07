@@ -133,6 +133,19 @@ export async function POST(request: Request) {
 
   const turn = await runCustomerTurn(admin, target);
 
+  // Either an earlier turn is still running for this conversation, or a
+  // person took over while this one ran. The message is stored either way,
+  // so the widget polls for the answer rather than getting a second
+  // automated one. "human" is the honest signal for a takeover; "busy" also
+  // resolves by polling, because the in-flight turn will post its reply.
+  if ("skipped" in turn)
+    return json({
+      conversation,
+      customer,
+      replies: [],
+      waitingForPerson: turn.skipped === "human",
+    });
+
   return json({
     conversation,
     customer,

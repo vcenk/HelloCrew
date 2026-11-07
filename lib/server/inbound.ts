@@ -93,6 +93,11 @@ async function handleMessage(admin: SupabaseClient, config: MetaConfig, event: E
   if (thread.mode === "human") return;
 
   const turn = await runCustomerTurn(admin, { tenantId, conversationId: thread.id, question: event.text });
+  // Another turn is mid-flight, or a person took over while this one ran.
+  // The customer's message is already stored, so it is in front of whoever
+  // is handling the conversation; adding a second automated reply here is
+  // exactly what the lease exists to prevent.
+  if ("skipped" in turn) return;
   const token = tokenFor(connection.credentials);
   if (!token) return markConnectionError(admin, tenantId, connection.id, "Missing access token. Reconnect this account.");
   try {
