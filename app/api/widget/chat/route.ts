@@ -2,7 +2,14 @@ import { titleFrom } from "@/lib/conversations";
 import { appendMessages } from "@/lib/data/conversations";
 import { runCustomerTurn } from "@/lib/server/agent-turn";
 import { notifyOwner } from "@/lib/server/notify";
-import { clientKey, rateLimit, tooManyRequests } from "@/lib/server/rate-limit";
+import {
+  clientKey,
+  installationBucket,
+  rateLimit,
+  sharedRateLimit,
+  tooManyRequests,
+  visitorBucket,
+} from "@/lib/server/rate-limit";
 import { isSameOrigin } from "@/lib/server/request-safety";
 import {
   hashVisitorToken,
@@ -63,8 +70,11 @@ export async function POST(request: Request) {
     return json({ error: "Messages must come from the chat window." }, 403);
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BYTES)
     return json({ error: "Message too long." }, 413);
-  const limited = rateLimit(clientKey(request, "widget-chat"), 12, 60_000);
-  if (!limited.ok) return tooManyRequests(limited);
+  // A cheap first gate before parsing or touching the database. The real
+  // limit is the shared one below; this one is per instance, so it is
+  // generous on purpose and only blunts an obvious flood.
+  const burst = rateLimit(clientKey(request, "widget-chat"), 60, 60_000);
+  if (!burst.ok) return tooManyRequests(burst);
 
   let body;
   try {
@@ -80,7 +90,24 @@ export async function POST(request: Request) {
   const admin = widgetAdminClient();
   const installation = admin ? await loadPublicInstallation(body.installationId, admin) : null;
   if (!admin || !installation) return json({ error: "This chat isn’t available right now." }, 404);
-  const perSite = rateLimit(`widget-site:${installation.id}`, 120, 60_000);
+  // The limits that actually hold, counted where every instance can see
+  // them. Per visitor so one person cannot use up a business's allowance,
+  // and per installation so many addresses hitting one site are still
+  // bounded. Both fail open: the usage ledger, not this, is what stops
+  // spending, and a database blip must not take every customer's chat down.
+  const perVisitor = await sharedRateLimit(
+    admin,
+    visitorBucket(request, "widget-chat", installation.id),
+    12,
+    60,
+  );
+  if (!perVisitor.ok) return tooManyRequests(perVisitor);
+  const perSite = await sharedRateLimit(
+    admin,
+    installationBucket("widget-chat", installation.id),
+    120,
+    60,
+  );
   if (!perSite.ok) return tooManyRequests(perSite);
   const tenantId = installation.tenantId;
 
@@ -168,12 +195,22 @@ export async function GET(request: Request) {
     Number.isNaN(Date.parse(after))
   )
     return json({ error: "Invalid request." }, 400);
-  const limited = rateLimit(clientKey(request, "widget-poll"), 40, 60_000);
-  if (!limited.ok) return tooManyRequests(limited);
+  // Cheap per-instance gate first; the shared one below is the real limit.
+  const burst = rateLimit(clientKey(request, "widget-poll"), 120, 60_000);
+  if (!burst.ok) return tooManyRequests(burst);
 
   const admin = widgetAdminClient();
   const installation = admin ? await loadPublicInstallation(installationId, admin) : null;
   if (!admin || !installation) return json({ error: "This chat isn’t available right now." }, 404);
+  // Polling is frequent by design, so this is loose. It exists so a client
+  // stuck in a tight loop cannot drive unbounded reads.
+  const polling = await sharedRateLimit(
+    admin,
+    visitorBucket(request, "widget-poll", installation.id),
+    40,
+    60,
+  );
+  if (!polling.ok) return tooManyRequests(polling);
   const conversation = await visitorConversation(admin, installation.tenantId, id, token);
   if (!conversation) return json({ error: "This chat has expired.", code: "expired" }, 410);
   return json({

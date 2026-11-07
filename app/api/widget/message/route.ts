@@ -48,6 +48,10 @@ export async function POST(request: Request) {
     );
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BYTES)
     return Response.json({ error: "Request too large." }, { status: 413 });
+  // Per-instance on purpose. This route only answers the fixed practice
+  // installation with deterministic replies: no database, no paid call and
+  // no tenant data, so there is nothing here worth a shared counter and a
+  // round trip. The live endpoints in /api/widget/chat use the shared one.
   const limited = rateLimit(clientKey(request, "widget"), 30, 60_000);
   if (!limited.ok) return tooManyRequests(limited);
 

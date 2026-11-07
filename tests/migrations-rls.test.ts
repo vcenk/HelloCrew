@@ -118,6 +118,9 @@ const SERVICE_ONLY = new Set([
   "hc_tenant_limits",
   // Webhook de-duplication: (provider, event_id) pairs already handled.
   "hc_webhook_events",
+  // Shared abuse counters. The limiter runs before a request is resolved to
+  // a workspace, so there is no tenant to scope a policy by.
+  "hc_rate_limits",
 ]);
 
 /**
@@ -218,6 +221,9 @@ describe("the migrations keep row-level security on", () => {
       "hc_knowledge_file_chunks",
       "hc_knowledge_source_versions",
       "hc_webhook_events",
+      // Counters keyed by scope, client fingerprint and installation id,
+      // written before the request is resolved to a workspace.
+      "hc_rate_limits",
     ]);
     for (const table of tables) {
       if (scopedElsewhere.has(table)) continue;
@@ -279,7 +285,12 @@ describe("foreign keys carry the tenant", () => {
   it.each(tables)("%s keys itself by tenant when it holds tenant rows", (table) => {
     // hc_tenants is the tenant itself, so its key is its id; and
     // hc_webhook_events holds no tenant data at all.
-    if (table === "hc_tenants" || table === "hc_webhook_events") return;
+    if (
+      table === "hc_tenants" ||
+      table === "hc_webhook_events" ||
+      table === "hc_rate_limits"
+    )
+      return;
     expect(
       primaryKeyOf(bodies.get(table) ?? "")[0],
       `${table} does not lead its primary key with tenant_id`,
