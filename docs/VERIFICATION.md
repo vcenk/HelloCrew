@@ -49,8 +49,62 @@ Recorded at the end of the pilot-hardening pass; see the dated entry below for e
 
 ### 2026-11-07 — pilot hardening
 
-To be completed when the phases in [PILOT_HARDENING_PLAN.md](PILOT_HARDENING_PLAN.md) finish. Commands,
-counts and failures will be stated exactly as they ran, including anything that did not pass.
+Executed locally on Windows against the committed tree, after the five phases in
+[PILOT_HARDENING_PLAN.md](PILOT_HARDENING_PLAN.md).
+
+| Command | Result |
+| --- | --- |
+| `npm run lint` | passed, no errors or warnings |
+| `npm run typecheck` | passed |
+| `npm test` | **894 passed, 7 skipped**, 51 files (up from 831 before this work) |
+| `npm run build` | passed, compiled successfully |
+| `npx playwright test` with `SKIP_AUTH_CHECK=1` | 110 passed, 23 skipped — the skipped ones are the login specs needing Supabase credentials, which is what the flag is for, and is how CI runs |
+| `npx playwright test` without the flag | **133 passed**, nothing skipped, against the local Supabase variables |
+
+**What is new and genuinely covered**
+
+- Webhook lifecycle: 11 tests — success, duplicate delivery, a live lease refusing a second worker, failure,
+  retry after failure, recovery once a lease expires, attempt counting, bounded error text, parking an
+  unreadable event, and the stored payload being dropped on success.
+- Conversation turns: 12 tests — a burst of five yielding exactly one winner, lease expiry and recovery, a
+  human takeover mid-turn, a late worker failing to release another's lease, and failing closed when the
+  lock is unreachable.
+- Shared rate limiting: 10 tests — the limit holding across callers, window reset, `Retry-After`, per-visitor
+  and per-installation separation, key bounding, and failing open on both an error result and a thrown error.
+- Workspace deletion: 9 tests, including one that reads the migrations and fails when a tenant table exists
+  that no deletion step clears.
+- RLS: 202 assertions over the migration files, 14 more than before this work.
+
+**Mutation checks run**, because a test that cannot fail proves nothing:
+
+- Removing the conversation lock failed 4 of the 12 turn tests, including the human-takeover case.
+- Stripping `tenant_id` from a new table failed 2 RLS assertions.
+- A first attempt at that mutation passed, because the primary key still contained the string `tenant_id`;
+  the check is a substring match and the mutation was badly chosen, not the test broken. Recorded because it
+  is the kind of thing that otherwise reads as a verified guarantee.
+
+**What these tests do not prove.** The webhook, turn-lease and rate-limit tests run against stand-ins that
+encode what the SQL functions are expected to do. They pin the contract the application code relies on; they
+do not execute the functions. The four migrations below are unapplied and therefore unexecuted, so the SQL
+itself has not run anywhere.
+
+**CI was reviewed and not changed.** It already runs lint, typecheck, unit tests, build and Playwright, and
+has no eval step, so live model calls stay out of ordinary CI as intended.
+
+### Migrations added and not applied
+
+These are committed and must be applied before the code that uses them is deployed. Each is additive and
+carries a forward-recovery note in its header.
+
+| Migration | Adds |
+| --- | --- |
+| `20261107090000_webhook_event_lifecycle` | status, attempts, lease, bounded error and transient payload on `hc_webhook_events`, plus claim/complete/fail/receive/sweep functions |
+| `20261107091000_conversation_turn_lease` | turn lease columns on `hc_conversations`, plus claim/release/validate functions |
+| `20261107092000_shared_rate_limits` | `hc_rate_limits` and an atomic counter function |
+| `20261107093000_audit_and_deletion` | `hc_audit_events` and `hc_workspace_deletions` |
+
+Until they are applied, the new code paths will fail at the RPC call. The webhook route will return 503
+rather than accept events it cannot record, which is the intended direction.
 
 ## Standing boundaries
 
