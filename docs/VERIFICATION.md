@@ -116,16 +116,18 @@ Why that last check mattered: `claimTurn` fails closed on any error, and it sits
 website widget would have stored every customer message and answered none of them — on every tenant,
 whether or not live AI was on, with no error surfaced to the visitor.
 
-**The ledger records 15 of 19.** These four were applied outside the CLI, so
-`supabase_migrations.schema_migrations` has no row for them — the same gap that made `appointments.sql`
-look unapplied earlier today. The schema is correct; only the bookkeeping is behind. Backfill it before the
-next `supabase db push`, which would otherwise try to re-run all four.
+**The ledger records all 19.** These four were applied outside the CLI, so
+`supabase_migrations.schema_migrations` initially had no row for them — the same gap that made
+`appointments.sql` look unapplied earlier the same day. Backfilled and confirmed: 19 rows, matching the 19
+files by version and name. `20261107093000` is also re-runnable now, so a future `supabase db push` is safe
+on both counts rather than relying on the ledger alone.
 
 ## Standing boundaries
 
-- Supabase project `yfmoggubjsffgameexfi`. All 19 migrations are applied; the ledger records the first 15.
-  It was backfilled on 2026-11-07 after three migrations had been applied outside the CLI, and the four
-  added that day went the same way, so it is behind again by exactly those four.
+- Supabase project `yfmoggubjsffgameexfi`. All 19 migrations are applied and recorded in the ledger. It was
+  backfilled twice on 2026-11-07 — once after three earlier migrations had been applied outside the CLI, and
+  again for the four added that day. Applying by hand and recording are separate steps, and the ledger is
+  evidence of the second only; the schema was verified directly both times.
 - Browser-owned practice state is untrusted and replayable. It controls fictional local results only, and is
   never sufficient for approval or spending limits.
 - The public `/api/live` route is deliberately closed and returns 503. Live AI is reachable only through an
