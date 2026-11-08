@@ -85,15 +85,16 @@ Executed locally on Windows against the committed tree, after the five phases in
 
 **What these tests do not prove.** The webhook, turn-lease and rate-limit tests run against stand-ins that
 encode what the SQL functions are expected to do. They pin the contract the application code relies on; they
-do not execute the functions. The four migrations below are unapplied and therefore unexecuted, so the SQL
-itself has not run anywhere.
+do not execute the functions. The migrations have since been applied (see below), so the SQL has now run —
+but nothing automated exercises it. The concurrency these functions exist to control has never been tested
+against real Postgres, only against the stand-ins.
 
 **CI was reviewed and not changed.** It already runs lint, typecheck, unit tests, build and Playwright, and
 has no eval step, so live model calls stay out of ordinary CI as intended.
 
-### Migrations added and not applied
+### Migrations added, and applied 2026-11-07
 
-These are committed and must be applied before the code that uses them is deployed. Each is additive and
+Applied to project `yfmoggubjsffgameexfi` before the code that uses them was pushed. Each is additive and
 carries a forward-recovery note in its header.
 
 | Migration | Adds |
@@ -103,13 +104,28 @@ carries a forward-recovery note in its header.
 | `20261107092000_shared_rate_limits` | `hc_rate_limits` and an atomic counter function |
 | `20261107093000_audit_and_deletion` | `hc_audit_events` and `hc_workspace_deletions` |
 
-Until they are applied, the new code paths will fail at the RPC call. The webhook route will return 503
-rather than accept events it cannot record, which is the intended direction.
+**Checked against the live schema, not assumed from the files.** All ten new functions exist; `service_role`
+can execute all ten and `authenticated` and `anon` can execute none; the six new `hc_webhook_events` columns
+and both `hc_conversations` lease columns are present; `hc_rate_limits`, `hc_audit_events` and
+`hc_workspace_deletions` all have RLS enabled *and* forced, with the intended policy counts (0, 1, 1).
+`hc_claim_conversation_turn` was called against a non-existent conversation and returned null rather than
+erroring, which is the case the application cannot distinguish from a refusal.
+
+Why that last check mattered: `claimTurn` fails closed on any error, and it sits *above* the
+`runPracticeTurn` fallback in `runCustomerTurn`. Had the functions been missing when this shipped, the
+website widget would have stored every customer message and answered none of them — on every tenant,
+whether or not live AI was on, with no error surfaced to the visitor.
+
+**The ledger records 15 of 19.** These four were applied outside the CLI, so
+`supabase_migrations.schema_migrations` has no row for them — the same gap that made `appointments.sql`
+look unapplied earlier today. The schema is correct; only the bookkeeping is behind. Backfill it before the
+next `supabase db push`, which would otherwise try to re-run all four.
 
 ## Standing boundaries
 
-- Supabase project `yfmoggubjsffgameexfi`. All 15 migrations are applied and recorded in the migration
-  ledger; the ledger was backfilled on 2026-11-07 after three migrations had been applied outside the CLI.
+- Supabase project `yfmoggubjsffgameexfi`. All 19 migrations are applied; the ledger records the first 15.
+  It was backfilled on 2026-11-07 after three migrations had been applied outside the CLI, and the four
+  added that day went the same way, so it is behind again by exactly those four.
 - Browser-owned practice state is untrusted and replayable. It controls fictional local results only, and is
   never sufficient for approval or spending limits.
 - The public `/api/live` route is deliberately closed and returns 503. Live AI is reachable only through an

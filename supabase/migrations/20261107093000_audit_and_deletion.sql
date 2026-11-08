@@ -58,6 +58,12 @@ alter table public.hc_audit_events force row level security;
 
 -- Members may read their own workspace's history. Nobody may write through
 -- the browser: an audit record a client can forge is worth nothing.
+--
+-- Dropped first because Postgres has no `create policy if not exists`, and
+-- the header above promises this file is safe to re-run. Without the drop a
+-- second run fails right here, which is how a migration applied outside the
+-- CLI becomes a blocked `db push` later.
+drop policy if exists hc_audit_events_member_select on public.hc_audit_events;
 create policy hc_audit_events_member_select on public.hc_audit_events
 for select to authenticated
 using ((select private.is_active_member(tenant_id)));
@@ -121,6 +127,7 @@ alter table public.hc_workspace_deletions force row level security;
 -- The owner may see that deletion was requested and how far it has got.
 -- Starting one is a server action that re-checks the role; it is not an
 -- insert the browser can make.
+drop policy if exists hc_workspace_deletions_owner_select on public.hc_workspace_deletions;
 create policy hc_workspace_deletions_owner_select on public.hc_workspace_deletions
 for select to authenticated
 using ((select private.has_tenant_role(tenant_id, array['owner']::text[])));
