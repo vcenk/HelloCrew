@@ -9,6 +9,8 @@ import {
   DELETION_STEPS,
   STEP_TABLES,
   advanceDeletion,
+  deleteTenantStorage,
+  pendingDeletions,
   type DeletionStep,
 } from "../lib/server/workspace-deletion";
 
@@ -183,5 +185,110 @@ describe("working through a deletion", () => {
     state.status = "completed";
     await advanceDeletion(admin, "t1", storage);
     expect(deleted).toEqual([]);
+  });
+});
+
+describe("the lease, so two sweeps cannot delete at once", () => {
+  const storage = async () => 7;
+
+  it("holds the workspace while a run is working", async () => {
+    const { admin, updates } = fakeAdmin();
+    await advanceDeletion(admin, "t1", storage);
+    // Every step but the last renews the lease.
+    const held = updates.filter((u) => typeof u.locked_until === "string");
+    expect(held.length).toBe(DELETION_STEPS.length - 1);
+    expect(Date.parse(held[0]!.locked_until as string)).toBeGreaterThan(Date.now());
+  });
+
+  it("releases it when the run finishes", async () => {
+    const { admin, state } = fakeAdmin();
+    await advanceDeletion(admin, "t1", storage);
+    expect(state.status).toBe("completed");
+    expect(state.locked_until).toBeNull();
+  });
+
+  it("releases it when the run fails, so a retry is not blocked", async () => {
+    const { admin, state } = fakeAdmin({ failOn: "hc_contacts" });
+    await advanceDeletion(admin, "t1", storage);
+    expect(state.status).toBe("failed");
+    expect(state.locked_until).toBeNull();
+  });
+});
+
+/** A client returning one page of deletion rows. */
+function fakeLister(rows: { tenant_id: string; locked_until: string | null }[]) {
+  const q: Record<string, unknown> = {};
+  q.select = () => q;
+  q.in = () => q;
+  q.order = () => q;
+  q.limit = async () => ({ data: rows, error: null });
+  return { from: () => q } as never;
+}
+
+describe("finding deletions to work on", () => {
+  it("returns a workspace nobody is working on", async () => {
+    const admin = fakeLister([{ tenant_id: "t1", locked_until: null }]);
+    expect(await pendingDeletions(admin)).toEqual(["t1"]);
+  });
+
+  it("skips one whose lease is still live", async () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    const admin = fakeLister([{ tenant_id: "t1", locked_until: future }]);
+    expect(await pendingDeletions(admin)).toEqual([]);
+  });
+
+  it("takes back one whose lease expired, so a dead run does not block it", async () => {
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const admin = fakeLister([{ tenant_id: "t1", locked_until: past }]);
+    expect(await pendingDeletions(admin)).toEqual(["t1"]);
+  });
+});
+
+/** A storage bucket of folders and files, two levels deep. */
+function fakeStorage(tree: Record<string, { name: string; id: string | null }[]>) {
+  const removed: string[] = [];
+  const admin = {
+    storage: {
+      from: () => ({
+        list: async (prefix: string, opts: { offset: number }) => ({
+          data: opts.offset > 0 ? [] : (tree[prefix] ?? []),
+          error: null,
+        }),
+        remove: async (paths: string[]) => {
+          removed.push(...paths);
+          return { error: null };
+        },
+      }),
+    },
+  } as never;
+  return { admin, removed };
+}
+
+describe("removing a workspace's stored files", () => {
+  it("walks into each folder and removes the files inside", async () => {
+    const { admin, removed } = fakeStorage({
+      t1: [{ name: "file-a", id: null }, { name: "file-b", id: null }],
+      "t1/file-a": [{ name: "menu.pdf", id: "1" }],
+      "t1/file-b": [{ name: "prices.csv", id: "2" }],
+    });
+    expect(await deleteTenantStorage(admin, "t1")).toBe(2);
+    expect(removed.sort()).toEqual(["t1/file-a/menu.pdf", "t1/file-b/prices.csv"]);
+  });
+
+  it("counts nothing, and removes nothing, for a workspace with no files", async () => {
+    const { admin, removed } = fakeStorage({});
+    expect(await deleteTenantStorage(admin, "t1")).toBe(0);
+    expect(removed).toEqual([]);
+  });
+
+  it("does not try to remove a folder as if it were a file", async () => {
+    // A prefix comes back with a null id. Passing it to remove() would
+    // silently do nothing and report a file deleted that still exists.
+    const { admin, removed } = fakeStorage({
+      t1: [{ name: "file-a", id: null }],
+      "t1/file-a": [{ name: "menu.pdf", id: "1" }],
+    });
+    await deleteTenantStorage(admin, "t1");
+    expect(removed).not.toContain("t1/file-a");
   });
 });

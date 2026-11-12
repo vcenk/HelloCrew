@@ -47,11 +47,13 @@ Billing and Stripe. Voice and telephone. Multi-user accounts and team invites �
 account per workspace, and the "Team" panel is bookable staff, not logins. Canadian French. Square
 Appointments. Anything implying compliance with a named regulation.
 
-One piece of Phase 5 is still a library with no caller, and should not be described as a feature:
+Everything Phase 5 built is now reachable. What is still missing from deletion is narrower:
 
-- **Workspace deletion in-product.** `requestDeletion` and `advanceDeletion` exist and are tested, and
-  nothing reaches them. `/data-deletion` tells owners to email a person, who deletes by hand — which is a
-  manual process honestly described, not an automated one, and nothing records that it happened.
+- **No deletion has been run.** The owner-facing request, the sweep at `/api/cron/workspace-deletions`, the
+  lease and the storage walk have unit tests and three mutation checks, but nothing has deleted a real
+  workspace — by design, since doing so destroys a business's data and there is no second one to try it on.
+- `/data-deletion` still describes the email route. That page is for people whose data a *customer's*
+  workspace holds, which is a different request from an owner deleting their own, and it remains manual.
 
 ## Verification run
 
@@ -113,6 +115,10 @@ carries a forward-recovery note in its header.
 | `20261107091000_conversation_turn_lease` | turn lease columns on `hc_conversations`, plus claim/release/validate functions |
 | `20261107092000_shared_rate_limits` | `hc_rate_limits` and an atomic counter function |
 | `20261107093000_audit_and_deletion` | `hc_audit_events` and `hc_workspace_deletions` |
+
+A third cron was added with the deletion sweep: `/api/cron/workspace-deletions`, every ten minutes. It is
+declared in `vercel.json` and takes the same `CRON_SECRET` as the other two. Deletion is deliberately not
+run from the request that asks for it — it reaches storage as well as rows, and must survive interruption.
 
 **Checked against the live schema, not assumed from the files.** All ten new functions exist; `service_role`
 can execute all ten and `authenticated` and `anon` can execute none; the six new `hc_webhook_events` columns

@@ -92,6 +92,94 @@ export const STEP_TABLES: Record<DeletionStep, string[]> = {
   tenant: ["hc_tenants"],
 };
 
+/**
+ * How long a run may hold the workspace before another may take over.
+ *
+ * Long enough for a slow step, short enough that a run killed mid-way is
+ * picked up by the next sweep rather than blocking deletion forever.
+ */
+export const DELETION_LEASE_SECONDS = 600;
+
+/** The bucket knowledge files live in; paths are `${tenantId}/${fileId}/${name}`. */
+const STORAGE_BUCKET = "knowledge";
+
+/**
+ * Remove every stored object belonging to a workspace.
+ *
+ * Walks the prefix rather than reading paths out of `hc_knowledge_files`,
+ * because the step that clears those rows runs before this one — by the time
+ * storage is reached the index is gone. Walking also catches anything
+ * uploaded but never recorded, which is exactly the leftover a deletion
+ * should not miss.
+ */
+export async function deleteTenantStorage(
+  admin: SupabaseClient,
+  tenantId: string,
+): Promise<number> {
+  return removeUnder(admin, tenantId);
+}
+
+async function removeUnder(
+  admin: SupabaseClient,
+  prefix: string,
+): Promise<number> {
+  let removed = 0;
+  let offset = 0;
+  const page = 100;
+
+  for (;;) {
+    const { data, error } = await admin.storage
+      .from(STORAGE_BUCKET)
+      .list(prefix, { limit: page, offset });
+    if (error) throw new Error(`storage list ${prefix}: ${error.message}`);
+    const entries = data ?? [];
+    if (entries.length === 0) return removed;
+
+    // Supabase reports a prefix with no id: that is a folder, not an object.
+    const files = entries.filter((e) => e.id).map((e) => `${prefix}/${e.name}`);
+    const folders = entries.filter((e) => !e.id).map((e) => `${prefix}/${e.name}`);
+
+    if (files.length > 0) {
+      const { error: removeError } = await admin.storage
+        .from(STORAGE_BUCKET)
+        .remove(files);
+      if (removeError)
+        throw new Error(`storage remove ${prefix}: ${removeError.message}`);
+      removed += files.length;
+    }
+    for (const folder of folders) removed += await removeUnder(admin, folder);
+
+    // Removing files shortens the listing, so only unremoved folders shift
+    // the window; stepping past them avoids listing the same page forever.
+    if (entries.length < page) return removed;
+    offset += folders.length;
+  }
+}
+
+/**
+ * Workspaces with a deletion waiting to be worked on.
+ *
+ * A live lease is skipped rather than filtered in SQL, because the list is
+ * small and an expression that silently matched nothing would be worse than
+ * one obvious line of JavaScript.
+ */
+export async function pendingDeletions(
+  admin: SupabaseClient,
+  limit = 5,
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from("hc_workspace_deletions")
+    .select("tenant_id, locked_until")
+    .in("status", ["requested", "running"])
+    .order("requested_at", { ascending: true })
+    .limit(limit);
+  if (error || !data) return [];
+  const now = Date.now();
+  return (data as { tenant_id: string; locked_until: string | null }[])
+    .filter((row) => !row.locked_until || Date.parse(row.locked_until) < now)
+    .map((row) => row.tenant_id);
+}
+
 export type DeletionState = {
   id: string;
   status: "requested" | "running" | "completed" | "failed";
@@ -198,6 +286,8 @@ export async function advanceDeletion(
           deleted_counts: counts,
           last_error: reason.slice(0, 300),
           attempts: state.attempts + 1,
+          // A failed run holds nothing: the owner, or a retry, may start again.
+          locked_until: null,
         })
         .eq("tenant_id", tenantId)
         .eq("id", state.id);
@@ -208,14 +298,21 @@ export async function advanceDeletion(
     // should cost one step, not the whole run.
     const done = DELETION_STEPS.indexOf(step) + 1;
     const next = DELETION_STEPS[done] ?? step;
+    const finished = done >= DELETION_STEPS.length;
     await admin
       .from("hc_workspace_deletions")
       .update({
-        status: done >= DELETION_STEPS.length ? "completed" : "running",
+        status: finished ? "completed" : "running",
         next_step: next,
         deleted_counts: counts,
         started_at: new Date().toISOString(),
-        ...(done >= DELETION_STEPS.length ? { completed_at: new Date().toISOString() } : {}),
+        // Renewed each step, so a sweep that dies mid-run frees the
+        // workspace after the lease rather than blocking it forever. Cleared
+        // at the end: a finished run holds nothing.
+        locked_until: finished
+          ? null
+          : new Date(Date.now() + DELETION_LEASE_SECONDS * 1000).toISOString(),
+        ...(finished ? { completed_at: new Date().toISOString() } : {}),
       })
       .eq("tenant_id", tenantId)
       .eq("id", state.id);
