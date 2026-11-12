@@ -20,6 +20,7 @@ approval, or evidence that the product is safe for unsupervised use with real cu
 | Owner daily digest of tomorrow's appointments | Sent and delivered on 2026-11-07 |
 | Google sign-in, tenant membership, forced RLS on every tenant table | `tests/migrations-rls.test.ts` asserts it per migration in CI |
 | Approval gate on risky Copilot actions | `confirmCopilotAction`; covered in `tests/copilot-workflow-server.test.ts` |
+| Durable audit trail, and the owner's Activity panel | Confirmed in production 2026-11-11: a read-only `knowledge_search` wrote exactly one `hc_audit_events` row — action, resource, safety, outcome and actor role, with no query text, counts or model reasoning — and Settings → Activity rendered it through the owner's own RLS-scoped session |
 | Knowledge base, workflow builder and published versions, conversations inbox, staff and service pricing | Covered by unit and Playwright suites |
 
 ### Implemented, blocked on someone else's approval
@@ -32,11 +33,9 @@ approval, or evidence that the product is safe for unsupervised use with real cu
 ### Implemented but never verified against real traffic
 
 - The Meta inbound webhook end to end. There is no approved app, so it has never received a real event.
-- The audit trail and the owner's Activity panel. Copilot actions schedule a row in `hc_audit_events` after
-  the response, and Settings → Activity reads them back through the signed-in user's own client, so RLS
-  decides what they see rather than the action being trusted to filter. Covered by unit tests and five
-  mutation checks, but no production action has yet been confirmed to have produced a row, so the panel has
-  only ever been seen empty.
+- The audit trail beyond a single action. One read-only `knowledge_search` is confirmed end to end (see
+  above); the write-and-approve paths — `workflow_publish`, `knowledge_add`, a refusal — have unit tests and
+  mutation checks but have not been run in production.
 - Lead capture, handoff and approval flows at any volume beyond manual testing.
 - Behaviour under concurrent customers in one workspace.
 - The `gpt-6-luna` cost projection. The switch is deployed and the live evals pass 13/13, but no settled
