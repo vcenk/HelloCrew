@@ -1,9 +1,12 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 
 import type { CopilotActionMeta } from "@/lib/copilot/contracts";
 import type { WorkspaceContext } from "@/lib/data/workspace";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /**
  * Records that an owner action happened.
@@ -52,7 +55,54 @@ export function recordCopilotAudit(
     at: new Date().toISOString(),
   };
   console.info("[copilot.audit]", JSON.stringify(entry));
+
+  // The durable row, scheduled rather than awaited.
+  //
+  // Awaiting it would let a failed audit write delay — or, if it threw,
+  // undo — an action the owner already approved. `after` also runs when the
+  // action throws, redirects, or calls notFound, which is what keeps refused
+  // and failed outcomes on the record rather than only the successful ones.
+  //
+  // Called here rather than at each of the fourteen call sites: a new action
+  // added later gets the row by writing its log line, with nothing to
+  // remember. That is the whole reason this sits in the shared helper.
+  scheduleAuditRow(entry);
   return entry;
+}
+
+/**
+ * A service-role client for the audit insert, or null when unconfigured.
+ *
+ * Local rather than reusing `widgetAdminClient`, which is documented as the
+ * client for anonymous website traffic and pulls the widget and agent modules
+ * in behind it. The guard is the same two lines.
+ */
+function auditAdminClient(): SupabaseClient | null {
+  const secret = process.env.SUPABASE_SECRET_KEY?.trim();
+  if (!secret || !isSupabaseConfigured()) return null;
+  return createAdminClient(secret);
+}
+
+/**
+ * Hands the row to `after`, and stays quiet if there is no request to be
+ * after.
+ *
+ * `after` throws when called outside a request context, which a cron, a
+ * script or a test legitimately is. Those callers still get the log line, so
+ * the behaviour there is exactly what it was before this table existed — the
+ * audit row is an addition, not a new way for an action to fail.
+ */
+function scheduleAuditRow(entry: CopilotAuditEvent) {
+  try {
+    after(async () => {
+      const admin = auditAdminClient();
+      // No secret key: the log line above is the only record, same as before.
+      if (!admin) return;
+      await storeAuditEvent(admin, entry);
+    });
+  } catch {
+    // Not in a request. Nothing to schedule against, and nothing is wrong.
+  }
 }
 
 /**
