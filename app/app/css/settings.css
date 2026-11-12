@@ -92,3 +92,47 @@
   margin-top: 16px;
 }
 
+
+/* Activity: what happened in this workspace, newest first. Counts and codes
+   only, so the rows stay short and no line ever needs to wrap a paragraph. */
+.activity-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.activity-list li {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-top: 1px solid var(--d-line);
+}
+.activity-list li:first-child {
+  border-top: 0;
+}
+.activity-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.activity-head strong {
+  flex: 1;
+  min-width: 160px;
+}
+.activity-meta,
+.activity-detail,
+.activity-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--d-ink-3);
+}
+.activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.activity-detail {
+  color: var(--d-ink-2);
+}

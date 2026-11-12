@@ -15,6 +15,7 @@ import {
 
 import { signOutOfDashboard } from "@/app/app/actions";
 
+import { ActivityPanel } from "./activity-panel";
 import { AlertsPanel } from "./alerts-panel";
 import { LiveAiPanel } from "./live-ai-panel";
 import { useDashboard, type Theme } from "./provider";
@@ -154,6 +155,8 @@ export function SettingsView() {
       </div>
 
       <LiveAiPanel />
+
+      <ActivityPanel />
 
       <dialog ref={confirm} className="ui-dialog" aria-labelledby="reset-title">
         <h2 id="reset-title">Reset all practice data?</h2>

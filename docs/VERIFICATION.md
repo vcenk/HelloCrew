@@ -32,8 +32,11 @@ approval, or evidence that the product is safe for unsupervised use with real cu
 ### Implemented but never verified against real traffic
 
 - The Meta inbound webhook end to end. There is no approved app, so it has never received a real event.
-- The audit trail. Copilot actions schedule a row in `hc_audit_events` after the response, covered by unit
-  tests and three mutation checks, but no production action has been confirmed to have produced one.
+- The audit trail and the owner's Activity panel. Copilot actions schedule a row in `hc_audit_events` after
+  the response, and Settings → Activity reads them back through the signed-in user's own client, so RLS
+  decides what they see rather than the action being trusted to filter. Covered by unit tests and five
+  mutation checks, but no production action has yet been confirmed to have produced a row, so the panel has
+  only ever been seen empty.
 - Lead capture, handoff and approval flows at any volume beyond manual testing.
 - Behaviour under concurrent customers in one workspace.
 - The `gpt-6-luna` cost projection. The switch is deployed and the live evals pass 13/13, but no settled
@@ -45,10 +48,8 @@ Billing and Stripe. Voice and telephone. Multi-user accounts and team invites �
 account per workspace, and the "Team" panel is bookable staff, not logins. Canadian French. Square
 Appointments. Anything implying compliance with a named regulation.
 
-Two pieces of Phase 5 are libraries with no caller, and should not be described as features:
+One piece of Phase 5 is still a library with no caller, and should not be described as a feature:
 
-- **An owner-facing view of the audit trail.** `recentAuditEvents` reads through the caller's own session so
-  RLS decides what they see, and nothing calls it. The rows are being written; no screen shows them.
 - **Workspace deletion in-product.** `requestDeletion` and `advanceDeletion` exist and are tested, and
   nothing reaches them. `/data-deletion` tells owners to email a person, who deletes by hand — which is a
   manual process honestly described, not an automated one, and nothing records that it happened.
